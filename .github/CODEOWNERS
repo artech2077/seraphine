@@ -1,0 +1,3 @@
+# Default ownership rules. Update as the engineering team grows.
+*       @seraphine-ai/engineering-leads
+docs/   @seraphine-ai/product

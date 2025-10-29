@@ -1,0 +1,22 @@
+{
+  "name": "seraphine",
+  "private": true,
+  "version": "0.0.1",
+  "packageManager": "pnpm@9.0.6",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "dev:web": "pnpm --filter @seraphine/web dev",
+    "dev:convex": "pnpm --filter @seraphine/convex dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.2",
+    "eslint": "^9.2.0",
+    "turbo": "^2.2.3",
+    "typescript": "^5.6.3",
+    "vitest": "^1.6.2"
+  }
+}
