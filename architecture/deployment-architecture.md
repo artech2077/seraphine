@@ -39,7 +39,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm test
-      - run: pnpm test:e2e -- --reporter=list --headed=false
+      - run: pnpm test:e2e -- --reporter=list
 
   deploy-preview:
     needs: lint-test

@@ -1,0 +1,40 @@
+schema: 1
+story: '0.1'
+story_title: 'Story 0.1: GitHub & Vercel Project Bootstrap'
+gate: PASS
+status_reason: 'Lint, unit, and Playwright smoke tests pass under the Node 20 CI configuration with a committed lockfile and documented Vercel linkage.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2025-10-29T21:08:25Z'
+quality_score: 100
+top_issues: []
+waiver:
+  active: false
+evidence:
+  tests_reviewed: 3
+  risks_identified: 0
+  trace:
+    ac_covered:
+      - 1
+      - 2
+      - 3
+    ac_gaps: []
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'CODEOWNERS and the branch-protection baseline enforce review plus the `ci` check before merges.'
+  performance:
+    status: PASS
+    notes: 'Turbo-driven lint/test/e2e stages execute quickly with cached builds and Playwright smoke coverage.'
+  reliability:
+    status: PASS
+    notes: 'Committed lockfile, Playwright browser provisioning, and passing lint/test/e2e runs make the CI pipeline deterministic.'
+  maintainability:
+    status: PASS
+    notes: 'Runbooks and environment templates document external integrations; only optional Node version pinning remains as coaching.'
+recommendations:
+  immediate: []
+  future:
+    - action: 'Add an `.nvmrc`, Volta pin, or README callout steering contributors to Node 20 to eliminate engine warnings seen on newer runtimes.'
+      refs:
+        - 'package.json'
+        - 'README.md'
