@@ -1,353 +1,216 @@
 # Seraphine – MVP Product Requirements Document (PRD)
-
 **Date:** November 2025  
 **Prepared for:** Engineering & AI Development (Codex)  
-**Version:** 1.1  
+**Version:** 1.0  
 
 ---
 
-## 1. Overview
+# 1. Overview
 
-### Product Summary
-**Seraphine** is a unified SaaS web application for independent pharmacy owners in Morocco. It replaces fragmented systems with one intelligent dashboard that automates cash reconciliation, tracks multi-supplier inventory, provides real-time profit visibility, and uses AI-powered forecasting to optimize restocking decisions.
+## 1.1 Product Summary
+Seraphine is a modern SaaS web application designed for independent pharmacies in Morocco. It centralizes pharmacy operations—sales, inventory, clients, suppliers, cash reconciliation, procurement, batch preparations, and financial reporting—into a unified, French-localized dashboard.
 
-### Vision
-To empower Moroccan pharmacists with a simple, intelligent, and fully localized platform that automates their daily operations — freeing time for patient care and business growth.
+The platform is built using:
+- **Next.js 14**
+- **TailwindCSS + Shadcn UI**
+- **Supabase** (PostgreSQL, RLS, RPC, Realtime)
+- **Clerk Authentication & Organizations**
+- **Vercel Deployment**
 
-### Objectives
-- Replace spreadsheets and disconnected POS tools with a single unified system.  
-- Reduce daily reconciliation time by >80%.  
-- Enable real-time visibility of profits and stock.  
-- Build a reliable AI foundation for sales forecasting.  
-- Deliver all features in French.
+Seraphine replaces Excel and fragmented tools with a reliable, automated system.
 
-### Success Metrics
+---
+
+## 1.2 Vision
+To become the simplest and most intelligent operating system for Moroccan pharmacies.
+
+## 1.3 Objectives
+- Centralize operations
+- Automate cash reconciliation
+- Provide forecasting
+- Deliver French-localized UX
+- Enforce secure multi-role access
+
+## 1.4 Success Metrics
 | Metric | Target |
-|---------|---------|
-| Reconciliation time | < 15 minutes |
+|--------|---------|
+| Daily cash reconciliation time | < 15 minutes |
+| Inventory accuracy | > 95% |
 | Forecast variance | < 15% |
-| Cash accuracy | > 95% |
-| Active users | > 90% weekly activity |
-| NPS (User satisfaction) | > 50 |
+| Cash discrepancies | < 5% |
+| Weekly active usage | ≥ 90% |
+| NPS | > 50 |
 
 ---
 
-## 2. User Personas & Needs
+# 2. User Personas
 
-### Primary User: Independent Pharmacy Owner
-**Profile:**  
-35–55 years old, owns 1–2 pharmacies, moderate tech literacy, currently using Excel or fragmented POS systems.
+## 2.1 Pharmacy Owner
+Needs accurate reconciliation, stock visibility, reporting.
 
-**Pain Points:**  
-- Manual reconciliation of cash and sales (2+ hours daily)  
-- No real-time profit visibility  
-- Errors in supplier invoices and pricing  
-- Difficulty managing credit clients  
-
-**Goals:**  
-- Close daily cash fast and accurately  
-- View instant profit/loss insights  
-- Predict stockouts and optimize reorders  
-- Export ready-to-send financial reports  
-
-### Secondary User: Pharmacy Staff
-**Pain Points:**  
-- Manual, repetitive data entry  
-- Confusing reconciliation procedures  
-
-**Goals:**  
-- Record sales easily and error-free  
-- Follow clear cash handling workflows  
+## 2.2 Pharmacy Staff
+Needs fast checkout, barcode scanning, simple workflows.
 
 ---
 
-## 3. Problem Statement & Goals
-
-### Problem
-Pharmacists in Morocco rely on fragmented tools for sales, inventory, and accounting. This leads to hours of manual work, data inconsistencies, and profit uncertainty.
-
-### Goals
-- Centralize all operations (sales, cash, stock, suppliers).  
-- Automate reconciliation and reporting.  
-- Use AI forecasting to anticipate future demand.  
-- Localize everything in French with intuitive UX.  
+# 3. Problem Statement
+Pharmacies struggle with manual processes, reconciliation errors, outdated tools.
 
 ---
 
-## 4. MVP Scope & Core Features
+# 4. MVP Scope & Features
 
-### MVP Features
+## 4.1 Authentication & User Management
+- Clerk auth
+- Clerk Organizations
+- Supabase user profiles
+- Roles: owner, staff, restricted
+- RLS isolation
 
-#### 1. Unified Sales & Cash Management
-- Record transactions by payment type (cash, card, credit).  
-- Automatic reconciliation between system totals and actual cash.  
-- Flag discrepancies for review.  
-- Generate daily summary reports.
+## 4.2 Dashboard
+Shows sales, alerts, forecast, quick actions.
 
-#### 2. Multi-Supplier Inventory Tracking
-- Add, edit, and monitor stock by supplier.  
-- Handle varying purchase costs.  
-- Track deliveries, adjustments, and stock alerts.
+## 4.3 Sales Management
+- Multiple line items
+- Barcode support
+- Payment types
+- Auto stock decrement
 
-#### 3. Client & Supplier Management
-- Store profiles, balances, and payment history.  
-- Track credit limits and outstanding amounts.  
-- Manage supplier delivery notes and invoices.
+### Discounts
+- Percentage or amount
+- Line or sale level
+- Affects totals & reports
 
-#### 4. AI-Powered Forecasting (Simple)
-- Basic trend or moving-average model predicting next-day sales.  
-- Display expected sales and confidence range.  
-- Trained via historical sales data stored in Supabase.
-
-#### 5. Financial Reporting & Accounting Exports
-- Profit & loss summaries by day/week/month.  
-- CSV/XLS export for accounting.  
-- Include key ratios: gross margin, cash balance, top SKUs.
-
-#### 6. French Interface
-- All UI elements, labels, and notifications in French.  
-- Localized date/currency (MAD).
-
-#### 7. Guided Onboarding
-- 3-step wizard: Pharmacy setup → Add products → Add suppliers.  
-- Tooltips and inline help to explain features.
-
-### Out of Scope
-- Native mobile apps (responsive web only).  
-- Multi-location management.  
-- Barcode scanning and prescription features.  
-- Loyalty or insurance integration.  
+### RPC
+`create_sale_with_items` handles totals, discounts, stock movements.
 
 ---
 
-## 5. User Flows
+## 4.4 Cash Reconciliation
+### Opening Cash
+Stored as `opening_cash`.
 
-### 5.1 Daily Cash Reconciliation
-1. Cashier records daily sales (cash, card, credit).  
-2. System compares total with declared closing cash.  
-3. Discrepancies highlighted (over/short).  
-4. Owner approves and generates “Rapport de Caisse”.  
-
-### 5.2 Inventory Management
-1. Owner adds or imports products.  
-2. Sales automatically reduce stock.  
-3. Supplier purchase updates stock levels.  
-4. Alerts trigger for low stock items.
-
-### 5.3 Forecast & Reporting
-1. Dashboard shows daily profit, total sales, and inventory value.  
-2. AI predicts next-day sales with variance estimate.  
-3. User exports report for accountant or recordkeeping.
+### Closing Cash
+System computes expected cash.
+User enters actual cash. Discrepancy stored.
 
 ---
 
-## 6. Success Criteria & KPIs
+## 4.5 Inventory Management
+Products, stock, alerts, CSV import, movements.
 
-| Area | KPI | Target |
-|------|-----|--------|
-| Efficiency | Daily close time | < 15 minutes |
-| Forecasting | AI variance | < 15% |
-| Accuracy | Cash/sales match | > 95% |
-| Adoption | Active pharmacies | ≥ 10 |
-| Reliability | Critical bug rate | 0 blocking issues |
+## 4.6 Supplier Management
+Balances, invoices, purchase orders, delivery notes.
+
+## 4.7 Client Management
+Credit limits, balances, payments.
+
+## 4.8 Procurement Workflow
+- Purchase Orders
+- Delivery Notes
+
+## 4.9 Pharmaceutical Preparations
+Batch production with ingredient deduction.
+
+## 4.10 Data Import
+Products, suppliers, clients, historical sales.
+
+## 4.11 Forecasting
+Moving average stored in `forecasts`.
+
+## 4.12 Reporting
+P&L, accounting exports, inventory valuation.
+
+## 4.13 Guided Onboarding
+3 steps: pharmacy, products, suppliers.
+
+## 4.14 Monitoring & Deployment
+Sentry, Supabase logs, Vercel.
 
 ---
 
-## 7. Technical Considerations
-
-**Stack:**
-- **Frontend:** Next.js (TypeScript)  
-- **UI:** TailwindCSS + ShadcnUI (localized French)  
-- **Backend/DB:** Supabase (PostgreSQL, Realtime API)  
-- **Auth:** Clerk (email/password + OTP)  
-- **Hosting:** Vercel  
-- **AI Forecasting:** Supabase Edge Functions (simple regression / moving average)  
-- **Exports:** Supabase CSV query export  
-
-**Simplifications:**
-- Basic rule-based AI for MVP.  
-- One pharmacy per account.  
-- Manual data import only.  
-- No offline mode initially.  
+# 5. User Flows
+Sales, reconciliation, procurement, import, onboarding.
 
 ---
 
-## 8. Supabase Schema Design (MVP)
+# 6. Technical Specifications
+Architecture: Next.js, Supabase, Clerk.
+RLS, triggers, RPC, realtime.
 
-Below is the proposed relational schema for Supabase:
+---
 
-### 8.1 Tables Overview
-| Table | Purpose |
-|--------|----------|
-| users | Registered pharmacy owners and staff (Clerk-auth integrated) |
-| pharmacies | Pharmacy-level settings and info |
-| products | Medicines and goods with supplier links |
-| suppliers | Supplier information and pricing |
-| clients | Customer records and credit management |
-| sales | Sales transactions per day |
-| sale_items | Individual items within each sale |
-| cash_reconciliations | Daily cash reconciliation logs |
-| purchases | Supplier purchases and stock updates |
-| inventory_movements | Tracks all stock ins/outs |
-| forecasts | AI-generated sales forecasts |
-| reports | Cached summaries for faster dashboard loading |
-
-### 8.2 Table Definitions (simplified SQL)
-
+# 7. Supabase Schema (Core Tables)
+### Users
 ```sql
--- USERS
 users (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  clerk_id text UNIQUE,
-  role text CHECK (role IN ('owner', 'staff')),
-  pharmacy_id uuid REFERENCES pharmacies(id),
+  id uuid primary key,
+  clerk_id text unique,
+  pharmacy_id uuid,
+  role text,
   name text,
   email text,
-  created_at timestamptz DEFAULT now()
-);
+  created_at timestamptz default now()
+)
+```
 
--- PHARMACIES
+### Pharmacies
+```sql
 pharmacies (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id uuid primary key,
   name text,
-  owner_id uuid REFERENCES users(id),
   address text,
-  currency text DEFAULT 'MAD',
-  created_at timestamptz DEFAULT now()
-);
+  currency text default 'MAD',
+  created_at timestamptz default now()
+)
+```
 
--- SUPPLIERS
-suppliers (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  pharmacy_id uuid REFERENCES pharmacies(id),
-  name text,
-  contact text,
-  email text,
-  balance numeric DEFAULT 0,
-  created_at timestamptz DEFAULT now()
-);
-
--- CLIENTS
-clients (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  pharmacy_id uuid REFERENCES pharmacies(id),
-  name text,
-  phone text,
-  credit_limit numeric DEFAULT 0,
-  balance numeric DEFAULT 0,
-  created_at timestamptz DEFAULT now()
-);
-
--- PRODUCTS
+### Products
+```sql
 products (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  pharmacy_id uuid REFERENCES pharmacies(id),
+  id uuid primary key,
+  pharmacy_id uuid,
   name text,
-  sku text UNIQUE,
-  supplier_id uuid REFERENCES suppliers(id),
+  sku text,
+  supplier_id uuid,
   cost_price numeric,
   sell_price numeric,
-  stock integer DEFAULT 0,
-  unit text,
-  created_at timestamptz DEFAULT now()
-);
+  stock integer,
+  category text,
+  low_stock_threshold integer,
+  created_at timestamptz default now()
+)
+```
 
--- SALES
+### Sales
+```sql
 sales (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  pharmacy_id uuid REFERENCES pharmacies(id),
-  client_id uuid REFERENCES clients(id),
-  total numeric,
-  payment_type text CHECK (payment_type IN ('cash', 'card', 'credit')),
-  sale_date date DEFAULT current_date,
-  created_at timestamptz DEFAULT now()
-);
+  id uuid primary key,
+  pharmacy_id uuid,
+  client_id uuid,
+  payment_type text,
+  subtotal numeric,
+  discount_percent numeric,
+  discount_amount numeric,
+  total_after_discount numeric,
+  sale_date date,
+  created_at timestamptz default now()
+)
+```
 
--- SALE ITEMS
-sale_items (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  sale_id uuid REFERENCES sales(id),
-  product_id uuid REFERENCES products(id),
-  quantity integer,
-  unit_price numeric,
-  total numeric
-);
-
--- PURCHASES
-purchases (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  supplier_id uuid REFERENCES suppliers(id),
-  pharmacy_id uuid REFERENCES pharmacies(id),
-  total numeric,
-  purchase_date date DEFAULT current_date,
-  created_at timestamptz DEFAULT now()
-);
-
--- INVENTORY MOVEMENTS
-inventory_movements (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  pharmacy_id uuid REFERENCES pharmacies(id),
-  product_id uuid REFERENCES products(id),
-  type text CHECK (type IN ('sale', 'purchase', 'adjustment')),
-  quantity integer,
-  reference_id uuid,
-  created_at timestamptz DEFAULT now()
-);
-
--- CASH RECONCILIATIONS
+### Cash Reconciliations
+```sql
 cash_reconciliations (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  pharmacy_id uuid REFERENCES pharmacies(id),
-  date date DEFAULT current_date,
-  system_total numeric,
+  id uuid primary key,
+  pharmacy_id uuid,
+  date date,
+  opening_cash numeric,
+  system_cash_expected numeric,
   actual_cash numeric,
   discrepancy numeric,
   notes text,
-  closed_by uuid REFERENCES users(id),
-  created_at timestamptz DEFAULT now()
-);
-
--- FORECASTS
-forecasts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  pharmacy_id uuid REFERENCES pharmacies(id),
-  forecast_date date,
-  predicted_sales numeric,
-  confidence numeric,
-  model_version text,
-  created_at timestamptz DEFAULT now()
-);
+  closed_by uuid,
+  created_at timestamptz default now()
+)
 ```
-
-### 8.3 Relationships
-- **1:N** between `pharmacies` → `products`, `sales`, `suppliers`, `clients`  
-- **1:N** between `sales` → `sale_items`  
-- **1:N** between `suppliers` → `purchases`  
-- **1:N** between `products` → `inventory_movements`  
-- **1:1 daily** between `pharmacies` → `cash_reconciliations` (per date)
-
----
-
-## 9. Constraints, Risks & Assumptions
-
-| Type | Description | Mitigation |
-|------|-------------|-------------|
-| Timeline | 3-month MVP target | Prioritize 3 workflows (sales, reconciliation, inventory) |
-| Data quality | Limited historical data for AI | Start simple, refine with usage |
-| Adoption | Habit change from manual to digital | Guided onboarding + training |
-| Compliance | Moroccan financial/export rules | CSV templates aligned with local accounting |
-| Budget | Bootstrap/self-funded | Use free tiers for Supabase & Vercel |
-
----
-
-## 10. Launch Success Definition
-
-- 10 pharmacies active within pilot  
-- <15 min daily closing workflow  
-- <15% AI forecast variance  
-- >95% cash accuracy  
-- 0 blocking calculation errors  
-
----
-
-**End of Document – Seraphine MVP PRD**
+End of Seraphine MVP PRD

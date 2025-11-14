@@ -1,0 +1,5 @@
+project_id = "gzplgofesfqslvjnrluc"
+
+[db]
+port = 54322
+major_version = 17
