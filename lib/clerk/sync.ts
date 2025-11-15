@@ -63,13 +63,15 @@ export async function upsertUserFromClerk(payload: ClerkUserPayload) {
 
   const fullName = getFullName(payload)
 
-  const upsertPayload: Tables["users"]["Insert"] = {
+  const upsertPayload = {
     clerk_id: payload.id,
     email: primaryEmail,
     full_name: fullName,
-  }
+  } satisfies Tables["users"]["Insert"]
 
-  const { error } = await supabaseAdminClient.from("users").upsert(upsertPayload, { onConflict: "clerk_id" })
+  const { error } = await supabaseAdminClient.from("users").upsert<Tables["users"]["Insert"]>(upsertPayload, {
+    onConflict: "clerk_id",
+  })
 
   if (error) {
     throw error
@@ -84,15 +86,15 @@ export async function upsertPharmacyFromOrganization(organization: ClerkOrganiza
 
   const address = getOrganizationAddress(organization)
 
-  const upsertPayload: Tables["pharmacies"]["Insert"] = {
+  const upsertPayload = {
     clerk_org_id: organization.id,
     name,
     address,
-  }
+  } satisfies Tables["pharmacies"]["Insert"]
 
   const { data, error } = await supabaseAdminClient
     .from("pharmacies")
-    .upsert(upsertPayload, { onConflict: "clerk_org_id" })
+    .upsert<Tables["pharmacies"]["Insert"]>(upsertPayload, { onConflict: "clerk_org_id" })
     .select("id")
     .single()
 
@@ -143,15 +145,15 @@ export async function upsertMembershipFromClerk(event: WebhookEvent) {
 
   const role = mapClerkRole(membership.role)
 
-  const membershipUpsertPayload: Tables["pharmacy_memberships"]["Insert"] = {
+  const membershipUpsertPayload = {
     pharmacy_id: pharmacyId,
     user_id: userRecord.id,
     role,
-  }
+  } satisfies Tables["pharmacy_memberships"]["Insert"]
 
   const { error: membershipError } = await supabaseAdminClient
     .from("pharmacy_memberships")
-    .upsert(membershipUpsertPayload, { onConflict: "pharmacy_id,user_id" })
+    .upsert<Tables["pharmacy_memberships"]["Insert"]>(membershipUpsertPayload, { onConflict: "pharmacy_id,user_id" })
 
   if (membershipError) {
     throw membershipError
