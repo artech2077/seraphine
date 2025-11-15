@@ -25,7 +25,7 @@ export type ClerkOrganizationPayload = {
   public_metadata?: {
     address?: string | null
     [key: string]: unknown
-  }
+  } | null
 }
 
 export type ClerkMembershipPayload = {
