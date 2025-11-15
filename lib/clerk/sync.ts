@@ -63,14 +63,13 @@ export async function upsertUserFromClerk(payload: ClerkUserPayload) {
 
   const fullName = getFullName(payload)
 
-  const { error } = await supabaseAdminClient.from("users").upsert<Pick<Tables["users"]["Insert"], "clerk_id" | "email" | "full_name">>(
-    {
-      clerk_id: payload.id,
-      email: primaryEmail,
-      full_name: fullName,
-    },
-    { onConflict: "clerk_id" }
-  )
+  const upsertPayload: Tables["users"]["Insert"] = {
+    clerk_id: payload.id,
+    email: primaryEmail,
+    full_name: fullName,
+  }
+
+  const { error } = await supabaseAdminClient.from("users").upsert(upsertPayload, { onConflict: "clerk_id" })
 
   if (error) {
     throw error
@@ -85,16 +84,15 @@ export async function upsertPharmacyFromOrganization(organization: ClerkOrganiza
 
   const address = getOrganizationAddress(organization)
 
+  const upsertPayload: Tables["pharmacies"]["Insert"] = {
+    clerk_org_id: organization.id,
+    name,
+    address,
+  }
+
   const { data, error } = await supabaseAdminClient
     .from("pharmacies")
-    .upsert<Pick<Tables["pharmacies"]["Insert"], "clerk_org_id" | "name" | "address">>(
-      {
-        clerk_org_id: organization.id,
-        name,
-        address,
-      },
-      { onConflict: "clerk_org_id" }
-    )
+    .upsert(upsertPayload, { onConflict: "clerk_org_id" })
     .select("id")
     .single()
 
@@ -145,16 +143,15 @@ export async function upsertMembershipFromClerk(event: WebhookEvent) {
 
   const role = mapClerkRole(membership.role)
 
+  const membershipUpsertPayload: Tables["pharmacy_memberships"]["Insert"] = {
+    pharmacy_id: pharmacyId,
+    user_id: userRecord.id,
+    role,
+  }
+
   const { error: membershipError } = await supabaseAdminClient
     .from("pharmacy_memberships")
-    .upsert<Pick<Tables["pharmacy_memberships"]["Insert"], "pharmacy_id" | "user_id" | "role">>(
-      {
-        pharmacy_id: pharmacyId,
-        user_id: userRecord.id,
-        role,
-      },
-      { onConflict: "pharmacy_id,user_id" }
-    )
+    .upsert(membershipUpsertPayload, { onConflict: "pharmacy_id,user_id" })
 
   if (membershipError) {
     throw membershipError
