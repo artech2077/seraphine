@@ -23,9 +23,9 @@ export const metadata: Metadata = {
 }
 
 const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+const proxyUrl = process.env.NEXT_PUBLIC_CLERK_PROXY_URL
 
 if (!publishableKey) {
-  // Provide a clearer error when env vars are missing during development builds.
   throw new Error("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is not set")
 }
 
@@ -38,6 +38,7 @@ export default function RootLayout({
     <ClerkProvider
       localization={frFR}
       publishableKey={publishableKey}
+      proxyUrl={proxyUrl}
       afterSignOutUrl="/"
       appearance={{
         layout: {

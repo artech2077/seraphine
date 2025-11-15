@@ -42,6 +42,7 @@ Duplicate `.env.local.example` (coming soon) or create `.env.local` manually wit
 | Variable | Description |
 | --- | --- |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key for the environment (dev for now). |
+| `NEXT_PUBLIC_CLERK_PROXY_URL` | Absolute URL to proxy Clerk assets (e.g. `http://localhost:3000/clerk`). |
 | `CLERK_SECRET_KEY` | Clerk secret API key used server-side. |
 | `CLERK_WEBHOOK_SECRET` | Random string shared with Clerk webhooks for signature verification. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (`https://<project>.supabase.co` or local). |
@@ -52,6 +53,7 @@ Example template:
 
 ```bash
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxx
+NEXT_PUBLIC_CLERK_PROXY_URL=http://localhost:3000/clerk
 CLERK_SECRET_KEY=sk_test_xxx
 CLERK_WEBHOOK_SECRET=whsec_xxx
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co

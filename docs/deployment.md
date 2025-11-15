@@ -15,6 +15,7 @@ Add the following variables in **Vercel → Settings → Environment Variables**
 | Variable | Scope | Notes |
 | --- | --- | --- |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Development / Preview / Production | Use Clerk dev keys until Production instance is ready; swap to prod keys once the custom domain is live. |
+| `NEXT_PUBLIC_CLERK_PROXY_URL` | Development / Preview / Production | Absolute URL to your domain plus `/clerk` (ensures assets load through the first-party domain). |
 | `CLERK_SECRET_KEY` | Development / Preview / Production | Server-side key (keep private). Replace with prod key after creating the Clerk Production instance. |
 | `CLERK_WEBHOOK_SECRET` | Development / Preview / Production | Random string reused in Clerk dashboard (dev or prod depending on the instance). |
 | `NEXT_PUBLIC_SUPABASE_URL` | Development / Preview / Production | Project URL (`https://xyz.supabase.co`). |
