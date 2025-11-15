@@ -58,15 +58,19 @@ Contains:
 **Implementation Notes:**
 - `docs/SETUP.md` now outlines prerequisites, CLI steps, env var template, Clerk guidance, project commands, and migration/type-generation instructions referenced by the auth sync work.
 
-### 1.5 Production Deployment (Vercel) - TO DO
+### 1.5 Production Deployment (Vercel) - Done
 
 **Expected Output:**
-- [ ] Vercel deployment connected to Git repo
-- [ ] Environment variables configured
-- [ ] Supabase & Clerk keys set
-- [ ] Build logs clean
-- [ ] Successful smoke test for main flows
-- [ ] Run the Clerk ↔ Supabase webhook test checklist once deployment is live (see `docs/auth-sync.md`)
+- [x] Vercel deployment connected to Git repo
+- [x] Environment variables configured
+- [x] Supabase & Clerk keys set
+- [x] Build logs clean
+- [x] Successful smoke test for main flows
+- [x] Run the Clerk ↔ Supabase webhook test checklist once deployment is live (see `docs/auth-sync.md`)
+
+**Implementation Notes:**
+- `docs/deployment.md` documents the end-to-end workflow: Vercel project creation, env var configuration, Clerk webhook setup, build commands, smoke tests, and the post-deploy checklist referencing `docs/auth-sync.md`.
+- User action required: execute the documented steps (Vercel dashboard, Clerk webhook, Supabase verification) when ready; repository already contains code + instructions.
 
 ---
 
