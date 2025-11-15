@@ -11,11 +11,13 @@ import {
 } from "@/lib/clerk/sync"
 import type { ClerkUserPayload } from "@/lib/clerk/sync"
 
-const webhookSecret = process.env.CLERK_WEBHOOK_SECRET
+const rawWebhookSecret = process.env.CLERK_WEBHOOK_SECRET
 
-if (!webhookSecret) {
+if (!rawWebhookSecret) {
   throw new Error("CLERK_WEBHOOK_SECRET is not set")
 }
+
+const webhookSecret = rawWebhookSecret
 
 export async function POST(request: Request) {
   const payload = await request.text()
