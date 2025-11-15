@@ -34,6 +34,7 @@ export interface Database {
           id?: string
           name?: string
         }
+        Relationships: []
       }
       pharmacy_memberships: {
         Row: {
@@ -57,6 +58,7 @@ export interface Database {
           role?: Database["public"]["Enums"]["user_role"]
           user_id?: string
         }
+        Relationships: []
       }
       users: {
         Row: {
@@ -86,6 +88,7 @@ export interface Database {
           pharmacy_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
         }
+        Relationships: []
       }
     }
     Enums: {
