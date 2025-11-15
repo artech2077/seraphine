@@ -3,6 +3,7 @@ import type { WebhookEvent } from "@clerk/nextjs/server"
 import { supabaseAdminClient } from "@/lib/supabase/admin"
 import type { Database } from "@/types/database"
 
+type Tables = Database["public"]["Tables"]
 type UserRole = Database["public"]["Enums"]["user_role"]
 
 type ClerkEmailAddress = {
@@ -62,7 +63,7 @@ export async function upsertUserFromClerk(payload: ClerkUserPayload) {
 
   const fullName = getFullName(payload)
 
-  const { error } = await supabaseAdminClient.from("users").upsert(
+  const { error } = await supabaseAdminClient.from("users").upsert<Pick<Tables["users"]["Insert"], "clerk_id" | "email" | "full_name">>(
     {
       clerk_id: payload.id,
       email: primaryEmail,
@@ -86,7 +87,7 @@ export async function upsertPharmacyFromOrganization(organization: ClerkOrganiza
 
   const { data, error } = await supabaseAdminClient
     .from("pharmacies")
-    .upsert(
+    .upsert<Pick<Tables["pharmacies"]["Insert"], "clerk_org_id" | "name" | "address">>(
       {
         clerk_org_id: organization.id,
         name,
@@ -118,18 +119,12 @@ export async function upsertMembershipFromClerk(event: WebhookEvent) {
     email_addresses: [
       {
         id: user.user_id,
-        email_address: user.email_address,
+        email_address: user.email_address ?? "",
       },
     ],
     first_name: user.first_name,
     last_name: user.last_name,
     primary_email_address_id: user.user_id,
-    email_addresses: [
-      {
-        id: user.user_id,
-        email_address: user.email_address ?? "",
-      },
-    ],
   })
 
   const pharmacyId = await upsertPharmacyFromOrganization(organization)
@@ -150,14 +145,16 @@ export async function upsertMembershipFromClerk(event: WebhookEvent) {
 
   const role = mapClerkRole(membership.role)
 
-  const { error: membershipError } = await supabaseAdminClient.from("pharmacy_memberships").upsert(
-    {
-      pharmacy_id: pharmacyId,
-      user_id: userRecord.id,
-      role,
-    },
-    { onConflict: "pharmacy_id,user_id" }
-  )
+  const { error: membershipError } = await supabaseAdminClient
+    .from("pharmacy_memberships")
+    .upsert<Pick<Tables["pharmacy_memberships"]["Insert"], "pharmacy_id" | "user_id" | "role">>(
+      {
+        pharmacy_id: pharmacyId,
+        user_id: userRecord.id,
+        role,
+      },
+      { onConflict: "pharmacy_id,user_id" }
+    )
 
   if (membershipError) {
     throw membershipError
