@@ -76,14 +76,20 @@ Contains:
 
 ## 2. Database & Security
 
-### 2.1 Supabase Integration - TO DO
+### 2.1 Supabase Integration - Done
 
 **Expected Output:**
-- [ ] Environment-based Supabase client
-- [ ] Initial schema deployed
-- [ ] RPC functions working in local & cloud
-- [ ] .env with all Supabase configs
-- [ ] Database typings generated for TypeScript
+- [x] Environment-based Supabase client
+- [x] Initial schema deployed
+- [x] RPC functions working in local & cloud
+- [x] .env with all Supabase configs
+- [x] Database typings generated for TypeScript
+
+**Implementation Notes:**
+- `lib/supabase/env.ts`, `browser.ts`, and `server.ts` expose typed clients backed by `@supabase/ssr`, while `admin.ts` continues to handle service-role access.
+- `.env.local.example` plus updated `docs/SETUP.md` enumerate every Supabase + Clerk variable (including optional `SUPABASE_LOCAL_URL`).
+- Migration `0002_initial_schema.sql` creates suppliers, clients, products, sales, sale_items, stock_movements, cash_reconciliations, and RPC helpers (`create_sale_with_items`, `record_cash_reconciliation`). Applied via `supabase db push`.
+- Types regenerated via `supabase gen types ... > types/database.ts`; `docs/supabase.md` documents verification queries and workflow.
 
 ### 2.2 Enable Row Level Security (RLS) - TO DO
 
@@ -320,6 +326,29 @@ Works across Sales, Inventory, Suppliers.
 - [ ] Supabase observability: logs, performance dashboard
 - [ ] Error boundaries in UI
 
+### 7.2 Clerk Production Cutover - TO DO
+
+**Expected Output:**
+- [ ] Clerk Production instance created once the MVP is stable
+- [ ] Production publishable + secret keys configured in Vercel (all scopes) and `.env` templates
+- [ ] Production webhook + secret pointing to `/api/webhooks/clerk`
+- [ ] Development instance retained for localhost testing
+
+**Implementation Notes:**
+- This is a future task; for now we intentionally run every environment (local + Vercel dev/preview/prod) on the Clerk Development instance.
+- When the cutover is scheduled, update `docs/SETUP.md` and `docs/deployment.md` with the new instructions and rotate the secrets accordingly.
+
+### 7.3 Supabase Local Stack (Docker) - TO DO
+
+**Expected Output:**
+- [ ] Documented Docker Desktop install & prerequisites
+- [ ] `supabase start` workflow verified locally
+- [ ] Local database reset instructions incorporated into docs
+- [ ] Automated checks ensuring migrations run both locally and remotely
+
+**Implementation Notes:**
+- Deferred until Docker can be adopted; for now all database validation happens against the linked cloud project. Once item 7.3 is complete, re-enable the local-only steps referenced in `docs/supabase.md` and `docs/SETUP.md`.
+
 ## Summary Overview Table
 
 | Roadmap Item | Expected Output |
@@ -328,7 +357,7 @@ Works across Sales, Inventory, Suppliers.
 | [ ] Auth | Full Clerk integration |
 | [ ] Clerk ↔ Supabase | User profile sync, roles, orgs |
 | [ ] Setup docs | docs/SETUP.md |
-| [ ] Supabase integration | DB, RPC, types, env |
+| [x] Supabase integration | DB, RPC, types, env |
 | [ ] RLS | Isolation per pharmacy |
 | [ ] Inventory import | CSV + validation |
 | [ ] Sales with line items | POS-like form + RPC |
@@ -345,3 +374,5 @@ Works across Sales, Inventory, Suppliers.
 | [ ] Forecasting | Daily moving-average model |
 | [ ] Monitoring | Sentry + logs |
 | [ ] Deployment | Vercel production |
+| [ ] Supabase local stack | Docker-based local DB |
+| [ ] Clerk production cutover | Switch all scopes to the Clerk Production instance once the MVP is stable |

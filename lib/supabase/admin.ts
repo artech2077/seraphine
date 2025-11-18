@@ -1,19 +1,9 @@
 import { createClient } from "@supabase/supabase-js"
 
+import { getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase/env"
 import type { Database } from "@/types/database"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set")
-}
-
-if (!serviceRoleKey) {
-  throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set")
-}
-
-export const supabaseAdminClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
+export const supabaseAdminClient = createClient<Database>(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
   auth: {
     persistSession: false,
     autoRefreshToken: false,

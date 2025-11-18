@@ -14,9 +14,9 @@ Add the following variables in **Vercel → Settings → Environment Variables**
 
 | Variable | Scope | Notes |
 | --- | --- | --- |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Development / Preview / Production | Use Clerk dev keys until Production instance is ready; swap to prod keys once the custom domain is live. |
-| `CLERK_SECRET_KEY` | Development / Preview / Production | Server-side key (keep private). Replace with prod key after creating the Clerk Production instance. |
-| `CLERK_WEBHOOK_SECRET` | Development / Preview / Production | Random string reused in Clerk dashboard (dev or prod depending on the instance). |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Development / Preview / Production | Use the Clerk **Development** publishable key for every scope (local + Vercel) until roadmap item 1.6 cuts over to production. |
+| `CLERK_SECRET_KEY` | Development / Preview / Production | Server-side key (keep private). Same Clerk **Development** secret is reused across scopes for now. |
+| `CLERK_WEBHOOK_SECRET` | Development / Preview / Production | Random string reused in Clerk dashboard. Match the value configured for the Clerk **Development** webhook. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Development / Preview / Production | Project URL (`https://xyz.supabase.co`). |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Development / Preview / Production | Supabase anon key. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Development / Preview / Production | Service-role key (never exposed client-side). |
@@ -29,15 +29,13 @@ Add the following variables in **Vercel → Settings → Environment Variables**
 2. Wait for build logs to finish cleanly (no warnings/errors) and confirm the preview URL loads the app.
 3. Record the preview URL; it is still useful for debugging even after moving to the custom domain.
 
-## 4. Custom domain & Clerk Production instance
+## 4. Custom domain (optional for now)
 
 1. **Add your custom domain in Vercel → Settings → Domains** and point DNS to Vercel (add CNAME/A records per instructions). Wait for verification and SSL provisioning.
-2. **Create/enable the Clerk Production instance**:
-   - Add both `https://<custom-domain>` and (optionally) `https://<project>.vercel.app` to Allowed origins & redirect URLs.
-   - Copy the Production publishable + secret keys.
-3. Update Vercel environment variables (all scopes) with the production Clerk keys.
-4. **Create a Clerk webhook** in the Production instance pointing to `https://<custom-domain>/api/webhooks/clerk` (and optionally the Vercel preview URL). Use a new `CLERK_WEBHOOK_SECRET` value and update Vercel accordingly.
-5. (Optional) keep the Development instance for localhost testing; its keys should remain in `.env.local` for dev builds.
+2. Keep using the Clerk **Development** instance for every environment. Add the custom domain (and preview URL if desired) to the Development instance’s Allowed origins & redirect URLs.
+3. Reuse the same Clerk Development publishable/secret keys + webhook secret in Vercel (all scopes). No production instance or new keys are needed until roadmap item 1.6.
+4. **Create a Clerk webhook** in the Development instance pointing to `https://<custom-domain>/api/webhooks/clerk` (and optionally the Vercel preview URL).
+5. (Optional) when roadmap item 1.6 is scheduled, revisit this section to perform the production cutover steps.
 
 ## 5. Smoke test checklist
 
@@ -51,7 +49,7 @@ npm start   # optional: verify production server locally
 
 Manual UI tests (on custom domain or preview):
 
-- Sign in through Clerk (match the instance: dev for localhost, prod for custom domain).
+- Sign in through Clerk (development instance is used for localhost, preview, and production for now).
 - Verify the landing page toggles SignedIn/SignedOut states.
 - Hit `/api/webhooks/clerk` with Clerk’s “Send test event” to confirm 200 OK.
 
