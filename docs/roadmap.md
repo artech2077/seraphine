@@ -84,6 +84,7 @@ Contains:
 - [x] RPC functions working in local & cloud
 - [x] .env with all Supabase configs
 - [x] Database typings generated for TypeScript
+- [ ] Supabase tests executed (`create_sale_with_items` + `record_cash_reconciliation` per `docs/supabase.md`)
 
 **Implementation Notes:**
 - `lib/supabase/env.ts`, `browser.ts`, and `server.ts` expose typed clients backed by `@supabase/ssr`, while `admin.ts` continues to handle service-role access.
@@ -91,22 +92,37 @@ Contains:
 - Migration `0002_initial_schema.sql` creates suppliers, clients, products, sales, sale_items, stock_movements, cash_reconciliations, and RPC helpers (`create_sale_with_items`, `record_cash_reconciliation`). Applied via `supabase db push`.
 - Types regenerated via `supabase gen types ... > types/database.ts`; `docs/supabase.md` documents verification queries and workflow.
 
-### 2.2 Enable Row Level Security (RLS) - TO DO
+### 2.2 Enable Row Level Security (RLS) - Done
 
 **Expected Output:**
-- [ ] RLS ON for all tables
-- [ ] Policies ensuring each pharmacy can only access its own data (pharmacy_id match)
-- [ ] Owner override permission
-- [ ] Staff restricted to allowed actions
+- [x] RLS ON for all tables
+- [x] Policies ensuring each pharmacy can only access its own data (pharmacy_id match)
+- [x] Owner override permission
+- [x] Staff restricted to allowed actions
+- [x] Supabase tests covering authenticated (owner/staff) vs anonymous access
 
-### 2.3 Automated Historical Fields - TO DO
+**Implementation Notes:**
+- Migration `0003_enable_rls.sql` enables RLS and adds helper functions (`current_jwt_claims`, `current_app_user_id`, `has_pharmacy_role`, `user_can_access_sale`) to evaluate Clerk-issued identities.
+- Owner/staff/restricted access policies now exist for `pharmacies`, `users`, `pharmacy_memberships`, `suppliers`, `clients`, `products`, `sales`, `sale_items`, `stock_movements`, and `cash_reconciliations`. Owners manage master data, staff handle operational records, restricted roles read only.
+- RPCs (`create_sale_with_items`, `record_cash_reconciliation`) enforce the same role checks before running security-definer logic.
+- RLS validation steps and JWT simulation instructions live in `docs/supabase.md`.
+
+### 2.3 Automated Historical Fields - Done
 
 **Expected Output:**  
 Triggers that automatically update:
-- [ ] last_purchase on products
-- [ ] last_delivery
-- [ ] Supplier/client balance recalculations
-- [ ] Stock movement log creation
+- [x] last_purchase on products
+- [x] last_delivery
+- [x] Supplier/client balance recalculations
+- [x] Stock movement log creation
+- [x] Supabase tests confirming triggers fire on insert/update operations
+
+**Implementation Notes:**
+- Migration `0004_automated_history.sql` introduces ledger enums/tables (`client_balance_events`, `supplier_balance_events`) plus `refresh_*` triggers so denormalized `clients.balance` and `suppliers.balance` always match event sums. Supabase policies restrict writes to owners while staff can read.
+- Product history fields now update automatically: sale item triggers recompute `products.last_purchase`, and stock movement triggers recompute `last_delivery` whenever a restock/positive adjustment lands.
+- Any manual `products.stock` update emits an `adjustment` row in `stock_movements` (unless the caller sets the `seraphine.skip_stock_movement_trigger` flag). The `create_sale_with_items` RPC sets this flag while it performs its own stock logging to avoid duplicates.
+- Credit sales automatically append a `client_balance_events` row, ensuring customer balances grow when payment_type=`credit`.
+- Added Supabase test snippets to `docs/supabase.md` covering sale inserts, credit balances, and simulated restock adjustments to validate the triggers end-to-end.
 
 ---
 
@@ -119,6 +135,7 @@ Triggers that automatically update:
 - [ ] Quick links to Sales, Inventory, Suppliers, Clients
 - [ ] French-localized interface
 - [ ] Data pulled via Supabase queries and caches
+- [ ] Supabase dashboard query tests (ensure anon client can fetch aggregates per RLS)
 
 ### 3.2 Sales Module (POS-Like Interface) - TO DO
 
@@ -191,7 +208,7 @@ Atomic transaction that:
 - [ ] Dashboard widget listing at-risk products
 - [ ] Click-through to reorder or adjust stock
 
-- [ ] **3.5 Procurement**
+### 3.5 Procurement
 
 #### 3.5.1 Purchase Orders
 
@@ -275,6 +292,7 @@ Includes:
 - [ ] Supabase Edge Function running moving average model
 - [ ] Daily forecast stored in forecasts
 - [ ] Dashboard display: predicted sales + confidence interval
+- [ ] Supabase Edge Function tested via run + datastore verification
 
 ### 5.2 Profit & Loss Reporting - TO DO
 
@@ -325,6 +343,7 @@ Works across Sales, Inventory, Suppliers.
 - [ ] Sentry configured (frontend + backend)
 - [ ] Supabase observability: logs, performance dashboard
 - [ ] Error boundaries in UI
+- [ ] Supabase log streaming tested (admin client + Studio)
 
 ### 7.2 Clerk Production Cutover - TO DO
 
@@ -345,6 +364,7 @@ Works across Sales, Inventory, Suppliers.
 - [ ] `supabase start` workflow verified locally
 - [ ] Local database reset instructions incorporated into docs
 - [ ] Automated checks ensuring migrations run both locally and remotely
+- [ ] Supabase local smoke test (migrations + RPCs run inside Docker stack)
 
 **Implementation Notes:**
 - Deferred until Docker can be adopted; for now all database validation happens against the linked cloud project. Once item 7.3 is complete, re-enable the local-only steps referenced in `docs/supabase.md` and `docs/SETUP.md`.
@@ -358,7 +378,7 @@ Works across Sales, Inventory, Suppliers.
 | [ ] Clerk ↔ Supabase | User profile sync, roles, orgs |
 | [ ] Setup docs | docs/SETUP.md |
 | [x] Supabase integration | DB, RPC, types, env |
-| [ ] RLS | Isolation per pharmacy |
+| [x] RLS | Isolation per pharmacy |
 | [ ] Inventory import | CSV + validation |
 | [ ] Sales with line items | POS-like form + RPC |
 | [ ] Discounts | % or amount, line or sale |

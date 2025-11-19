@@ -138,3 +138,12 @@ For detailed RPC usage examples and verification steps (local reset vs. remote p
 4. Once a stable URL exists, point Clerk webhooks to `https://<app>.vercel.app/api/webhooks/clerk` and run the verification checklist outlined in `docs/auth-sync.md`.
 
 You can defer the webhook test suite until deployment (see roadmap item 1.5), but keeping these steps noted ensures nothing is forgotten.
+
+## 10. Supabase RLS & Clerk Tokens
+
+- Supabase now enforces Row Level Security (roadmap 2.2). Every table expects the JWT claim `sub` (or `clerk_id`) to match `users.clerk_id`.
+- When a Clerk user signs in, exchange the Clerk session for a Supabase access token minted via the service-role client (server-side). Include at minimum:
+  - `sub`: the Clerk user id.
+  - Optional `clerk_id`: duplicate for clarity.
+- The Supabase client inside the browser/server (created via `lib/supabase/browser.ts` or `lib/supabase/server.ts`) must use that JWT before querying tables with RLS.
+- Until the exchange endpoint is implemented, simulate RLS locally/remote using `set_config('request.jwt.claims', ...)` as described in `docs/supabase.md`.

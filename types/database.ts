@@ -71,6 +71,57 @@ export type Database = {
           },
         ]
       }
+      client_balance_events: {
+        Row: {
+          amount: number
+          client_id: string
+          created_at: string
+          event_type: Database["public"]["Enums"]["client_balance_event_type"]
+          id: string
+          metadata: Json | null
+          pharmacy_id: string
+          reference_id: string | null
+          reference_table: string | null
+        }
+        Insert: {
+          amount: number
+          client_id: string
+          created_at?: string
+          event_type: Database["public"]["Enums"]["client_balance_event_type"]
+          id?: string
+          metadata?: Json | null
+          pharmacy_id: string
+          reference_id?: string | null
+          reference_table?: string | null
+        }
+        Update: {
+          amount?: number
+          client_id?: string
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["client_balance_event_type"]
+          id?: string
+          metadata?: Json | null
+          pharmacy_id?: string
+          reference_id?: string | null
+          reference_table?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_balance_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_balance_events_pharmacy_id_fkey"
+            columns: ["pharmacy_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
@@ -478,6 +529,57 @@ export type Database = {
           },
         ]
       }
+      supplier_balance_events: {
+        Row: {
+          amount: number
+          created_at: string
+          event_type: Database["public"]["Enums"]["supplier_balance_event_type"]
+          id: string
+          metadata: Json | null
+          pharmacy_id: string
+          reference_id: string | null
+          reference_table: string | null
+          supplier_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          event_type: Database["public"]["Enums"]["supplier_balance_event_type"]
+          id?: string
+          metadata?: Json | null
+          pharmacy_id: string
+          reference_id?: string | null
+          reference_table?: string | null
+          supplier_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["supplier_balance_event_type"]
+          id?: string
+          metadata?: Json | null
+          pharmacy_id?: string
+          reference_id?: string | null
+          reference_table?: string | null
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_balance_events_pharmacy_id_fkey"
+            columns: ["pharmacy_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_balance_events_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           clerk_id: string
@@ -535,6 +637,20 @@ export type Database = {
         }
         Returns: string
       }
+      current_app_user_id: { Args: never; Returns: string }
+      current_clerk_id: { Args: never; Returns: string }
+      current_jwt_claims: { Args: never; Returns: Json }
+      current_user_role: {
+        Args: never
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
+      has_pharmacy_role: {
+        Args: {
+          allowed_roles?: Database["public"]["Enums"]["user_role"][]
+          p_pharmacy_id: string
+        }
+        Returns: boolean
+      }
       record_cash_reconciliation: {
         Args: {
           p_actual_cash?: number
@@ -565,10 +681,19 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      user_can_access_sale: {
+        Args: {
+          allowed_roles?: Database["public"]["Enums"]["user_role"][]
+          sale_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      client_balance_event_type: "sale_credit" | "payment" | "adjustment"
       payment_type: "cash" | "card" | "credit"
       stock_movement_type: "sale" | "restock" | "adjustment"
+      supplier_balance_event_type: "purchase" | "payment" | "adjustment"
       user_role: "owner" | "staff" | "restricted"
     }
     CompositeTypes: {
@@ -697,8 +822,10 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      client_balance_event_type: ["sale_credit", "payment", "adjustment"],
       payment_type: ["cash", "card", "credit"],
       stock_movement_type: ["sale", "restock", "adjustment"],
+      supplier_balance_event_type: ["purchase", "payment", "adjustment"],
       user_role: ["owner", "staff", "restricted"],
     },
   },
