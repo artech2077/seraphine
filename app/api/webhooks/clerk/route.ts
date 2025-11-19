@@ -4,6 +4,7 @@ import { Webhook } from "svix"
 
 import {
   deleteUserFromClerk,
+  ensurePersonalPharmacyForUser,
   removeMembershipFromClerk,
   upsertMembershipFromClerk,
   upsertPharmacyFromOrganization,
@@ -54,7 +55,12 @@ export async function POST(request: Request) {
 
 async function handleEvent(event: WebhookEvent) {
   switch (event.type) {
-    case "user.created":
+    case "user.created": {
+      const payload = event.data as ClerkUserPayload
+      await upsertUserFromClerk(payload)
+      await ensurePersonalPharmacyForUser(payload)
+      break
+    }
     case "user.updated":
       await upsertUserFromClerk(event.data as ClerkUserPayload)
       break

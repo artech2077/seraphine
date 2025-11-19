@@ -71,7 +71,7 @@ export default function RootLayout({
         },
       }}
     >
-      <html lang="fr">
+      <html lang="fr" suppressHydrationWarning>
         <body className={`${geistSans.variable} ${geistMono.variable} bg-background antialiased`}>
           <div className="flex min-h-screen flex-col">
             <SiteHeader />

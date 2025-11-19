@@ -651,6 +651,40 @@ export type Database = {
         }
         Returns: boolean
       }
+      get_sales_forecast: {
+        Args: {
+          p_pharmacy_id: string
+          p_timezone?: string
+          p_window?: number
+        }
+        Returns: {
+          moving_average: number | null
+          last_day_total: number | null
+          window_days: number | null
+        }
+      }
+      get_sales_summary: {
+        Args: {
+          p_pharmacy_id: string
+          p_timezone?: string
+        }
+        Returns: {
+          total: number | null
+          transaction_count: number | null
+          previous_total: number | null
+          last_sale: string | null
+        }
+      }
+      get_stock_alert_snapshot: {
+        Args: {
+          p_limit?: number
+          p_pharmacy_id: string
+        }
+        Returns: {
+          alert_count: number | null
+          items: Json
+        }
+      }
       record_cash_reconciliation: {
         Args: {
           p_actual_cash?: number

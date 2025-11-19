@@ -128,14 +128,14 @@ Triggers that automatically update:
 
 ## 3. Core Product Modules
 
-### 3.1 Dashboard - TO DO
+### 3.1 Dashboard - Done
 
 **Expected Output:**
-- [ ] Overview cards (Sales Today, Stock Alerts, Forecast)
-- [ ] Quick links to Sales, Inventory, Suppliers, Clients
-- [ ] French-localized interface
-- [ ] Data pulled via Supabase queries and caches
-- [ ] Supabase dashboard query tests (ensure anon client can fetch aggregates per RLS)
+- [x] Overview cards (Sales Today, Stock Alerts, Forecast)
+- [x] Quick links to Sales, Inventory, Suppliers, Clients
+- [x] French-localized interface
+- [x] Data pulled via Supabase queries and caches
+- [x] Supabase dashboard query tests (ensure anon client can fetch aggregates per RLS)
 
 ### 3.2 Sales Module (POS-Like Interface) - TO DO
 

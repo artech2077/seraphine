@@ -10,13 +10,23 @@ export function createSupabaseServerClient() {
   return createServerClient<Database>(getSupabaseUrl(), getSupabaseAnonKey(), {
     cookies: {
       get(name: string) {
-        return cookieStore.get(name)?.value
+        if (typeof (cookieStore as unknown as { get?: (key: string) => { value?: string } | undefined }).get !== "function") {
+          return undefined
+        }
+        const cookie = (cookieStore as { get: (key: string) => { value?: string } | undefined }).get(name)
+        return cookie?.value
       },
       set(name, value, options) {
-        cookieStore.set({ name, value, ...options })
+        const setter = (cookieStore as unknown as { set?: (cookie: { name: string; value: string } & Record<string, unknown>) => void }).set
+        if (typeof setter === "function") {
+          setter({ name, value, ...options })
+        }
       },
       remove(name, options) {
-        cookieStore.set({ name, value: "", ...options, maxAge: 0 })
+        const setter = (cookieStore as unknown as { set?: (cookie: { name: string; value: string } & Record<string, unknown>) => void }).set
+        if (typeof setter === "function") {
+          setter({ name, value: "", ...options, maxAge: 0 })
+        }
       },
     },
   })

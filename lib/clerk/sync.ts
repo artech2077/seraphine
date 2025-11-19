@@ -2,9 +2,11 @@ import type { WebhookEvent } from "@clerk/nextjs/server"
 
 import { supabaseAdminClient } from "@/lib/supabase/admin"
 import type { Database } from "@/types/database"
+import { clerkBackendClient } from "./client"
 
 type Tables = Database["public"]["Tables"]
 type UserRole = Database["public"]["Enums"]["user_role"]
+type UnknownRecord = Record<string, unknown>
 
 type ClerkEmailAddress = {
   id: string
@@ -58,7 +60,8 @@ export async function upsertUserFromClerk(payload: ClerkUserPayload) {
   const primaryEmail = getPrimaryEmail(payload)
 
   if (!primaryEmail) {
-    throw new Error("Clerk user is missing an email address")
+    console.warn("Clerk user is missing an email address, skipping upsert", payload.id)
+    return
   }
 
   const fullName = getFullName(payload)
@@ -76,6 +79,36 @@ export async function upsertUserFromClerk(payload: ClerkUserPayload) {
   if (error) {
     throw error
   }
+}
+
+export async function bootstrapClerkUser(payload: ClerkUserPayload) {
+  await upsertUserFromClerk(payload)
+  await ensurePersonalPharmacyForUser(payload)
+  await syncMembershipsForUser(payload.id)
+}
+
+export async function ensurePersonalPharmacyForUser(payload: ClerkUserPayload) {
+  if (!payload.id) {
+    return
+  }
+
+  const memberships = await clerkBackendClient.users.getOrganizationMembershipList({ userId: payload.id, limit: 1 })
+
+  if ((memberships?.data?.length ?? 0) > 0) {
+    return
+  }
+
+  const name = buildDefaultOrganizationName(payload)
+  const slug = buildDefaultOrganizationSlug(payload)
+
+  await clerkBackendClient.organizations.createOrganization({
+    name,
+    slug,
+    createdBy: payload.id,
+    publicMetadata: {
+      bootstrap: true,
+    },
+  })
 }
 
 export async function upsertPharmacyFromOrganization(organization: ClerkOrganizationPayload): Promise<string> {
@@ -107,65 +140,53 @@ export async function upsertPharmacyFromOrganization(organization: ClerkOrganiza
 
 export async function upsertMembershipFromClerk(event: WebhookEvent) {
   const membership = event.data as ClerkMembershipPayload
-  const organization = membership.organization
-  const user = membership.public_user_data
+  await syncMembershipFromPayload(membership)
+}
 
-  if (!organization?.id || !user?.user_id) {
-    throw new Error("Membership payload missing organization or user identifiers")
-  }
+export async function syncMembershipsForUser(clerkUserId: string) {
+  if (!clerkUserId) return
 
-  await upsertUserFromClerk({
-    id: user.user_id,
-    email_addresses: [
-      {
-        id: user.user_id,
-        email_address: user.email_address ?? "",
+  const membershipList = await clerkBackendClient.users.getOrganizationMembershipList({ userId: clerkUserId })
+
+  for (const membership of membershipList?.data ?? []) {
+    const rawMembership = membership as UnknownRecord
+    const organizationRecord = rawMembership.organization as UnknownRecord | undefined
+    const publicUserData =
+      (rawMembership.public_user_data as UnknownRecord | undefined) ??
+      (rawMembership.publicUserData as UnknownRecord | undefined)
+    const clerkUserId =
+      (rawMembership.user_id as string | undefined) ??
+      (rawMembership.userId as string | undefined) ??
+      (publicUserData?.user_id as string | undefined) ??
+      (publicUserData?.userId as string | undefined)
+
+    const organizationId = typeof organizationRecord?.id === "string" ? organizationRecord.id : undefined
+    if (!organizationId || !clerkUserId) {
+      continue
+    }
+
+    const organizationName = typeof organizationRecord?.name === "string" ? organizationRecord.name : null
+    const organizationSlug = typeof organizationRecord?.slug === "string" ? organizationRecord.slug : null
+    const organizationMetadata =
+      (organizationRecord?.public_metadata as ClerkOrganizationPayload["public_metadata"]) ??
+      (organizationRecord?.publicMetadata as ClerkOrganizationPayload["public_metadata"]) ??
+      null
+
+    await syncMembershipFromPayload({
+      role: membership.role,
+      organization: {
+        id: organizationId,
+        name: organizationName,
+        slug: organizationSlug,
+        public_metadata: organizationMetadata,
       },
-    ],
-    first_name: user.first_name,
-    last_name: user.last_name,
-    primary_email_address_id: user.user_id,
-  })
-
-  const pharmacyId = await upsertPharmacyFromOrganization(organization)
-
-  const { data: userRecord, error: userQueryError } = await supabaseAdminClient
-    .from("users")
-    .select("id")
-    .eq("clerk_id", user.user_id)
-    .maybeSingle()
-
-  if (userQueryError) {
-    throw userQueryError
-  }
-
-  if (!userRecord) {
-    throw new Error("User row was not found after upsert")
-  }
-
-  const role = mapClerkRole(membership.role)
-
-  const membershipUpsertPayload = {
-    pharmacy_id: pharmacyId,
-    user_id: userRecord.id,
-    role,
-  } satisfies Tables["pharmacy_memberships"]["Insert"]
-
-  const { error: membershipError } = await supabaseAdminClient
-    .from("pharmacy_memberships")
-    .upsert<Tables["pharmacy_memberships"]["Insert"]>(membershipUpsertPayload, { onConflict: "pharmacy_id,user_id" })
-
-  if (membershipError) {
-    throw membershipError
-  }
-
-  const { error: userUpdateError } = await supabaseAdminClient
-    .from("users")
-    .update({ pharmacy_id: pharmacyId, role })
-    .eq("id", userRecord.id)
-
-  if (userUpdateError) {
-    throw userUpdateError
+      public_user_data: {
+        user_id: clerkUserId,
+        email_address: (publicUserData?.email_address as string | null) ?? (publicUserData?.emailAddress as string | null) ?? null,
+        first_name: (publicUserData?.first_name as string | null) ?? (publicUserData?.firstName as string | null) ?? null,
+        last_name: (publicUserData?.last_name as string | null) ?? (publicUserData?.lastName as string | null) ?? null,
+      },
+    })
   }
 }
 
@@ -274,4 +295,93 @@ function getFullName(data: ClerkUserPayload): string | null {
 function getOrganizationAddress(data: ClerkOrganizationPayload): string | null {
   const addressFromMetadata = data.public_metadata?.address
   return typeof addressFromMetadata === "string" ? addressFromMetadata : null
+}
+
+async function syncMembershipFromPayload(membership: ClerkMembershipPayload) {
+  const organization = membership.organization
+  const user = membership.public_user_data
+
+  if (!organization?.id || !user?.user_id) {
+    throw new Error("Membership payload missing organization or user identifiers")
+  }
+
+  await upsertUserFromClerk({
+    id: user.user_id,
+    email_addresses: [
+      {
+        id: user.user_id,
+        email_address: user.email_address ?? "",
+      },
+    ],
+    first_name: user.first_name,
+    last_name: user.last_name,
+    primary_email_address_id: user.user_id,
+  })
+
+  const pharmacyId = await upsertPharmacyFromOrganization(organization)
+
+  const { data: userRecord, error: userQueryError } = await supabaseAdminClient
+    .from("users")
+    .select("id")
+    .eq("clerk_id", user.user_id)
+    .maybeSingle()
+
+  if (userQueryError) {
+    throw userQueryError
+  }
+
+  if (!userRecord) {
+    throw new Error("User row was not found after upsert")
+  }
+
+  const role = mapClerkRole(membership.role)
+
+  const membershipUpsertPayload = {
+    pharmacy_id: pharmacyId,
+    user_id: userRecord.id,
+    role,
+  } satisfies Tables["pharmacy_memberships"]["Insert"]
+
+  const { error: membershipError } = await supabaseAdminClient
+    .from("pharmacy_memberships")
+    .upsert<Tables["pharmacy_memberships"]["Insert"]>(membershipUpsertPayload, { onConflict: "pharmacy_id,user_id" })
+
+  if (membershipError) {
+    throw membershipError
+  }
+
+  const { error: userUpdateError } = await supabaseAdminClient
+    .from("users")
+    .update({ pharmacy_id: pharmacyId, role })
+    .eq("id", userRecord.id)
+
+  if (userUpdateError) {
+    throw userUpdateError
+  }
+}
+
+function buildDefaultOrganizationName(payload: ClerkUserPayload) {
+  const fullName = getFullName(payload)
+  if (fullName) {
+    return `Pharmacie ${fullName}`
+  }
+  const email = getPrimaryEmail(payload)
+  if (email) {
+    return `Pharmacie ${email.split("@")[0]}`
+  }
+  return "Nouvelle Pharmacie"
+}
+
+function buildDefaultOrganizationSlug(payload: ClerkUserPayload) {
+  const fromName = getFullName(payload)
+  const fromEmail = getPrimaryEmail(payload)?.split("@")[0]
+  const base = (fromName || fromEmail || payload.id)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 24)
+
+  const suffix = payload.id.replace(/[^a-z0-9]/gi, "").toLowerCase().slice(-6)
+
+  return [base || "pharmacie", suffix].filter(Boolean).join("-")
 }

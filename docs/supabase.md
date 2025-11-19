@@ -187,3 +187,57 @@ rollback;
 ```
 
 Adjust the placeholders for your pharmacy and Clerk ids. If any query fails, inspect the corresponding trigger or policy noted in `supabase/migrations/0004_automated_history.sql`.
+
+## 6. Dashboard Metrics Testing
+
+Roadmap item 3.1 exposes live indicators via Supabase helpers introduced in `0005_dashboard_metrics.sql`. Use the SQL snippets below (ideally in the Supabase SQL editor) to validate each card while impersonating the right pharmacy.
+
+1. **Impersonate an owner/staff user** so RLS resolves memberships:
+
+   ```sql
+   select set_config(
+     'request.jwt.claims',
+     json_build_object('sub', '<clerk-user-id>')::text,
+     true
+   );
+   ```
+
+2. **Sales aujourd’hui** – verifies totals, transaction count, and previous-day delta (timezone defaults to `Africa/Casablanca` in the UI):
+
+   ```sql
+    select *
+    from get_sales_summary(
+      p_pharmacy_id => '<pharmacy-id>',
+      p_timezone => 'Africa/Casablanca'
+    );
+   ```
+
+3. **Alertes stock** – confirm both the count and the preview payload:
+
+   ```sql
+    select alert_count, jsonb_pretty(items)
+    from get_stock_alert_snapshot(
+      p_pharmacy_id => '<pharmacy-id>',
+      p_limit => 5
+    );
+   ```
+
+4. **Prévision 7 jours** – ensures the moving average is computed on the last week of sales:
+
+   ```sql
+    select *
+    from get_sales_forecast(
+      p_pharmacy_id => '<pharmacy-id>',
+      p_timezone => 'Africa/Casablanca',
+      p_window => 7
+    );
+   ```
+
+5. **UI QA checklist** – after running `pnpm dev` and signing in:
+   - Compare the card values to the SQL output above (consider rounding).
+   - Toggle sample data to trigger >0 stock alerts and ensure the list reflects product names + suppliers.
+   - Resize the viewport (mobile/desktop) to confirm the metric grid and quick links remain readable.
+   - Validate French copy (“Ventes aujourd’hui”, “Alertes stock”, “Prévision 7 jours”, “Actions rapides”) matches the PRD tone.
+   - Click each quick action (`/app/sales`, `/app/inventory`, `/app/suppliers`, `/app/clients`) to ensure routing + Clerk protection behave as expected.
+
+These steps keep the dashboard trustworthy and make it easy to spot regressions when extending metrics or forecasts later.
