@@ -1,19 +1,12 @@
 import type { Metadata } from "next"
 import { ClerkProvider } from "@clerk/nextjs"
 import { frFR } from "@clerk/localizations"
-import { Geist, Geist_Mono } from "next/font/google"
-
-import { SiteHeader } from "@/components/site-header"
+import { Inter } from "next/font/google"
 
 import "./globals.css"
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-})
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
 })
 
@@ -72,11 +65,8 @@ export default function RootLayout({
       }}
     >
       <html lang="fr" suppressHydrationWarning>
-        <body className={`${geistSans.variable} ${geistMono.variable} bg-background antialiased`}>
-          <div className="flex min-h-screen flex-col">
-            <SiteHeader />
-            <main className="flex-1">{children}</main>
-          </div>
+        <body className={`${inter.variable} bg-background antialiased`}>
+          <main className="min-h-screen">{children}</main>
         </body>
       </html>
     </ClerkProvider>

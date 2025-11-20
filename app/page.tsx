@@ -1,12 +1,15 @@
 import Link from "next/link"
 import { SignedIn, SignedOut } from "@clerk/nextjs"
 
+import { SiteHeader } from "@/components/site-header"
 import { Button } from "@/components/ui/button"
 
 export default function HomePage() {
   return (
-    <section className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background px-6 py-16 text-foreground">
-      <div className="w-full max-w-4xl space-y-10 rounded-3xl border border-border bg-card/90 p-8 text-center shadow-2xl backdrop-blur-md transition-colors sm:p-12">
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader />
+      <section className="flex flex-1 items-center justify-center bg-background px-6 py-16 text-foreground">
+        <div className="w-full max-w-4xl space-y-10 rounded-3xl border border-border bg-card/90 p-8 text-center shadow-2xl backdrop-blur-md transition-colors sm:p-12">
         <div className="space-y-4">
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-muted-foreground">
             Gestion pharmaceutique
@@ -45,7 +48,8 @@ export default function HomePage() {
             </p>
           </div>
         </SignedIn>
-      </div>
-    </section>
+        </div>
+      </section>
+    </div>
   )
 }

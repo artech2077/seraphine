@@ -137,6 +137,12 @@ Triggers that automatically update:
 - [x] Data pulled via Supabase queries and caches
 - [x] Supabase dashboard query tests (ensure anon client can fetch aggregates per RLS)
 
+**Implementation Notes:**
+- Added Supabase RPC helpers (`get_sales_summary`, `get_sales_forecast`, `get_stock_alert_snapshot`) plus typed wrappers in `lib/dashboard/queries.ts` so the KPI cards are backed by live data with graceful fallbacks.
+- Built a Shadcn-based dashboard overview grid featuring metric cards inspired by `dashboard-01`, translucent cards, French copy, and trend badges that switch colors based on movement.
+- Integrated quick-action links and a detailed stock-alert list into `app/(protected)/app/page.tsx`, showing a friendly placeholder until backend modules ship.
+- Extended `docs/supabase.md` with SQL snippets + QA steps so the dashboard queries can be validated manually, and ensured the UI remains responsive/dark-mode friendly.
+
 ### 3.2 Sales Module (POS-Like Interface) - TO DO
 
 #### 3.2.1 Handle Sale Line Items

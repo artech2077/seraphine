@@ -1,8 +1,17 @@
 import { currentUser } from "@clerk/nextjs/server"
 
+import { AppSidebar } from "@/components/app-sidebar"
+import { DashboardHeader } from "./_components/dashboard-header"
 import { DashboardOverview } from "./_components/dashboard-overview"
 import { ensurePharmacyAccess } from "@/lib/pharmacies/bootstrap"
 import { supabaseAdminClient } from "@/lib/supabase/admin"
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import type { Database } from "@/types/database"
 
 export default async function AppHomePage() {
@@ -40,26 +49,86 @@ export default async function AppHomePage() {
   const userRole = (profile?.role as Database["public"]["Enums"]["user_role"]) ?? "restricted"
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-6 px-6 py-12">
-      <div className="rounded-3xl border border-border bg-card/80 p-8 shadow-lg backdrop-blur">
-        <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Espace sécurisé</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Bienvenue, {user?.firstName ?? "pharmacien·ne"}</h1>
-        <p className="mt-4 text-base text-muted-foreground">
-          Retrouvez ci-dessous vos indicateurs clés (ventes, alertes, projections) mis à jour via Supabase et
-          protégés par Clerk.
-        </p>
-      </div>
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "calc(var(--spacing) * 60)",
+          "--header-height": "calc(var(--spacing) * 12)",
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar variant="inset" />
+      <SidebarInset className="bg-background">
+        <DashboardHeader title="Tableau de bord" />
+        <div className="flex flex-1 flex-col gap-6 p-4 lg:p-8">
+          {pharmacyId ? (
+            <DashboardOverview pharmacyId={pharmacyId} role={userRole} />
+          ) : (
+            <Card className="text-center">
+              <CardHeader className="gap-2">
+                <CardTitle>Aucune pharmacie associée</CardTitle>
+                <CardDescription>
+                  Demandez à l’administrateur de vous inviter dans l’organisation Clerk afin d’accéder au tableau de bord.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
 
-      {pharmacyId ? (
-        <DashboardOverview pharmacyId={pharmacyId} role={userRole} />
-      ) : (
-        <div className="rounded-3xl border border-dashed border-border/80 bg-card/60 p-8 text-center shadow-sm">
-          <p className="text-base font-medium">Aucune pharmacie associée</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Demandez à l’administrateur de vous inviter dans l’organisation Clerk afin d’accéder au tableau de bord.
-          </p>
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            <ModulePlaceholder
+              id="ventes"
+              title="Module Ventes"
+              description="Interface POS-like avec lignes de vente, remises et paiements (à venir)."
+            />
+            <ModulePlaceholder
+              id="inventaire"
+              title="Inventaire"
+              description="Suivi des seuils, catégories et réassorts en temps réel."
+            />
+            <ModulePlaceholder
+              id="fournisseurs"
+              title="Fournisseurs"
+              description="Gestion des partenaires et balances automatisées."
+            />
+            <ModulePlaceholder
+              id="clients"
+              title="Clients"
+              description="Portefeuille clients et suivi des comptes à crédit."
+            />
+            <ModulePlaceholder
+              id="rapports"
+              title="Rapports"
+              description="Exports financiers, analytics et réconciliation (bientôt)."
+            />
+          </div>
         </div>
-      )}
-    </section>
+      </SidebarInset>
+    </SidebarProvider>
+  )
+}
+
+function ModulePlaceholder({
+  id,
+  title,
+  description,
+}: {
+  id: string
+  title: string
+  description: string
+}) {
+  return (
+    <Card id={id} className="h-full">
+      <CardHeader className="gap-2">
+        <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
+          Bientôt disponible
+        </p>
+        <CardTitle className="text-2xl font-semibold tracking-tight text-foreground">
+          {title}
+        </CardTitle>
+        <CardDescription className="text-base text-muted-foreground">
+          {description}
+        </CardDescription>
+      </CardHeader>
+    </Card>
   )
 }

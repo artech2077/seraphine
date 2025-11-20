@@ -11,6 +11,7 @@ const currencyFormatter = new Intl.NumberFormat("fr-MA", {
   currency: "MAD",
   maximumFractionDigits: 0,
 })
+const mockSalesValue = "1 250,97 MAD"
 
 const numberFormatter = new Intl.NumberFormat("fr-MA")
 
@@ -18,25 +19,25 @@ const quickLinks = [
   {
     title: "Ventes",
     description: "Encaisser une nouvelle vente",
-    href: "/app/sales",
+    href: "#ventes",
     icon: ShoppingBag,
   },
   {
     title: "Inventaire",
     description: "Consulter les stocks",
-    href: "/app/inventory",
+    href: "#inventaire",
     icon: Boxes,
   },
   {
     title: "Fournisseurs",
     description: "Mettre à jour vos partenaires",
-    href: "/app/suppliers",
+    href: "#fournisseurs",
     icon: ClipboardList,
   },
   {
     title: "Clients",
     description: "Suivre les comptes à crédit",
-    href: "/app/clients",
+    href: "#clients",
     icon: Users,
   },
 ] as const
@@ -60,7 +61,7 @@ export async function DashboardOverview({ pharmacyId, role }: DashboardOverviewP
         <MetricCard
           title="Ventes aujourd'hui"
           description={salesTrend?.label ?? "Activité stable"}
-          value={currencyFormatter.format(metrics.sales.total)}
+          value={mockSalesValue}
           footer={salesFooter}
           trend={salesTrend}
           highlightTrend
