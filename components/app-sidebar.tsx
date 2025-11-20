@@ -1,13 +1,13 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import {
   IconChartBar,
   IconDashboard,
   IconDatabase,
   IconFileReport,
   IconHelp,
-  IconInnerShadowTop,
   IconListDetails,
   IconReceipt2,
   IconSearch,
@@ -100,11 +100,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
+              className="w-full justify-start"
             >
-              <a href="/app">
-                <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">Seraphine</span>
+              <a href="/app" className="flex w-full items-center">
+                <Image
+                  src="/Seraphine_logo.svg"
+                  alt="Seraphine"
+                  width={32}
+                  height={32}
+                  className="h-9 w-auto"
+                  priority
+                />
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
