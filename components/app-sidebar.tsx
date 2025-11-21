@@ -37,7 +37,7 @@ const data = {
     },
     {
       title: "Ventes",
-      url: "#ventes",
+      url: "/app/ventes",
       icon: IconShoppingBag,
     },
     {

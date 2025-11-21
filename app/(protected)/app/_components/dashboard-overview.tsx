@@ -106,7 +106,7 @@ export async function DashboardOverview({ pharmacyId, role }: DashboardOverviewP
           ) : (
             <ul className="space-y-4">
               {metrics.stockAlerts.items.map((item) => (
-                <li key={item.id} className="flex items-start justify-between gap-3 rounded-2xl border border-border/60 p-4">
+                <li key={item.id} className="flex items-start justify-between gap-3 rounded-[var(--radius-lg)] border border-border/60 p-4">
                   <div>
                     <p className="font-medium leading-tight">{item.name}</p>
                     <p className="text-sm text-muted-foreground">
@@ -172,7 +172,7 @@ function TrendBadge({ trend }: { trend: TrendLabel }) {
 
   return (
     <div
-      className={`mt-2 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium ${tone} ${background}`}
+      className={`mt-2 inline-flex items-center gap-1 rounded-[var(--radius-lg)] border px-3 py-1 text-xs font-medium ${tone} ${background}`}
     >
       <Icon className="h-3.5 w-3.5" />
       <span>{trend.label}</span>
@@ -240,7 +240,7 @@ function QuickActionsCard({ role }: { role?: Database["public"]["Enums"]["user_r
           <Link
             key={action.href}
             href={action.href}
-            className="group flex items-center justify-between rounded-2xl border border-border/60 px-4 py-3 transition hover:border-primary hover:bg-primary/5"
+            className="group flex items-center justify-between rounded-[var(--radius-lg)] border border-border/60 px-4 py-3 transition hover:border-primary hover:bg-primary/5"
           >
             <div>
               <p className="font-medium leading-tight">{action.title}</p>

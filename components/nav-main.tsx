@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import type { Icon } from "@tabler/icons-react"
 import {
   SidebarGroup,
@@ -24,9 +25,11 @@ export function NavMain({
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton tooltip={item.title}>
-                {item.icon && <item.icon />}
-                <span>{item.title}</span>
+              <SidebarMenuButton asChild tooltip={item.title}>
+                <Link href={item.url} className="w-full" prefetch={false}>
+                  {item.icon && <item.icon />}
+                  <span>{item.title}</span>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}

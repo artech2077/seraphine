@@ -76,11 +76,6 @@ export default async function AppHomePage() {
 
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             <ModulePlaceholder
-              id="ventes"
-              title="Module Ventes"
-              description="Interface POS-like avec lignes de vente, remises et paiements (à venir)."
-            />
-            <ModulePlaceholder
               id="inventaire"
               title="Inventaire"
               description="Suivi des seuils, catégories et réassorts en temps réel."

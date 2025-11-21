@@ -143,17 +143,22 @@ Triggers that automatically update:
 - Integrated quick-action links and a detailed stock-alert list into `app/(protected)/app/page.tsx`, showing a friendly placeholder until backend modules ship.
 - Extended `docs/supabase.md` with SQL snippets + QA steps so the dashboard queries can be validated manually, and ensured the UI remains responsive/dark-mode friendly.
 
-### 3.2 Sales Module (POS-Like Interface) - TO DO
+### 3.2 Sales Module (POS-Like Interface) - In Progress
 
 #### 3.2.1 Handle Sale Line Items
 
 **Expected Output:**
-- [ ] Sale form with product search, quantity, price
-- [ ] Line-level + sale-level discounts (percentage or fixed amount)
-- [ ] Payment types: cash, card, credit
-- [ ] Automatic calculation of totals
-- [ ] Full French UI
-- [ ] Optimistic UI updates
+- [x] Sale form with product search, quantity, price
+- [x] Line-level + sale-level discounts (percentage or fixed amount)
+- [x] Payment types: cash, card, credit
+- [x] Automatic calculation of totals
+- [x] Full French UI
+- [x] Optimistic UI updates
+
+**Implementation Notes:**
+- Built the `SalesComposer` client component rendered on `/app/ventes`, leveraging shadcn `Input`, `Select`, `Badge`, and `Button` primitives wired to the design tokens in `app/globals.css`.
+- Added per-line product search with inline dropdown suggestions, quantity/unit price editors, discount controls, and line removal; totals recompute instantly with optimistic state updates.
+- Included global discount + payment selectors inside the same card and exposed CTA buttons for scan/add line actions, all localized in French and responsive.
 
 #### 3.2.2 RPC: create_sale_with_items
 
