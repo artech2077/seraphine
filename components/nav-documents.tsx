@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import {
   IconDots,
   IconFolder,
@@ -35,6 +36,29 @@ export function NavDocuments({
   }[]
 }) {
   const { isMobile } = useSidebar()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+        <SidebarGroupLabel>Documents</SidebarGroupLabel>
+        <SidebarMenu>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <SidebarMenuItem key={index}>
+              <SidebarMenuButton className="opacity-70">
+                <span className="h-4 w-4 rounded-sm bg-muted" />
+                <span className="h-4 w-20 rounded-sm bg-muted" />
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarGroup>
+    )
+  }
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">

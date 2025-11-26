@@ -1,8 +1,8 @@
 import { currentUser } from "@clerk/nextjs/server"
 
+import ArticlesVendusCard from "@/components/articles-vendus-card"
 import { AppSidebar } from "@/components/app-sidebar"
 import { DashboardHeader } from "../_components/dashboard-header"
-import { SalesComposer } from "../_components/sales-composer"
 import { ensurePharmacyAccess } from "@/lib/pharmacies/bootstrap"
 import { supabaseAdminClient } from "@/lib/supabase/admin"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -55,7 +55,7 @@ export default async function SalesPage() {
       <SidebarInset className="bg-background">
         <DashboardHeader title="Ventes" />
         <div className="flex flex-1 flex-col gap-6 p-4 lg:p-8">
-          {pharmacyId ? <SalesComposer pharmacyId={pharmacyId} /> : <MissingPharmacyCard />}
+          {pharmacyId ? <ArticlesVendusCard /> : <MissingPharmacyCard />}
         </div>
       </SidebarInset>
     </SidebarProvider>
