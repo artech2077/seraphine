@@ -128,6 +128,8 @@ Triggers that automatically update:
 
 ## 3. Core Product Modules
 
+All modules from 3.2 to 3.8 follow a two-step delivery: ship UI with mock data/fixtures first, then replace mocks with Supabase-backed functionality.
+
 ### 3.1 Dashboard - Done
 
 **Expected Output:**
@@ -145,6 +147,10 @@ Triggers that automatically update:
 
 ### 3.2 Sales Module (POS-Like Interface) - In Progress
 
+**Approach:**
+- [x] UI-first: Sales composer built with mock catalog/payment data to validate flows, discounts, and scanner-friendly focus.
+- [ ] Functionality: Swap mocks for Supabase queries/RPCs and post real sales once 3.2.2 lands.
+
 #### 3.2.1 Handle Sale Line Items
 
 **Expected Output:**
@@ -159,6 +165,7 @@ Triggers that automatically update:
 - Built the `SalesComposer` client component rendered on `/app/ventes`, leveraging shadcn `Input`, `Select`, `Badge`, and `Button` primitives wired to the design tokens in `app/globals.css`.
 - Added per-line product search with inline dropdown suggestions, quantity/unit price editors, discount controls, and line removal; totals recompute instantly with optimistic state updates.
 - Included global discount + payment selectors inside the same card and exposed CTA buttons for scan/add line actions, all localized in French and responsive.
+- Currently powered by mock product/payment fixtures; will be connected to Supabase queries and the sale RPC in 3.2.2.
 
 #### 3.2.2 RPC: create_sale_with_items
 
@@ -171,6 +178,7 @@ Atomic transaction that:
 - [ ] Decrements stock
 - [ ] Updates client balance (if credit)
 - [ ] Error-safe rollback behavior
+- [ ] Replaces mocked data sources in `SalesComposer` with live queries/RPC calls and persists sale submissions end-to-end.
 
 #### 3.2.3 Barcode Scanner Support
 
@@ -178,8 +186,13 @@ Atomic transaction that:
 - [ ] Input automatically focused on product search
 - [ ] USB scanner triggers quick lookup
 - [ ] Product auto-added with qty = 1
+- [ ] Scanner path tested with mock lookup first, then wired to live product search once Supabase integration is enabled.
 
 ### 3.3 Cash Reconciliation Workflow - TO DO
+
+**Approach:**
+- [ ] UI-first: Opening and end-of-day cash cards with mock totals/discrepancies and client-side validation to lock copy and flow.
+- [ ] Functionality: Persist to `cash_reconciliations`, enforce sequencing (opening before closing), and remove mocks.
 
 #### 3.3.1 Opening Cash (“Fond de caisse”)
 
@@ -198,12 +211,22 @@ Atomic transaction that:
 
 ### 3.4 Inventory Management - TO DO
 
+**Approach:**
+- [ ] UI-first: Inventory table matching the screenshot (product card, stock pill, threshold, buy/sell prices, TVA, category, galenic form, barcode, actions), with mock data, CTA “Ajouter un produit”, and inline actions “Réappro” / “Ajuster”.
+- [ ] Functionality: Replace mocks with Supabase-backed products/suppliers/categories, live stock + thresholds driving the color-coded pills, and action hooks into procurement (réappro) and stock adjustment flows.
+
 #### 3.4.1 Core Inventory
 
 **Expected Output:**
-- [ ] Product list with filters: supplier, category, low stock
-- [ ] Add/edit product modal
-- [ ] Real-time stock updates
+- [ ] Inventory table with columns: Produit, Stock (traffic-light badge), Seuil, Prix d’achat, Prix de vente, TVA, Catégorie, Forme galénique, Code-barres, Actions (Réappro, Ajuster)
+- [ ] CTA “Ajouter un produit” opening add/edit modal aligned to the table fields
+- [ ] Filters: supplier, category, low stock
+- [ ] Real-time stock updates and pill color logic (red < threshold, amber near threshold, green healthy)
+
+**Implementation Notes (UI-first progress):**
+- UI built with mock data: table, stock status pills, filters (recherche, catégorie, fournisseur, stock bas), and a three-dot action menu per ligne.
+- Add/Edit product sheet, Réappro sheet, and Ajuster sheet implemented; all currently no-op and ready to wire to Supabase/movements.
+- Prices now displayed as plain numbers (no currency symbol) across tables to align with design feedback.
 
 #### 3.4.2 Automatic Inventory Movements
 
@@ -211,6 +234,7 @@ Atomic transaction that:
 - [ ] All stock-ins and stock-outs logged in inventory_movements
 - [ ] Movement types: sale, purchase, adjustment, preparation
 - [ ] Linked to reference transaction ID
+- [ ] Table actions (“Réappro”, “Ajuster”) mapped to the corresponding movement type when backend wiring is enabled
 
 #### 3.4.3 Stock Alerts
 
@@ -218,8 +242,13 @@ Atomic transaction that:
 - [ ] Low-stock indicators
 - [ ] Dashboard widget listing at-risk products
 - [ ] Click-through to reorder or adjust stock
+- [ ] Alert badges reuse the same stock/threshold logic as the inventory table
 
 ### 3.5 Procurement
+
+**Approach:**
+- [ ] UI-first: Purchase order and delivery note screens built with mock suppliers/items to finalize table layouts, statuses, and PDF/export UX.
+- [ ] Functionality: Connect to Supabase (POs, deliveries, stock updates) and remove mock data.
 
 #### 3.5.1 Purchase Orders
 
@@ -239,6 +268,10 @@ Atomic transaction that:
 
 ### 3.6 Supplier Management - TO DO
 
+**Approach:**
+- [ ] UI-first: Supplier list and profile views (balances, deliveries, POs, payments) using fixtures to lock navigation and component hierarchy.
+- [ ] Functionality: Persist CRUD to Supabase, compute balances from events, and replace fixtures with live queries.
+
 **Expected Output:**
 - [ ] Supplier list  
 Supplier profile with:
@@ -251,6 +284,10 @@ Supplier profile with:
 
 ### 3.7 Client Management - TO DO
 
+**Approach:**
+- [ ] UI-first: Client list + profile (credit limit, balance, sales, payments) displayed from mock data to validate UX and copy.
+- [ ] Functionality: Wire credit payments and balance updates to Supabase, swap mocks for live data.
+
 **Expected Output:**
 - [ ] Client list  
 Client profile: credit limit, balance, sales, payments
@@ -258,6 +295,10 @@ Client profile: credit limit, balance, sales, payments
 - [ ] Auto-updated balance
 
 ### 3.8 Pharmaceutical Preparation - TO DO
+
+**Approach:**
+- [ ] UI-first: Preparation batch builder with mock ingredients/quantities and batch metadata to confirm flow and stock visualization.
+- [ ] Functionality: Hook to Supabase to deduct ingredients, add prepared stock, log movements, and assign batch numbers.
 
 **Expected Output:**
 - [ ] Create preparation batch

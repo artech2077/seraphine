@@ -41,7 +41,7 @@ const data = {
     },
     {
       title: "Inventaire",
-      url: "#inventaire",
+      url: "/app/inventaire",
       icon: IconDatabase,
     },
     {

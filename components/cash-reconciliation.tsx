@@ -276,12 +276,12 @@ export function ReconciliationHistoryTable() {
                 return (
                   <TableRow key={`${row.date}-${row.status}`} className="border-border">
                     <TableCell className="font-semibold text-foreground">{row.date}</TableCell>
-                    <TableCell className="text-foreground">{formatMad(row.opening)}</TableCell>
-                    <TableCell className="text-foreground">{formatMad(row.expected)}</TableCell>
-                    <TableCell className="text-foreground">{formatMad(row.counted)}</TableCell>
+                    <TableCell className="text-foreground">{formatNumber(row.opening)}</TableCell>
+                    <TableCell className="text-foreground">{formatNumber(row.expected)}</TableCell>
+                    <TableCell className="text-foreground">{formatNumber(row.counted)}</TableCell>
                     <TableCell className={varianceClass}>
                       {row.variance > 0 ? "+" : ""}
-                      {formatMad(Math.abs(row.variance))}
+                      {formatNumber(Math.abs(row.variance))}
                     </TableCell>
                     <TableCell>
                       <Badge variant={status.badgeVariant}>{status.label}</Badge>
