@@ -1,16 +1,24 @@
 import { currentUser } from "@clerk/nextjs/server"
 
-import ArticlesVendusCard from "@/components/articles-vendus-card"
+import {
+  EndOfDayReconciliationCard,
+  MorningFloatCard,
+  ReconciliationHistoryTable,
+} from "@/components/cash-reconciliation"
 import { AppSidebar } from "@/components/app-sidebar"
 import { DashboardHeader } from "../_components/dashboard-header"
-import SalesHistoryTable from "@/components/sales-history-table"
 import { ensurePharmacyAccess } from "@/lib/pharmacies/bootstrap"
 import { supabaseAdminClient } from "@/lib/supabase/admin"
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import type { Database } from "@/types/database"
 
-export default async function SalesPage() {
+export default async function CashReconciliationPage() {
   const user = await currentUser()
   if (!user) return null
 
@@ -54,12 +62,13 @@ export default async function SalesPage() {
     >
       <AppSidebar variant="inset" />
       <SidebarInset className="bg-background">
-        <DashboardHeader title="Ventes" />
+        <DashboardHeader title="Réconciliation caisse" />
         <div className="flex flex-1 flex-col gap-6 p-4 lg:p-8">
           {pharmacyId ? (
             <>
-              <ArticlesVendusCard />
-              <SalesHistoryTable />
+              <MorningFloatCard />
+              <EndOfDayReconciliationCard />
+              <ReconciliationHistoryTable />
             </>
           ) : (
             <MissingPharmacyCard />
@@ -76,7 +85,7 @@ function MissingPharmacyCard() {
       <CardHeader className="gap-2">
         <CardTitle>Aucune pharmacie associée</CardTitle>
         <CardDescription>
-          Demandez à l’administrateur de vous inviter dans l’organisation Clerk afin d’accéder au module Ventes.
+          Demandez à l’administrateur de vous inviter dans l’organisation Clerk afin d’accéder au module Réconciliation.
         </CardDescription>
       </CardHeader>
     </Card>

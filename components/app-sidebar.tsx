@@ -16,7 +16,6 @@ import {
   IconUsers,
 } from "@tabler/icons-react"
 
-import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import {
@@ -56,6 +55,23 @@ const data = {
       icon: IconUsers,
     },
   ],
+  navDocs: [
+    {
+      name: "Réconciliation caisse",
+      url: "/app/reconciliation",
+      icon: IconReceipt2,
+    },
+    {
+      name: "Rapports",
+      url: "#rapports",
+      icon: IconFileReport,
+    },
+    {
+      name: "Analytique",
+      url: "#analytique",
+      icon: IconChartBar,
+    },
+  ],
   navSecondary: [
     {
       title: "Paramètres",
@@ -71,23 +87,6 @@ const data = {
       title: "Recherche",
       url: "#search",
       icon: IconSearch,
-    },
-  ],
-  documents: [
-    {
-      name: "Réconciliation caisse",
-      url: "#caisse",
-      icon: IconReceipt2,
-    },
-    {
-      name: "Rapports",
-      url: "#rapports",
-      icon: IconFileReport,
-    },
-    {
-      name: "Analytique",
-      url: "#analytique",
-      icon: IconChartBar,
     },
   ],
 }
@@ -117,8 +116,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
+        <NavMain
+          items={[
+            ...data.navMain,
+            ...data.navDocs.map((item) => ({
+              title: item.name,
+              url: item.url,
+              icon: item.icon,
+            })),
+          ]}
+        />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
     </Sidebar>
