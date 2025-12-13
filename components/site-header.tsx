@@ -15,7 +15,15 @@ export function SiteHeader() {
             alt="Seraphine"
             width={32}
             height={32}
-            className="h-8 w-auto"
+            className="h-8 w-auto dark:hidden"
+            priority
+          />
+          <Image
+            src="/Seraphine_logo_dark.svg"
+            alt="Seraphine"
+            width={32}
+            height={32}
+            className="hidden h-8 w-auto dark:block"
             priority
           />
         </Link>

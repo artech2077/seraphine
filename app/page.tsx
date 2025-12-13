@@ -15,7 +15,15 @@ export default function HomePage() {
           <CardContent className="space-y-10 p-8 sm:p-12">
             <div className="space-y-4">
               <div className="flex justify-center">
-                <Image src="/Seraphine_logo.svg" alt="Seraphine" width={96} height={96} className="h-16 w-auto" priority />
+                <Image src="/Seraphine_logo.svg" alt="Seraphine" width={96} height={96} className="h-16 w-auto dark:hidden" priority />
+                <Image
+                  src="/Seraphine_logo_dark.svg"
+                  alt="Seraphine"
+                  width={96}
+                  height={96}
+                  className="hidden h-16 w-auto dark:block"
+                  priority
+                />
               </div>
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-muted-foreground">
                 Gestion pharmaceutique

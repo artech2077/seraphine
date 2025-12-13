@@ -13,6 +13,7 @@ import {
   IconSearch,
   IconSettings,
   IconShoppingBag,
+  IconTruckDelivery,
   IconUsers,
 } from "@tabler/icons-react"
 
@@ -45,13 +46,18 @@ const data = {
       icon: IconDatabase,
     },
     {
+      title: "Achats",
+      url: "/app/achats",
+      icon: IconTruckDelivery,
+    },
+    {
       title: "Fournisseurs",
-      url: "#fournisseurs",
+      url: "/app/fournisseurs",
       icon: IconListDetails,
     },
     {
       title: "Clients",
-      url: "#clients",
+      url: "/app/clients",
       icon: IconUsers,
     },
   ],
@@ -107,7 +113,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   alt="Seraphine"
                   width={32}
                   height={32}
-                  className="h-9 w-auto"
+                  className="h-9 w-auto dark:hidden"
+                  priority
+                />
+                <Image
+                  src="/Seraphine_logo_dark.svg"
+                  alt="Seraphine"
+                  width={32}
+                  height={32}
+                  className="hidden h-9 w-auto dark:block"
                   priority
                 />
               </a>
