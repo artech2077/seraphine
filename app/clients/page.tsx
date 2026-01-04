@@ -3,8 +3,8 @@ import { PageShell } from "@/components/page-shell"
 export default function Page() {
   return (
     <PageShell
-      title="Tableau de bord"
-      description="Suivez vos indicateurs clés et l'activité récente."
+      title="Clients"
+      description="Suivez la relation client et l'historique des comptes."
     />
   )
 }

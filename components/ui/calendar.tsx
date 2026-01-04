@@ -100,25 +100,25 @@ function Calendar({
           defaultClassNames.week_number
         ),
         day: cn(
-          "relative w-full rounded-(--cell-radius) h-full p-0 text-center [&:last-child[data-selected=true]_button]:rounded-r-(--cell-radius) group/day aspect-square select-none",
+          "relative w-full rounded-(--cell-radius) h-full p-0 text-center [&:last-child[data-selected=true]_button]:rounded-r-(--cell-radius) [&:first-child[data-range-middle=true]]:rounded-l-(--cell-radius) [&:last-child[data-range-middle=true]]:rounded-r-(--cell-radius) group/day aspect-square select-none",
           props.showWeekNumber
             ? "[&:nth-child(2)[data-selected=true]_button]:rounded-l-(--cell-radius)"
             : "[&:first-child[data-selected=true]_button]:rounded-l-(--cell-radius)",
           defaultClassNames.day
         ),
         range_start: cn(
-          "rounded-l-(--cell-radius) bg-muted elative after:bg-muted after:absolute after:inset-y-0 after:w-4 after:right-0 -z-0 isolate",
-          defaultClassNames.range_start
+          defaultClassNames.range_start,
+          "rounded-l-(--cell-radius) rounded-r-none bg-muted"
         ),
-        range_middle: cn("rounded-none", defaultClassNames.range_middle),
+        range_middle: cn(
+          defaultClassNames.range_middle,
+          "rounded-none bg-muted first:rounded-l-(--cell-radius) last:rounded-r-(--cell-radius) z-0"
+        ),
         range_end: cn(
-          "rounded-r-(--cell-radius) bg-muted relative after:bg-muted after:absolute after:inset-y-0 after:w-4 after:left-0 -z-0 isolate",
-          defaultClassNames.range_end
+          defaultClassNames.range_end,
+          "rounded-r-(--cell-radius) rounded-l-none bg-muted"
         ),
-        today: cn(
-          "bg-muted text-foreground rounded-(--cell-radius) data-[selected=true]:rounded-none",
-          defaultClassNames.today
-        ),
+        today: cn("text-foreground"),
         outside: cn(
           "text-muted-foreground aria-selected:text-muted-foreground",
           defaultClassNames.outside
@@ -188,6 +188,9 @@ function CalendarDayButton({
     if (modifiers.focused) ref.current?.focus()
   }, [modifiers.focused])
 
+  const isRange =
+    modifiers.range_start || modifiers.range_end || modifiers.range_middle
+
   return (
     <Button
       variant="ghost"
@@ -203,7 +206,8 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        "data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground data-[range-middle=true]:bg-muted data-[range-middle=true]:text-foreground data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-ring/50 dark:hover:text-foreground relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 border-0 leading-none font-normal group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:ring-[3px] data-[range-end=true]:rounded-(--cell-radius) data-[range-end=true]:rounded-r-(--cell-radius) data-[range-middle=true]:rounded-none data-[range-start=true]:rounded-(--cell-radius) data-[range-start=true]:rounded-l-(--cell-radius) [&>span]:text-xs [&>span]:opacity-70",
+        "data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground data-[range-middle=true]:text-foreground data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground group-data-[focused=true]/day:border-transparent group-data-[focused=true]/day:ring-0 dark:hover:text-foreground relative isolate z-10 grid place-items-center aspect-square size-auto w-full min-w-(--cell-size) border-0 leading-none font-normal group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 hover:rounded-sm data-[range-end=true]:rounded-sm data-[range-end=true]:rounded-r-sm data-[range-start=true]:rounded-sm data-[range-start=true]:rounded-l-sm [&>span]:text-xs [&>span]:opacity-70",
+        modifiers.today && !isRange && "bg-muted text-foreground",
         defaultClassNames.day,
         className
       )}
