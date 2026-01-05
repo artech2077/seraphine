@@ -7,6 +7,7 @@ import {
   InventoryTable,
   type InventoryItem,
 } from "@/components/inventory-table"
+import { InventoryProductModal } from "@/components/inventory-product-modal"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import {
@@ -95,10 +96,15 @@ export default function Page() {
       title="Inventaire"
       description="Gérez vos stocks, références et niveaux de disponibilité."
       actions={
-        <Button>
-          <Plus className="size-4" />
-          Ajouter un produit
-        </Button>
+        <InventoryProductModal
+          mode="create"
+          trigger={
+            <Button>
+              <Plus className="size-4" />
+              Ajouter un produit
+            </Button>
+          }
+        />
       }
     >
       <DataTable

@@ -22,6 +22,7 @@ import {
   TableRow,
   SortableTableHead,
 } from "@/components/ui/table"
+import { InventoryProductModal } from "@/components/inventory-product-modal"
 import { cn } from "@/lib/utils"
 import { MoreHorizontal, Pencil, Printer, Trash2 } from "lucide-react"
 
@@ -151,6 +152,8 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
 
   const [sortKey, setSortKey] = React.useState<InventorySortKey | null>(null)
   const [sortState, setSortState] = React.useState<SortState>("default")
+  const [editOpen, setEditOpen] = React.useState(false)
+  const [activeItem, setActiveItem] = React.useState<InventoryItem | null>(null)
 
   const sortedItems = React.useMemo(() => {
     const next = [...items]
@@ -211,89 +214,109 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
     setSortState("asc")
   }
 
+  function handleEdit(item: InventoryItem) {
+    setActiveItem(item)
+    setEditOpen(true)
+  }
+
+  function handleEditOpenChange(nextOpen: boolean) {
+    setEditOpen(nextOpen)
+    if (!nextOpen) {
+      setActiveItem(null)
+    }
+  }
+
   return (
-    <Table>
-      <InventoryTableHeader
-        activeSortKey={sortKey ?? undefined}
-        sortState={sortState}
-        onSort={(key) => handleSort(key)}
+    <>
+      <Table>
+        <InventoryTableHeader
+          activeSortKey={sortKey ?? undefined}
+          sortState={sortState}
+          onSort={(key) => handleSort(key)}
+        />
+        <TableBody>
+          {sortedItems.map((item) => {
+            const isLowStock = item.stock <= item.threshold
+            return (
+              <TableRow key={item.id}>
+                <TableCell className="font-medium">{item.name}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {item.barcode ?? "-"}
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <span
+                      className={cn(
+                        "tabular-nums",
+                        isLowStock && "text-destructive font-medium"
+                      )}
+                    >
+                      {item.stock}
+                    </span>
+                    <Badge variant={isLowStock ? "destructive" : "success"}>
+                      {isLowStock ? "Bas" : "OK"}
+                    </Badge>
+                  </div>
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {item.threshold}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {formatCurrency(item.purchasePrice)}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {formatCurrency(item.sellingPrice)}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {item.vatRate}%
+                </TableCell>
+                <TableCell>{item.category}</TableCell>
+                <TableCell>{item.dosageForm}</TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Ouvrir le menu"
+                        />
+                      }
+                    >
+                      <MoreHorizontal />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuGroup>
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onSelect={() => handleEdit(item)}>
+                          <Pencil />
+                          Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Printer />
+                          Imprimer la fiche
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive">
+                          <Trash2 />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+      <InventoryProductModal
+        mode="edit"
+        open={editOpen}
+        onOpenChange={handleEditOpenChange}
+        item={activeItem ?? undefined}
       />
-      <TableBody>
-        {sortedItems.map((item) => {
-          const isLowStock = item.stock <= item.threshold
-          return (
-            <TableRow key={item.id}>
-              <TableCell className="font-medium">{item.name}</TableCell>
-              <TableCell className="text-muted-foreground">
-                {item.barcode ?? "-"}
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex items-center justify-end gap-2">
-                  <span
-                    className={cn(
-                      "tabular-nums",
-                      isLowStock && "text-destructive font-medium"
-                    )}
-                  >
-                    {item.stock}
-                  </span>
-                  <Badge variant={isLowStock ? "destructive" : "success"}>
-                    {isLowStock ? "Bas" : "OK"}
-                  </Badge>
-                </div>
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {item.threshold}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {formatCurrency(item.purchasePrice)}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {formatCurrency(item.sellingPrice)}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {item.vatRate}%
-              </TableCell>
-              <TableCell>{item.category}</TableCell>
-              <TableCell>{item.dosageForm}</TableCell>
-              <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Ouvrir le menu"
-                      />
-                    }
-                  >
-                    <MoreHorizontal />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuGroup>
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>
-                        <Pencil />
-                        Modifier
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Printer />
-                        Imprimer la fiche
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem variant="destructive">
-                        <Trash2 />
-                        Supprimer
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          )
-        })}
-      </TableBody>
-    </Table>
+    </>
   )
 }
 
