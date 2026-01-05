@@ -43,7 +43,8 @@ export type SaleHistoryItem = {
   date: string
   client: string
   seller: string
-  paymentMethod: "Especes" | "Carte" | "Cheque" | "Credit"
+  paymentMethod: "Espèce" | "Carte" | "Crédit"
+  globalDiscount: string
   amountTtc: number
   items: SaleLineItem[]
 }
@@ -54,10 +55,9 @@ const currencyFormatter = new Intl.NumberFormat("fr-MA", {
 })
 
 const paymentVariants = {
-  Especes: "success",
+  "Espèce": "success",
   Carte: "outline",
-  Cheque: "ghost",
-  Credit: "destructive",
+  "Crédit": "destructive",
 } as const satisfies Record<
   SaleHistoryItem["paymentMethod"],
   React.ComponentProps<typeof Badge>["variant"]
@@ -69,7 +69,15 @@ function formatCurrency(value: number) {
 
 export function SalesHistoryTable({ sales }: { sales: SaleHistoryItem[] }) {
   type SortState = "default" | "asc" | "desc"
-  type SalesSortKey = "date" | "client" | "seller" | "amountTtc"
+  type SalesSortKey =
+    | "id"
+    | "date"
+    | "client"
+    | "seller"
+    | "itemsCount"
+    | "globalDiscount"
+    | "amountTtc"
+    | "paymentMethod"
   type LineItemSortKey =
     | "product"
     | "quantity"
@@ -85,6 +93,18 @@ export function SalesHistoryTable({ sales }: { sales: SaleHistoryItem[] }) {
   const [lineItemSortState, setLineItemSortState] =
     React.useState<SortState>("default")
 
+  const getItemsCount = React.useCallback((sale: SaleHistoryItem) => {
+    return sale.items.reduce((total, item) => total + item.quantity, 0)
+  }, [])
+
+  const parseDiscount = React.useCallback((value: string) => {
+    if (!value || value === "-") return 0
+    const numeric = Number(
+      value.replace(",", ".").replace(/[^0-9.-]/g, "")
+    )
+    return Number.isNaN(numeric) ? 0 : numeric
+  }, [])
+
   const sortedSales = React.useMemo(() => {
     const next = [...sales]
     if (sortState === "default" || !sortKey) {
@@ -93,11 +113,24 @@ export function SalesHistoryTable({ sales }: { sales: SaleHistoryItem[] }) {
     next.sort((a, b) => {
       let result = 0
       switch (sortKey) {
+        case "id":
+          result = a.id.localeCompare(b.id, "fr")
+          break
         case "amountTtc":
           result = a.amountTtc - b.amountTtc
           break
         case "client":
           result = a.client.localeCompare(b.client, "fr")
+          break
+        case "paymentMethod":
+          result = a.paymentMethod.localeCompare(b.paymentMethod, "fr")
+          break
+        case "itemsCount":
+          result = getItemsCount(a) - getItemsCount(b)
+          break
+        case "globalDiscount":
+          result =
+            parseDiscount(a.globalDiscount) - parseDiscount(b.globalDiscount)
           break
         case "seller":
           result = a.seller.localeCompare(b.seller, "fr")
@@ -116,7 +149,7 @@ export function SalesHistoryTable({ sales }: { sales: SaleHistoryItem[] }) {
       return sortState === "asc" ? result : -result
     })
     return next
-  }, [sales, sortKey, sortState])
+  }, [sales, sortKey, sortState, getItemsCount, parseDiscount])
 
   const sortedLineItems = React.useCallback(
     (items: SaleLineItem[]) => {
@@ -202,6 +235,13 @@ export function SalesHistoryTable({ sales }: { sales: SaleHistoryItem[] }) {
             sortable={false}
           />
           <SortableTableHead
+            label="ID vente"
+            sortKey="id"
+            activeSortKey={sortKey ?? undefined}
+            sortState={sortState}
+            onSort={() => handleSort("id")}
+          />
+          <SortableTableHead
             label="Date"
             sortKey="date"
             activeSortKey={sortKey ?? undefined}
@@ -223,151 +263,189 @@ export function SalesHistoryTable({ sales }: { sales: SaleHistoryItem[] }) {
             onSort={() => handleSort("seller")}
           />
           <SortableTableHead
-            label="Montant TTC"
+            label="Produits"
+            align="right"
+            sortKey="itemsCount"
+            activeSortKey={sortKey ?? undefined}
+            sortState={sortState}
+            onSort={() => handleSort("itemsCount")}
+          />
+          <SortableTableHead
+            label="Remise"
+            sortKey="globalDiscount"
+            activeSortKey={sortKey ?? undefined}
+            sortState={sortState}
+            onSort={() => handleSort("globalDiscount")}
+          />
+          <SortableTableHead
+            label="Montant"
             align="right"
             sortKey="amountTtc"
             activeSortKey={sortKey ?? undefined}
             sortState={sortState}
             onSort={() => handleSort("amountTtc")}
           />
-          <SortableTableHead label="Paiement" sortable={false} />
-          <SortableTableHead label="Actions" align="right" sortable={false} />
+          <SortableTableHead
+            label="Paiement"
+            sortKey="paymentMethod"
+            activeSortKey={sortKey ?? undefined}
+            sortState={sortState}
+            onSort={() => handleSort("paymentMethod")}
+          />
+          <SortableTableHead
+            label="Actions"
+            align="right"
+            sortable={false}
+            hideLabel
+          />
         </TableRow>
       </TableHeader>
-      {sortedSales.map((sale) => (
-        <ExpandableTableRow
-          key={sale.id}
-          value={sale.id}
-          panelColSpan={7}
-          row={
-            <>
-              <TableCell>
-                <ExpandableTableTrigger label="Afficher les articles" />
-              </TableCell>
-              <TableCell className="font-medium">{sale.date}</TableCell>
-              <TableCell>{sale.client}</TableCell>
-              <TableCell>{sale.seller}</TableCell>
-              <TableCell className="text-right font-medium tabular-nums">
-                {formatCurrency(sale.amountTtc)}
-              </TableCell>
-              <TableCell>
-                <Badge variant={paymentVariants[sale.paymentMethod]}>
-                  {sale.paymentMethod}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Ouvrir le menu"
-                      />
-                    }
-                  >
-                    <MoreHorizontal />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuGroup>
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>
-                        <Pencil />
-                        Modifier
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Download />
-                        Telecharger la facture
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem variant="destructive">
-                        <Trash2 />
-                        Supprimer
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </>
-          }
-          panel={
-            <Table className="text-xs">
-              <TableHeader>
-                <TableRow>
-                  <SortableTableHead
-                    label="Produit"
-                    sortKey="product"
-                    activeSortKey={lineItemSortKey ?? undefined}
-                    sortState={lineItemSortState}
-                    onSort={() => handleLineItemSort("product")}
-                  />
-                  <SortableTableHead
-                    label="Qte"
-                    align="right"
-                    sortKey="quantity"
-                    activeSortKey={lineItemSortKey ?? undefined}
-                    sortState={lineItemSortState}
-                    onSort={() => handleLineItemSort("quantity")}
-                  />
-                  <SortableTableHead
-                    label="P.U. HT"
-                    align="right"
-                    sortKey="unitPriceHt"
-                    activeSortKey={lineItemSortKey ?? undefined}
-                    sortState={lineItemSortState}
-                    onSort={() => handleLineItemSort("unitPriceHt")}
-                  />
-                  <SortableTableHead
-                    label="TVA"
-                    align="right"
-                    sortKey="vatRate"
-                    activeSortKey={lineItemSortKey ?? undefined}
-                    sortState={lineItemSortState}
-                    onSort={() => handleLineItemSort("vatRate")}
-                  />
-                  <SortableTableHead
-                    label="Remise"
-                    sortKey="discount"
-                    activeSortKey={lineItemSortKey ?? undefined}
-                    sortState={lineItemSortState}
-                    onSort={() => handleLineItemSort("discount")}
-                  />
-                  <SortableTableHead
-                    label="Total TTC"
-                    align="right"
-                    sortKey="totalTtc"
-                    activeSortKey={lineItemSortKey ?? undefined}
-                    sortState={lineItemSortState}
-                    onSort={() => handleLineItemSort("totalTtc")}
-                  />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedLineItems(sale.items).map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">
-                      {item.product}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {item.quantity}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatCurrency(item.unitPriceHt)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {item.vatRate}%
-                    </TableCell>
-                    <TableCell>{item.discount}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatCurrency(item.totalTtc)}
-                    </TableCell>
+      {sortedSales.map((sale) => {
+        const itemsCount = getItemsCount(sale)
+        return (
+          <ExpandableTableRow
+            key={sale.id}
+            value={sale.id}
+            panelColSpan={10}
+            row={
+              <>
+                <TableCell>
+                  <ExpandableTableTrigger label="Afficher les articles" />
+                </TableCell>
+                <TableCell className="font-medium tabular-nums">
+                  {sale.id}
+                </TableCell>
+                <TableCell className="font-medium">{sale.date}</TableCell>
+                <TableCell>{sale.client}</TableCell>
+                <TableCell>{sale.seller}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {itemsCount}
+                </TableCell>
+                <TableCell className="tabular-nums">
+                  {sale.globalDiscount}
+                </TableCell>
+                <TableCell className="text-right font-medium tabular-nums">
+                  {formatCurrency(sale.amountTtc)}
+                </TableCell>
+                <TableCell>
+                  <Badge variant={paymentVariants[sale.paymentMethod]}>
+                    {sale.paymentMethod}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Ouvrir le menu"
+                        />
+                      }
+                    >
+                      <MoreHorizontal />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuGroup>
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem>
+                          <Pencil />
+                          Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Download />
+                          Telecharger la facture
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive">
+                          <Trash2 />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </>
+            }
+            panel={
+              <Table className="text-xs">
+                <TableHeader>
+                  <TableRow>
+                    <SortableTableHead
+                      label="Produit"
+                      sortKey="product"
+                      activeSortKey={lineItemSortKey ?? undefined}
+                      sortState={lineItemSortState}
+                      onSort={() => handleLineItemSort("product")}
+                    />
+                    <SortableTableHead
+                      label="Qte"
+                      align="right"
+                      sortKey="quantity"
+                      activeSortKey={lineItemSortKey ?? undefined}
+                      sortState={lineItemSortState}
+                      onSort={() => handleLineItemSort("quantity")}
+                    />
+                    <SortableTableHead
+                      label="P.U. HT"
+                      align="right"
+                      sortKey="unitPriceHt"
+                      activeSortKey={lineItemSortKey ?? undefined}
+                      sortState={lineItemSortState}
+                      onSort={() => handleLineItemSort("unitPriceHt")}
+                    />
+                    <SortableTableHead
+                      label="TVA"
+                      align="right"
+                      sortKey="vatRate"
+                      activeSortKey={lineItemSortKey ?? undefined}
+                      sortState={lineItemSortState}
+                      onSort={() => handleLineItemSort("vatRate")}
+                    />
+                    <SortableTableHead
+                      label="Remise"
+                      sortKey="discount"
+                      activeSortKey={lineItemSortKey ?? undefined}
+                      sortState={lineItemSortState}
+                      onSort={() => handleLineItemSort("discount")}
+                    />
+                    <SortableTableHead
+                      label="Total TTC"
+                      align="right"
+                      sortKey="totalTtc"
+                      activeSortKey={lineItemSortKey ?? undefined}
+                      sortState={lineItemSortState}
+                      onSort={() => handleLineItemSort("totalTtc")}
+                    />
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          }
-        />
-      ))}
+                </TableHeader>
+                <TableBody>
+                  {sortedLineItems(sale.items).map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">
+                        {item.product}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {item.quantity}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatCurrency(item.unitPriceHt)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {item.vatRate}%
+                      </TableCell>
+                      <TableCell>{item.discount}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatCurrency(item.totalTtc)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            }
+          />
+        )
+      })}
     </ExpandableTable>
   )
 }

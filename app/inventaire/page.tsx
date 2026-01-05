@@ -1,4 +1,5 @@
 import { DataTable } from "@/components/data-table"
+import { DataTableFooter } from "@/components/data-table-footer"
 import { FiltersBar } from "@/components/filters-bar"
 import { FilterMultiCombobox } from "@/components/filter-multi-combobox"
 import { FilterMultiSelect } from "@/components/filter-multi-select"
@@ -9,7 +10,6 @@ import {
 } from "@/components/inventory-table"
 import { InventoryProductModal } from "@/components/inventory-product-modal"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
 import {
   Pagination,
   PaginationContent,
@@ -18,13 +18,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Plus } from "lucide-react"
 
 const inventoryItems: InventoryItem[] = [
@@ -171,48 +164,33 @@ export default function Page() {
           </FiltersBar>
         }
         footer={
-          <>
-            <div className="flex flex-wrap items-center gap-4 text-muted-foreground text-sm">
-              <span>1-5 sur 28 produits</span>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="items-per-page" className="text-muted-foreground">
-                  Afficher
-                </Label>
-                <Select defaultValue="20">
-                  <SelectTrigger id="items-per-page" className="h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                  </SelectContent>
-                </Select>
-                <span>par page</span>
-              </div>
-            </div>
-            <Pagination className="mx-0 w-auto justify-end">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious href="#" />
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#" isActive>
-                    1
-                  </PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#">2</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#">3</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext href="#" />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </>
+          <DataTableFooter
+            rangeLabel="1-5 sur 28 produits"
+            selectId="inventory-items-per-page"
+            pagination={
+              <Pagination className="mx-0 w-auto justify-end">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious href="#" />
+                  </PaginationItem>
+                  <PaginationItem>
+                    <PaginationLink href="#" isActive>
+                      1
+                    </PaginationLink>
+                  </PaginationItem>
+                  <PaginationItem>
+                    <PaginationLink href="#">2</PaginationLink>
+                  </PaginationItem>
+                  <PaginationItem>
+                    <PaginationLink href="#">3</PaginationLink>
+                  </PaginationItem>
+                  <PaginationItem>
+                    <PaginationNext href="#" />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            }
+          />
         }
       >
         <InventoryTable items={inventoryItems} />

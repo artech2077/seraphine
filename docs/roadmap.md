@@ -5,20 +5,20 @@ This roadmap follows the PRD and builds the product module-by-module with local 
 ## Phase 0 — Foundations
 - [x] Confirm global layout and navigation structure (sidebar zones, collapsed state, mobile toggle).
 - [x] Align on module order for UI delivery (suggested below).
-- [ ] Set up shared UI patterns:
+- [x] Set up shared UI patterns:
   - [x] Page shell layout
   - [x] Page headers
   - [x] Filters bar
   - [x] Tables
-  - [ ] Modals
-  - [ ] Tabs
+  - [x] Modals
+  - [x] Tabs
 
 ## Phase 1 — UI-First (Local Demo Data)
 - [ ] Build each module with static/local data to validate UX, flows, and layout consistency.
 
-1. [ ] **Ventes (Sales)**
-   - [ ] **POS tab**: product search input, cart table, discount controls, totals, payment method, and save action (no real persistence).
-   - [ ] **Historique tab**: expandable sales table with nested line items and action buttons (edit/delete/download placeholders).
+1. [x] **Ventes (Sales)**
+   - [x] **POS tab**: product search input, cart table, discount controls, totals, payment method, and save action (no real persistence).
+   - [x] **Historique tab**: expandable sales table with nested line items and action buttons (edit/delete/download placeholders).
 
 2. [ ] **Inventaire (Inventory)**
    - [ ] Inventory table with filters and columns from PRD.

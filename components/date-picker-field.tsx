@@ -13,15 +13,20 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 type DatePickerFieldProps = {
   placeholder: string
   className?: string
+  value?: DateRange
+  onChange?: (range: DateRange | undefined) => void
 }
 
 export function DatePickerField({
   placeholder,
   className,
+  value,
+  onChange,
 }: DatePickerFieldProps) {
-  const [range, setRange] = React.useState<DateRange | undefined>()
+  const [internalRange, setInternalRange] = React.useState<DateRange | undefined>()
   const [isHovered, setIsHovered] = React.useState(false)
 
+  const range = value ?? internalRange
   const hasSelection = Boolean(range?.from)
   const showClear = isHovered && hasSelection
 
@@ -33,13 +38,21 @@ export function DatePickerField({
     return `${format(range.from, "dd/MM/yyyy")} - ${format(range.to, "dd/MM/yyyy")}`
   }, [placeholder, range])
 
+  const handleChange = React.useCallback(
+    (nextRange: DateRange | undefined) => {
+      setInternalRange(nextRange)
+      onChange?.(nextRange)
+    },
+    [onChange]
+  )
+
   const clearSelection = React.useCallback(
     (event: React.PointerEvent | React.MouseEvent) => {
       event.preventDefault()
       event.stopPropagation()
-      setRange(undefined)
+      handleChange(undefined)
     },
-    []
+    [handleChange]
   )
 
   return (
@@ -72,7 +85,7 @@ export function DatePickerField({
         </span>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-0">
-        <Calendar mode="range" selected={range} onSelect={setRange} />
+        <Calendar mode="range" selected={range} onSelect={handleChange} />
       </PopoverContent>
     </Popover>
   )

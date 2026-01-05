@@ -1,32 +1,19 @@
-import { DataTable } from "@/components/data-table"
-import { DatePickerField } from "@/components/date-picker-field"
-import { FilterMultiCombobox } from "@/components/filter-multi-combobox"
-import { FilterMultiSelect } from "@/components/filter-multi-select"
-import { FilterToggle } from "@/components/filter-toggle"
-import { FiltersBar } from "@/components/filters-bar"
 import { PageShell } from "@/components/page-shell"
 import {
-  SalesHistoryTable,
   type SaleHistoryItem,
 } from "@/components/sales-history-table"
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { SalesHistoryPanel } from "@/components/sales-history-panel"
+import { SalesPos } from "@/components/sales-pos"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Download, Printer } from "lucide-react"
 
 const salesHistory: SaleHistoryItem[] = [
   {
-    id: "sale-001",
+    id: "VT-2407-001",
     date: "08 Jan 2026",
     client: "Clinique Atlas",
     seller: "Nadia H.",
-    paymentMethod: "Especes",
+    paymentMethod: "Espèce",
+    globalDiscount: "-",
     amountTtc: 428.5,
     items: [
       {
@@ -50,11 +37,12 @@ const salesHistory: SaleHistoryItem[] = [
     ],
   },
   {
-    id: "sale-002",
+    id: "VT-2407-002",
     date: "09 Jan 2026",
     client: "Pharmacie du Centre",
     seller: "Imane B.",
     paymentMethod: "Carte",
+    globalDiscount: "5%",
     amountTtc: 892.2,
     items: [
       {
@@ -87,11 +75,12 @@ const salesHistory: SaleHistoryItem[] = [
     ],
   },
   {
-    id: "sale-003",
+    id: "VT-2407-003",
     date: "10 Jan 2026",
     client: "Dr. Rania L.",
     seller: "Youssef A.",
-    paymentMethod: "Credit",
+    paymentMethod: "Crédit",
+    globalDiscount: "50 MAD",
     amountTtc: 615.0,
     items: [
       {
@@ -130,89 +119,10 @@ export default function Page() {
         }
       >
         <TabsContent value="pos">
-          <Card className="border-dashed">
-            <CardHeader>
-              <CardTitle className="text-base">Point de vente</CardTitle>
-              <CardDescription>
-                La zone de caisse s&apos;affichera ici avec la recherche produit,
-                le panier et le paiement.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-muted-foreground text-sm">
-              Ajoutez les composants POS pour simuler la vente en direct.
-            </CardContent>
-          </Card>
+          <SalesPos />
         </TabsContent>
         <TabsContent value="historique" className="space-y-4">
-          <DataTable
-            toolbar={
-              <>
-                <FiltersBar>
-                  <DatePickerField placeholder="Date" />
-                  <FilterMultiCombobox
-                    label="Clients"
-                    options={[
-                      "Tous les clients",
-                      "Clinique Atlas",
-                      "Pharmacie du Centre",
-                      "Dr. Rania L.",
-                      "Clinique internationale Mohammed VI de consultation specialisee",
-                    ]}
-                  />
-                  <FilterMultiSelect
-                    label="Vendeurs"
-                    options={[
-                      "Tous les vendeurs",
-                      "Nadia H.",
-                      "Imane B.",
-                      "Youssef A.",
-                      "Equipe commerciale regionale du Nord Atlantique",
-                    ]}
-                  />
-                  <FilterMultiCombobox
-                    label="Produits"
-                    options={[
-                      "Tous les produits",
-                      "Paracetamol 500mg",
-                      "Gel hydroalcoolique antiseptique extra longue duree 750ml edition professionnelle",
-                      "Ibuprofene 400mg",
-                      "Vitamine C 1000",
-                      "Gel hydroalcoolique 250ml",
-                    ]}
-                  />
-                  <FilterMultiSelect
-                    label="Paiements"
-                    options={[
-                      "Tous",
-                      "Especes",
-                      "Carte",
-                      "Cheque",
-                      "Credit",
-                      "Virement bancaire international longue echeance",
-                    ]}
-                  />
-                  <FilterToggle
-                    id="remise-toggle"
-                    label="Remise"
-                  />
-                </FiltersBar>
-                <div className="ml-auto flex items-center gap-2">
-                  <Button variant="outline" size="icon" aria-label="Imprimer">
-                    <Printer className="size-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label="Telecharger"
-                  >
-                    <Download className="size-4" />
-                  </Button>
-                </div>
-              </>
-            }
-          >
-            <SalesHistoryTable sales={salesHistory} />
-          </DataTable>
+          <SalesHistoryPanel sales={salesHistory} />
         </TabsContent>
       </PageShell>
     </Tabs>
