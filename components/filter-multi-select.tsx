@@ -73,7 +73,7 @@ export function FilterMultiSelect({
           <XIcon className="size-4" />
         </span>
       ) : selectedCount > 1 ? (
-        <span className="bg-muted text-foreground flex size-6 items-center justify-center rounded-full text-xs font-semibold">
+        <span className="bg-accent text-foreground flex size-6 items-center justify-center rounded-full text-xs font-semibold">
           {selectedCount}
         </span>
       ) : (
@@ -89,12 +89,20 @@ export function FilterMultiSelect({
       onValueChange={handleChange}
     >
       <SelectTrigger
-        className={cn("bg-popover rounded-md", className)}
+        className={cn(
+          "bg-popover rounded-md w-fit max-w-56 min-w-0",
+          className
+        )}
         indicator={indicator}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <span className={cn("truncate", selectedCount === 0 && "text-muted-foreground")}>
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate",
+            selectedCount === 0 && "text-muted-foreground"
+          )}
+        >
           {displayLabel}
         </span>
       </SelectTrigger>

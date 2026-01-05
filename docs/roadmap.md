@@ -8,8 +8,8 @@ This roadmap follows the PRD and builds the product module-by-module with local 
 - [ ] Set up shared UI patterns:
   - [x] Page shell layout
   - [x] Page headers
-  - [ ] Filters bar
-  - [ ] Tables
+  - [x] Filters bar
+  - [x] Tables
   - [ ] Modals
   - [ ] Tabs
 

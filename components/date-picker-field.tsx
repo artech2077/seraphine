@@ -45,16 +45,16 @@ export function DatePickerField({
   return (
     <Popover>
       <PopoverTrigger
-        className={cn(
-          buttonVariants({ variant: "outline" }),
-          "bg-popover text-muted-foreground h-8 justify-between gap-2 px-3 text-left font-normal rounded-md border-input",
-          hasSelection && "text-foreground",
-          className
-        )}
+      className={cn(
+        buttonVariants({ variant: "outline" }),
+        "bg-popover text-muted-foreground h-8 w-fit max-w-56 min-w-0 justify-between gap-2 px-3 text-left font-normal rounded-md border-input",
+        hasSelection && "text-foreground",
+        className
+      )}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <span className="truncate">{label}</span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
         <span className="flex size-6 items-center justify-center">
           {showClear ? (
             <span

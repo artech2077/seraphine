@@ -236,9 +236,9 @@ import {
   TableBody,
   TableCaption,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
+  SortableTableHead,
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
@@ -293,6 +293,64 @@ export function UiGallery() {
   const [drawerOpen, setDrawerOpen] = React.useState(false)
   const [commandOpen, setCommandOpen] = React.useState(false)
   const [collapsibleOpen, setCollapsibleOpen] = React.useState(true)
+  type TableSortState = "default" | "asc" | "desc"
+  type TableSortKey = "name" | "status" | "role"
+
+  const [tableSortKey, setTableSortKey] = React.useState<TableSortKey | null>(
+    null
+  )
+  const [tableSortState, setTableSortState] =
+    React.useState<TableSortState>("default")
+
+  const tableRows = React.useMemo(
+    () => [
+      { name: "Alex", status: "Active", role: "Admin", variant: "default" },
+      { name: "Jamie", status: "Invited", role: "Editor", variant: "secondary" },
+      { name: "Morgan", status: "Active", role: "Viewer", variant: "default" },
+    ],
+    []
+  )
+
+  const sortedTableRows = React.useMemo(() => {
+    const next = [...tableRows]
+    if (tableSortState === "default" || !tableSortKey) {
+      return next.reverse()
+    }
+    next.sort((a, b) => {
+      let result = 0
+      switch (tableSortKey) {
+        case "status":
+          result = a.status.localeCompare(b.status, "fr")
+          break
+        case "role":
+          result = a.role.localeCompare(b.role, "fr")
+          break
+        case "name":
+        default:
+          result = a.name.localeCompare(b.name, "fr")
+      }
+      return tableSortState === "asc" ? result : -result
+    })
+    return next
+  }, [tableRows, tableSortKey, tableSortState])
+
+  function handleTableSort(nextKey: TableSortKey) {
+    if (tableSortKey !== nextKey) {
+      setTableSortKey(nextKey)
+      setTableSortState("asc")
+      return
+    }
+    if (tableSortState === "asc") {
+      setTableSortState("desc")
+      return
+    }
+    if (tableSortState === "desc") {
+      setTableSortState("default")
+      setTableSortKey(null)
+      return
+    }
+    setTableSortState("asc")
+  }
 
   return (
     <div className="space-y-8 p-6">
@@ -759,26 +817,43 @@ export function UiGallery() {
         <Table className="text-sm">
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Role</TableHead>
+              <SortableTableHead
+                label="Name"
+                sortKey="name"
+                activeSortKey={tableSortKey ?? undefined}
+                sortState={tableSortState}
+                onSort={() => handleTableSort("name")}
+              />
+              <SortableTableHead
+                label="Status"
+                sortKey="status"
+                activeSortKey={tableSortKey ?? undefined}
+                sortState={tableSortState}
+                onSort={() => handleTableSort("status")}
+              />
+              <SortableTableHead
+                label="Role"
+                sortKey="role"
+                activeSortKey={tableSortKey ?? undefined}
+                sortState={tableSortState}
+                onSort={() => handleTableSort("role")}
+              />
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow>
-              <TableCell>Alex</TableCell>
-              <TableCell>
-                <Badge>Active</Badge>
-              </TableCell>
-              <TableCell>Admin</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Jamie</TableCell>
-              <TableCell>
-                <Badge variant="secondary">Invited</Badge>
-              </TableCell>
-              <TableCell>Editor</TableCell>
-            </TableRow>
+            {sortedTableRows.map((row) => (
+              <TableRow key={`${row.name}-${row.role}`}>
+                <TableCell>{row.name}</TableCell>
+                <TableCell>
+                  <Badge
+                    variant={row.variant as React.ComponentProps<typeof Badge>["variant"]}
+                  >
+                    {row.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>{row.role}</TableCell>
+              </TableRow>
+            ))}
           </TableBody>
           <TableCaption>Simple table component</TableCaption>
         </Table>

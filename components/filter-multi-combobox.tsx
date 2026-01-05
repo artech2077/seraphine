@@ -78,7 +78,7 @@ export function FilterMultiCombobox({
           <XIcon className="size-4" />
         </span>
       ) : selectedCount > 1 ? (
-        <span className="bg-muted text-foreground flex size-6 items-center justify-center rounded-full text-xs font-semibold">
+        <span className="bg-accent text-foreground flex size-6 items-center justify-center rounded-full text-xs font-semibold">
           {selectedCount}
         </span>
       ) : (
@@ -99,14 +99,14 @@ export function FilterMultiCombobox({
         indicator={indicator}
         className={cn(
           buttonVariants({ variant: "outline" }),
-          "bg-popover text-muted-foreground h-8 justify-between gap-2 px-3 font-normal rounded-md border-input",
+          "bg-popover text-muted-foreground h-8 w-fit max-w-56 min-w-0 justify-between gap-2 px-3 font-normal rounded-md border-input text-left",
           selectedCount > 0 && "text-foreground",
           className
         )}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <span className="truncate">{displayLabel}</span>
+        <span className="min-w-0 flex-1 truncate text-left">{displayLabel}</span>
       </ComboboxTrigger>
       <ComboboxContent anchor={triggerRef}>
         <ComboboxInput
