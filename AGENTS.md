@@ -24,7 +24,7 @@ Unless the user explicitly instructs otherwise, assume this stack:
 - **Framework**: Next.js (React)
 - **Styling**: Tailwind CSS
 - **UI components**: shadcn/ui, installed and managed via the **shadcn MCP server**
-- **Backend / Database**: Supabase
+- **Backend / Database**: Convex
 - **Authentication**: Clerk
 - **Deployment**: Vercel
 - **Language**: TypeScript where possible
@@ -135,15 +135,15 @@ Prefer **simple, clean UI** that a non-developer can understand and tweak.
 
 ---
 
-## 6. Supabase & Data Access
+## 6. Convex & Data Access
 
-- Use **Supabase** as the backend for data persistence and server-side logic.
-- Prefer Supabase client APIs or serverless functions configured for this project.
+- Use **Convex** as the backend for data persistence and server-side logic.
+- Prefer Convex queries, mutations, and actions configured for this project.
 - Do not introduce a separate backend framework (Express, Nest, etc.) unless explicitly requested.
 - Respect existing conventions for:
-  - table names,
-  - RPC functions,
-  - row-level security (RLS),
+  - collection names,
+  - server functions,
+  - authorization patterns in Convex functions,
   - TypeScript types.
 
 Do **not** hardcode secrets (keys, tokens, connection strings) in source code.
@@ -158,7 +158,7 @@ Do **not** hardcode secrets (keys, tokens, connection strings) in source code.
   - sign-in,
   - user profile,
   - session retrieval in server components.
-- Do not write your own auth logic unless it is explicitly required and integrated with Clerk/Supabase.
+- Do not write your own auth logic unless it is explicitly required and integrated with Clerk/Convex.
 
 ---
 
@@ -207,13 +207,13 @@ Security rules are **mandatory** and take precedence over convenience.
 
 - **Secrets handling**
   - Never hardcode API keys, database passwords, JWT secrets, or any sensitive tokens in the codebase.
-  - Always read secrets from environment variables (e.g. `.env.local`) or the platform’s secret manager (Vercel env vars, Supabase/Clerk dashboards).
+  - Always read secrets from environment variables (e.g. `.env.local`) or the platform’s secret manager (Vercel env vars, Convex/Clerk dashboards).
   - Do not log secrets or full tokens to the console, logs, or error messages.
 
 - **Authentication & authorization**
   - Trust **Clerk** as the source of truth for user identity.
   - On the server side, always validate the authenticated user before accessing or mutating protected data.
-  - On the database side, rely on **Supabase Row-Level Security (RLS)** policies where possible, and design queries so users can only access their own data.
+  - On the database side, rely on **Convex authorization** in queries/mutations/actions, and design access so users can only access their own data.
 
 - **Input validation**
   - Validate and sanitize all user input before using it in database queries, external API calls, or rendering dynamic HTML.
@@ -254,7 +254,7 @@ When there are conflicting instructions:
 
 1. **User’s explicit request** (most recent message)  
 2. This `AGENTS.md` file (project rules)  
-3. Default conventions of the frameworks (Next.js, Tailwind, shadcn/ui, Supabase, Clerk)
+3. Default conventions of the frameworks (Next.js, Tailwind, shadcn/ui, Convex, Clerk)
 
 When in doubt:
 

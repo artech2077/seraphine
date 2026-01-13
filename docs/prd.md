@@ -16,7 +16,7 @@ The platform is built using:
 
 * **Next.js 14** (App Router)  
 * **TailwindCSS \+ Shadcn UI**  
-* **Supabase** (PostgreSQL, RLS, RPC, Realtime)  
+* **Convex** (serverless database, auth-aware functions, realtime)  
 * **Clerk Authentication & Organizations**  
 * **Vercel Deployment**
 
@@ -71,7 +71,7 @@ The application uses a fixed **Left Sidebar** layout (250px-280px width) with a 
 
 * **Provider:** Clerk Auth (Organizations).  
 * **Roles:** Owner (Full Admin), Pharmacist/Staff (POS & Inventory only), Restricted (View only).  
-* **Security:** RLS isolation per Pharmacy ID.
+* **Security:** Convex authorization in server functions ensures isolation per Pharmacy ID.
 
 ## **3.2 Sales Management (Module: Ventes)**
 
@@ -160,131 +160,131 @@ Functions as a CRM for customers with payment facilities.
 
 * **Frontend:** Next.js 14 (App Router).  
 * **State Management:** React Query (Server state) \+ Zustand (Client state for POS cart).  
-* **Database:** Supabase (PostgreSQL).
+* **Database:** Convex.
 
-## **4.2 Updated Database Schema (Key Tables)**
+## **4.2 Convex Data Model (Collections)**
 
-The schema has been expanded to support the specific fields requested in the modules.
+The data model below mirrors the PRD fields using Convex collections and TypeScript-friendly shapes.
 
 ### **Products**
 
-SQL
-
-products (  
-  id uuid primary key,  
-  pharmacy\_id uuid,  
-  name text,  
-  barcode text, \-- "Code barre"  
-  category text,  
-  purchase\_price numeric,  
-  selling\_price numeric,  
-  vat\_rate numeric, \-- "TVA"  
-  stock\_quantity integer,  
-  low\_stock\_threshold integer, \-- "Seuil d'alerte"  
-  dosage\_form text, \-- "Forme galénique"  
-  internal\_notes text,  
-  created\_at timestamptz  
-)
+```txt
+products {
+  _id: Id<"products">
+  pharmacyId: Id<"pharmacies">
+  name: string
+  barcode: string // "Code barre"
+  category: string
+  purchasePrice: number
+  sellingPrice: number
+  vatRate: number // "TVA"
+  stockQuantity: number
+  lowStockThreshold: number // "Seuil d'alerte"
+  dosageForm: string // "Forme galenique"
+  internalNotes?: string
+  createdAt: number
+}
+```
 
 ### **Sales (Parent)**
 
-SQL
-
-sales (  
-  id uuid primary key, \-- "saleId"  
-  pharmacy\_id uuid,  
-  client\_id uuid references clients(id),  
-  seller\_id uuid references users(id),  
-  sale\_date timestamptz,  
-  payment\_method text, \-- Cash, Card, Check  
-  global\_discount\_type text, \-- Percent or Amount  
-  global\_discount\_value numeric,  
-  total\_amount\_ht numeric,  
-  total\_amount\_ttc numeric, \-- "Total à encaisser"  
-  delivery\_note\_text text,  
-  created\_at timestamptz  
-)
+```txt
+sales {
+  _id: Id<"sales">
+  pharmacyId: Id<"pharmacies">
+  clientId?: Id<"clients">
+  sellerId: Id<"users">
+  saleDate: number
+  paymentMethod: "CASH" | "CARD" | "CHECK" | "CREDIT"
+  globalDiscountType?: "PERCENT" | "AMOUNT"
+  globalDiscountValue?: number
+  totalAmountHt: number
+  totalAmountTtc: number // "Total a encaisser"
+  deliveryNoteText?: string
+  createdAt: number
+}
+```
 
 ### **Sale Items (Children)**
 
-SQL
-
-sale\_items (  
-  id uuid primary key,  
-  sale\_id uuid references sales(id),  
-  product\_id uuid references products(id),  
-  product\_name\_snapshot text, \-- Store name in case product is deleted  
-  quantity integer,  
-  unit\_price\_ht numeric,  
-  vat\_rate numeric,  
-  line\_discount\_type text,  
-  line\_discount\_value numeric,  
-  total\_line\_ttc numeric  
-)
+```txt
+saleItems {
+  _id: Id<"saleItems">
+  saleId: Id<"sales">
+  productId: Id<"products">
+  productNameSnapshot: string // Store name in case product is deleted
+  quantity: number
+  unitPriceHt: number
+  vatRate: number
+  lineDiscountType?: "PERCENT" | "AMOUNT"
+  lineDiscountValue?: number
+  totalLineTtc: number
+}
+```
 
 ### **Suppliers**
 
-SQL
-
-suppliers (  
-  id uuid primary key,  
-  pharmacy\_id uuid,  
-  name text,  
-  email text,  
-  phone text,  
-  city text,  
-  balance numeric default 0, \-- Negative \= Debt, Positive \= Credit  
-  internal\_notes text,  
-  created\_at timestamptz  
-)
+```txt
+suppliers {
+  _id: Id<"suppliers">
+  pharmacyId: Id<"pharmacies">
+  name: string
+  email?: string
+  phone?: string
+  city?: string
+  balance: number // Negative = debt, positive = credit
+  internalNotes?: string
+  createdAt: number
+}
+```
 
 ### **Clients**
 
-SQL
-
-clients (  
-  id uuid primary key,  
-  pharmacy\_id uuid,  
-  name text,  
-  phone text,  
-  city text,  
-  credit\_limit numeric, \-- "Plafond"  
-  outstanding\_balance numeric default 0, \-- "Encours"  
-  account\_status text default 'OK', \-- 'OK', 'SURVEILLE', 'BLOQUE'  
-  last\_purchase\_date date,  
-  internal\_notes text,  
-  created\_at timestamptz  
-)
+```txt
+clients {
+  _id: Id<"clients">
+  pharmacyId: Id<"pharmacies">
+  name: string
+  phone?: string
+  city?: string
+  creditLimit: number // "Plafond"
+  outstandingBalance: number // "Encours"
+  accountStatus: "OK" | "SURVEILLE" | "BLOQUE"
+  lastPurchaseDate?: number
+  internalNotes?: string
+  createdAt: number
+}
+```
 
 ### **Procurement Orders (Purchase & Delivery)**
 
-SQL
-
-procurement\_orders (  
-  id uuid primary key,  
-  pharmacy\_id uuid,  
-  type text, \-- 'PURCHASE\_ORDER' or 'DELIVERY\_NOTE'  
-  supplier\_id uuid references suppliers(id),  
-  status text, \-- 'DRAFT', 'ORDERED', 'DELIVERED'  
-  external\_reference text, \-- For Delivery Note  
-  channel text, \-- Email, Phone  
-  order\_date date,  
-  total\_amount numeric,  
-  created\_at timestamptz  
-)
+```txt
+procurementOrders {
+  _id: Id<"procurementOrders">
+  pharmacyId: Id<"pharmacies">
+  type: "PURCHASE_ORDER" | "DELIVERY_NOTE"
+  supplierId: Id<"suppliers">
+  status: "DRAFT" | "ORDERED" | "DELIVERED"
+  externalReference?: string // For delivery note
+  channel?: "EMAIL" | "PHONE"
+  orderDate: number
+  totalAmount: number
+  createdAt: number
+}
+```
 
 ### **Procurement Items**
 
-SQL
-
-procurement\_items (  
-  id uuid primary key,  
-  order\_id uuid references procurement\_orders(id),  
-  product\_id uuid references products(id),  
-  quantity integer,  
-  unit\_price numeric,  
-  line\_total numeric  
-)
+```txt
+procurementItems {
+  _id: Id<"procurementItems">
+  orderId: Id<"procurementOrders">
+  productId: Id<"products">
+  quantity: number
+  unitPrice: number
+  lineTotal: number
+}
+```
 
 # ---
 
@@ -292,6 +292,5 @@ procurement\_items (
 
 1. **Sidebar Logic:** Implement the Sidebar as a Layout component in Next.js. Use a Context or Zustand store to handle the Collapsed/Expanded state so it persists across page navigations.  
 2. **POS State:** The POS requires a robust local state (array of objects) to handle adding/removing rows and recalculating totals in real-time before hitting the database.  
-3. **Calculations:** Ensure all monetary calculations (VAT, Discounts) happen on the backend (via Supabase RPC) to prevent client-side float errors, even if they are displayed immediately on the frontend for UX.  
-4. **Debts:** When a Sale is made with "Credit" as payment, trigger a database function to update the clients.outstanding\_balance and check against credit\_limit.
-
+3. **Calculations:** Ensure all monetary calculations (VAT, Discounts) happen on the backend (via Convex mutations/actions) to prevent client-side float errors, even if they are displayed immediately on the frontend for UX.  
+4. **Debts:** When a Sale is made with "Credit" as payment, trigger a Convex mutation to update the clients.outstanding\_balance and check against credit\_limit.
