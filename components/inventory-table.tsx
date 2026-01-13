@@ -10,7 +10,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -23,13 +22,24 @@ import {
   SortableTableHead,
 } from "@/components/ui/table"
 import { InventoryProductModal } from "@/components/inventory-product-modal"
-import { cn } from "@/lib/utils"
-import { MoreHorizontal, Pencil, Printer, Trash2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
 export type InventoryItem = {
   id: string
   name: string
   barcode?: string
+  supplier?: string
   stock: number
   threshold: number
   purchasePrice: number
@@ -74,18 +84,11 @@ function InventoryTableHeader({
     <TableHeader>
       <TableRow>
         <SortableTableHead
-          label="Produit"
+          label="Produits"
           sortKey="name"
           activeSortKey={activeSortKey}
           sortState={sortState}
           onSort={() => onSort?.("name")}
-        />
-        <SortableTableHead
-          label="Code barre"
-          sortKey="barcode"
-          activeSortKey={activeSortKey}
-          sortState={sortState}
-          onSort={() => onSort?.("barcode")}
         />
         <SortableTableHead
           label="Stock"
@@ -104,7 +107,7 @@ function InventoryTableHeader({
           onSort={() => onSort?.("threshold")}
         />
         <SortableTableHead
-          label="Achat"
+          label="Prix d'achat"
           align="right"
           sortKey="purchasePrice"
           activeSortKey={activeSortKey}
@@ -112,7 +115,7 @@ function InventoryTableHeader({
           onSort={() => onSort?.("purchasePrice")}
         />
         <SortableTableHead
-          label="Vente"
+          label="Prix de vente"
           align="right"
           sortKey="sellingPrice"
           activeSortKey={activeSortKey}
@@ -135,19 +138,39 @@ function InventoryTableHeader({
           onSort={() => onSort?.("category")}
         />
         <SortableTableHead
-          label="Forme"
+          label="Forme galenique"
           sortKey="dosageForm"
           activeSortKey={activeSortKey}
           sortState={sortState}
           onSort={() => onSort?.("dosageForm")}
         />
-        <SortableTableHead label="Actions" align="right" sortable={false} />
+        <SortableTableHead
+          label="Code barre"
+          sortKey="barcode"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("barcode")}
+        />
+        <SortableTableHead
+          label="Actions"
+          align="right"
+          sortable={false}
+          hideLabel
+        />
       </TableRow>
     </TableHeader>
   )
 }
 
-export function InventoryTable({ items }: { items: InventoryItem[] }) {
+export function InventoryTable({
+  items,
+  page = 1,
+  pageSize,
+}: {
+  items: InventoryItem[]
+  page?: number
+  pageSize?: number
+}) {
   type SortState = "default" | "asc" | "desc"
 
   const [sortKey, setSortKey] = React.useState<InventorySortKey | null>(null)
@@ -196,6 +219,14 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
     return next
   }, [items, sortKey, sortState])
 
+  const visibleItems = React.useMemo(() => {
+    if (!pageSize) {
+      return sortedItems
+    }
+    const start = (page - 1) * pageSize
+    return sortedItems.slice(start, start + pageSize)
+  }, [sortedItems, page, pageSize])
+
   function handleSort(nextKey: InventorySortKey) {
     if (sortKey !== nextKey) {
       setSortKey(nextKey)
@@ -235,28 +266,18 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
           onSort={(key) => handleSort(key)}
         />
         <TableBody>
-          {sortedItems.map((item) => {
+          {visibleItems.map((item) => {
             const isLowStock = item.stock <= item.threshold
             return (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {item.barcode ?? "-"}
-                </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <span
-                      className={cn(
-                        "tabular-nums",
-                        isLowStock && "text-destructive font-medium"
-                      )}
-                    >
-                      {item.stock}
-                    </span>
-                    <Badge variant={isLowStock ? "destructive" : "success"}>
-                      {isLowStock ? "Bas" : "OK"}
-                    </Badge>
-                  </div>
+                  <Badge
+                    variant={isLowStock ? "destructive" : "success"}
+                    className="min-w-10 justify-center tabular-nums"
+                  >
+                    {item.stock}
+                  </Badge>
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {item.threshold}
@@ -272,6 +293,9 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
                 </TableCell>
                 <TableCell>{item.category}</TableCell>
                 <TableCell>{item.dosageForm}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {item.barcode ?? "-"}
+                </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger
@@ -288,19 +312,31 @@ export function InventoryTable({ items }: { items: InventoryItem[] }) {
                     <DropdownMenuContent align="end">
                       <DropdownMenuGroup>
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onSelect={() => handleEdit(item)}>
+                        <DropdownMenuItem onClick={() => handleEdit(item)}>
                           <Pencil />
                           Modifier
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Printer />
-                          Imprimer la fiche
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem variant="destructive">
-                          <Trash2 />
-                          Supprimer
-                        </DropdownMenuItem>
+                        <AlertDialog>
+                          <AlertDialogTrigger
+                            nativeButton={false}
+                            render={<DropdownMenuItem variant="destructive" />}
+                          >
+                            <Trash2 />
+                            Supprimer
+                          </AlertDialogTrigger>
+                          <AlertDialogContent size="sm">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Supprimer ce produit ?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Cette action est definitive et supprimera la fiche produit.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Annuler</AlertDialogCancel>
+                              <AlertDialogAction variant="destructive">Supprimer</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </DropdownMenuGroup>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -330,13 +366,9 @@ export function InventoryTableSkeleton({ rows = 5 }: { rows?: number }) {
             <TableCell>
               <Skeleton className="h-4 w-40" />
             </TableCell>
-            <TableCell>
-              <Skeleton className="h-4 w-28" />
-            </TableCell>
             <TableCell className="text-right">
               <div className="flex items-center justify-end gap-2">
                 <Skeleton className="h-4 w-10" />
-                <Skeleton className="h-5 w-10" />
               </div>
             </TableCell>
             <TableCell className="text-right">
@@ -356,6 +388,9 @@ export function InventoryTableSkeleton({ rows = 5 }: { rows?: number }) {
             </TableCell>
             <TableCell>
               <Skeleton className="h-4 w-20" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-28" />
             </TableCell>
             <TableCell className="text-right">
               <Skeleton className="ml-auto h-8 w-8" />

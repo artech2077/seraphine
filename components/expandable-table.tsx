@@ -56,6 +56,7 @@ type ExpandableTableRowProps = {
   row: React.ReactNode
   panel: React.ReactNode
   panelColSpan: number
+  isLast?: boolean
   rowClassName?: string
   panelRowClassName?: string
   panelCellClassName?: string
@@ -68,6 +69,7 @@ function ExpandableTableRow({
   row,
   panel,
   panelColSpan,
+  isLast = false,
   rowClassName,
   panelRowClassName,
   panelCellClassName,
@@ -76,10 +78,20 @@ function ExpandableTableRow({
 }: ExpandableTableRowProps) {
   return (
     <AccordionItemPlain value={value} render={<tbody />}>
-      <AccordionHeader render={<TableRow className={rowClassName} />}>
+      <AccordionHeader
+        render={
+          <TableRow className={cn(isLast && "border-b-0", rowClassName)} />
+        }
+      >
         {row}
       </AccordionHeader>
-      <TableRow className={cn("bg-muted/40 border-0", panelRowClassName)}>
+      <TableRow
+        className={cn(
+          "bg-muted/40 border-0",
+          isLast && "border-b-0",
+          panelRowClassName
+        )}
+      >
         <TableCell colSpan={panelColSpan} className={cn("p-0", panelCellClassName)}>
           <AccordionPanel className={cn(panelClassName)}>
             <div className={cn(panelInnerClassName)}>

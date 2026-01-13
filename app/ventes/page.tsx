@@ -1,10 +1,7 @@
-import { PageShell } from "@/components/page-shell"
 import {
   type SaleHistoryItem,
 } from "@/components/sales-history-table"
-import { SalesHistoryPanel } from "@/components/sales-history-panel"
-import { SalesPos } from "@/components/sales-pos"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { VentesPage } from "@/components/ventes-page"
 
 const salesHistory: SaleHistoryItem[] = [
   {
@@ -106,25 +103,5 @@ const salesHistory: SaleHistoryItem[] = [
 ]
 
 export default function Page() {
-  return (
-    <Tabs defaultValue="pos">
-      <PageShell
-        title="Ventes"
-        description="Suivez vos transactions et la performance commerciale."
-        tabs={
-          <TabsList variant="line">
-            <TabsTrigger value="pos">Point de vente</TabsTrigger>
-            <TabsTrigger value="historique">Historique des ventes</TabsTrigger>
-          </TabsList>
-        }
-      >
-        <TabsContent value="pos">
-          <SalesPos />
-        </TabsContent>
-        <TabsContent value="historique" className="space-y-4">
-          <SalesHistoryPanel sales={salesHistory} />
-        </TabsContent>
-      </PageShell>
-    </Tabs>
-  )
+  return <VentesPage salesHistory={salesHistory} />
 }

@@ -122,7 +122,7 @@ function SortableTableHead({
           variant="ghost"
           size="sm"
           className={cn(
-            "h-8 w-full gap-2 px-1 hover:bg-transparent hover:text-current",
+            "h-8 w-full gap-2 border-0 px-0 hover:bg-transparent hover:text-current",
             alignment,
             isSorted ? "text-foreground" : "text-muted-foreground"
           )}
@@ -145,7 +145,7 @@ function SortableTableHead({
           )}
         </Button>
       ) : (
-        <div className={cn("flex h-8 w-full items-center gap-2 px-1", alignment)}>
+        <div className={cn("flex h-8 w-full items-center gap-2 px-0", alignment)}>
           <span className={cn("truncate text-foreground", hideLabel && "sr-only")}>
             {label}
           </span>

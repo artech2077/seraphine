@@ -300,13 +300,14 @@ export function SalesHistoryTable({ sales }: { sales: SaleHistoryItem[] }) {
           />
         </TableRow>
       </TableHeader>
-      {sortedSales.map((sale) => {
+      {sortedSales.map((sale, index) => {
         const itemsCount = getItemsCount(sale)
         return (
           <ExpandableTableRow
             key={sale.id}
             value={sale.id}
             panelColSpan={10}
+            isLast={index === sortedSales.length - 1}
             row={
               <>
                 <TableCell>

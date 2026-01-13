@@ -33,17 +33,15 @@ const categoryOptions = [
   "Parapharmacie",
   "Materiel",
   "Hygiene",
+  "Antalgique",
+  "Antispasmodique",
+  "Antidiarrheique",
+  "Antiacide",
 ]
 
-const dosageOptions = [
-  "Comprime",
-  "Gel",
-  "Pastille",
-  "Flacon",
-  "Consommable",
-]
+const supplierOptions = ["Sanofi", "UPSA", "Teva Sante", "J&J", "Reckitt"]
 
-const vatOptions = ["0", "7", "19"]
+const vatOptions = ["0", "7", "20"]
 
 type InventoryProductModalProps = {
   mode: "create" | "edit"
@@ -63,9 +61,7 @@ export function InventoryProductModal({
   const id = React.useId()
   const isEdit = mode === "edit"
   const title = isEdit ? "Modifier le produit" : "Ajouter un produit"
-  const description = isEdit
-    ? `Mettez a jour les informations de ${item?.name ?? "ce produit"}.`
-    : "Renseignez les informations pour creer une nouvelle fiche produit."
+  const description = "Composez chaque ligne produit, quantite et prix."
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -79,17 +75,20 @@ export function InventoryProductModal({
           <ModalTitle>{title}</ModalTitle>
           <ModalDescription>{description}</ModalDescription>
         </ModalHeader>
-        <ModalForm onSubmit={handleSubmit}>
+        <ModalForm
+          key={`${mode}-${item?.id ?? "new"}`}
+          onSubmit={handleSubmit}
+        >
           <ModalBody>
-            <div className="grid gap-3">
-              <Label htmlFor={`${id}-product-name`}>Nom du produit</Label>
-              <Input
-                id={`${id}-product-name`}
-                placeholder="Nom commercial"
-                defaultValue={item?.name}
-              />
-            </div>
             <ModalGrid>
+              <div className="grid gap-3">
+                <Label htmlFor={`${id}-product-name`}>Nom du produit</Label>
+                <Input
+                  id={`${id}-product-name`}
+                  placeholder="Nom commercial"
+                  defaultValue={item?.name}
+                />
+              </div>
               <div className="grid gap-3">
                 <Label htmlFor={`${id}-product-barcode`}>Code barre</Label>
                 <Input
@@ -98,6 +97,8 @@ export function InventoryProductModal({
                   defaultValue={item?.barcode}
                 />
               </div>
+            </ModalGrid>
+            <ModalGrid>
               <div className="grid gap-3">
                 <Label htmlFor={`${id}-product-category`}>Categorie</Label>
                 <Select defaultValue={item?.category}>
@@ -106,6 +107,21 @@ export function InventoryProductModal({
                   </SelectTrigger>
                   <SelectContent>
                     {categoryOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-3">
+                <Label htmlFor={`${id}-product-supplier`}>Fournisseur</Label>
+                <Select defaultValue={item?.supplier}>
+                  <SelectTrigger id={`${id}-product-supplier`} className="w-full">
+                    <SelectValue placeholder="Selectionner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {supplierOptions.map((option) => (
                       <SelectItem key={option} value={option}>
                         {option}
                       </SelectItem>
@@ -156,18 +172,11 @@ export function InventoryProductModal({
               </div>
               <div className="grid gap-3">
                 <Label htmlFor={`${id}-dosage-form`}>Forme galenique</Label>
-                <Select defaultValue={item?.dosageForm}>
-                  <SelectTrigger id={`${id}-dosage-form`} className="w-full">
-                    <SelectValue placeholder="Selectionner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {dosageOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  id={`${id}-dosage-form`}
+                  placeholder="Valeur"
+                  defaultValue={item?.dosageForm}
+                />
               </div>
             </ModalGrid>
             <ModalGrid>
@@ -203,7 +212,7 @@ export function InventoryProductModal({
               Annuler
             </ModalClose>
             <Button type="submit">
-              {isEdit ? "Enregistrer" : "Ajouter le produit"}
+              Enregistrer
             </Button>
           </ModalFooter>
         </ModalForm>
