@@ -20,9 +20,9 @@ This roadmap follows the PRD and builds the product module-by-module with local 
    - [x] **POS tab**: product search input, cart table, discount controls, totals, payment method, and save action (no real persistence).
    - [x] **Historique tab**: expandable sales table with nested line items and action buttons (edit/delete/download placeholders).
 
-2. [ ] **Inventaire (Inventory)**
-   - [ ] Inventory table with filters and columns from PRD.
-   - [ ] Add/Edit product modal UI with validation states.
+2. [x] **Inventaire (Inventory)**
+   - [x] Inventory table with filters and columns from PRD.
+   - [x] Add/Edit product modal UI with validation states.
 
 3. [ ] **Achats (Procurement)**
    - [ ] Tabs: Bons de commande + Bons de livraison.

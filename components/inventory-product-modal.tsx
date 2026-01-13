@@ -39,8 +39,6 @@ const categoryOptions = [
   "Antiacide",
 ]
 
-const supplierOptions = ["Sanofi", "UPSA", "Teva Sante", "J&J", "Reckitt"]
-
 const vatOptions = ["0", "7", "20"]
 
 type InventoryProductModalProps = {
@@ -115,19 +113,12 @@ export function InventoryProductModal({
                 </Select>
               </div>
               <div className="grid gap-3">
-                <Label htmlFor={`${id}-product-supplier`}>Fournisseur</Label>
-                <Select defaultValue={item?.supplier}>
-                  <SelectTrigger id={`${id}-product-supplier`} className="w-full">
-                    <SelectValue placeholder="Selectionner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {supplierOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor={`${id}-dosage-form`}>Forme galenique</Label>
+                <Input
+                  id={`${id}-dosage-form`}
+                  placeholder="Valeur"
+                  defaultValue={item?.dosageForm}
+                />
               </div>
             </ModalGrid>
             <ModalGrid>
@@ -169,14 +160,6 @@ export function InventoryProductModal({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="grid gap-3">
-                <Label htmlFor={`${id}-dosage-form`}>Forme galenique</Label>
-                <Input
-                  id={`${id}-dosage-form`}
-                  placeholder="Valeur"
-                  defaultValue={item?.dosageForm}
-                />
               </div>
             </ModalGrid>
             <ModalGrid>
