@@ -32,8 +32,8 @@ export function AppSidebar() {
 
   return (
     <>
-      <Sidebar collapsible="icon">
-        <SidebarHeader className="px-4 py-5">
+      <Sidebar variant="inset" collapsible="icon">
+        <SidebarHeader className="px-0 py-5">
           <div className="flex w-full items-center gap-2">
             <div className="bg-sidebar-primary text-sidebar-primary-foreground flex size-9 items-center justify-center rounded-full text-sm font-semibold">
               S
@@ -43,7 +43,7 @@ export function AppSidebar() {
             </span>
           </div>
         </SidebarHeader>
-        <SidebarContent className="px-4 py-3">
+        <SidebarContent className="px-0 py-3">
           <SidebarMenu className="gap-2">
             {mainNavItems.map((item) => {
               const isActive =
@@ -69,7 +69,7 @@ export function AppSidebar() {
             })}
           </SidebarMenu>
         </SidebarContent>
-        <SidebarFooter className="mt-auto px-4 py-3">
+        <SidebarFooter className="mt-auto px-0 py-3">
           <SidebarMenu className="gap-2">
             {utilityNavItems.map((item) => {
               const isActive = pathname.startsWith(item.href)

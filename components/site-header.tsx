@@ -4,6 +4,7 @@ import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { getPageTitle } from "@/lib/navigation"
 import { usePathname } from "next/navigation"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export function SiteHeader() {
   const pathname = usePathname()
@@ -17,6 +18,9 @@ export function SiteHeader() {
         className="mx-2 h-5 data-[orientation=vertical]:self-center"
       />
       <div className="text-base font-medium leading-none">{title}</div>
+      <div className="ml-auto">
+        <ThemeToggle />
+      </div>
     </header>
   )
 }
