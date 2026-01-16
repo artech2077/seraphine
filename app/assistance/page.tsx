@@ -1,5 +1,9 @@
 import { PageShell } from "@/components/page-shell"
 
+export const metadata = {
+  title: "Seraphine - Assistance",
+}
+
 export default function Page() {
   return (
     <PageShell

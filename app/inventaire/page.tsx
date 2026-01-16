@@ -1,6 +1,10 @@
 import { InventoryPage } from "@/components/inventory-page"
 import type { InventoryItem } from "@/components/inventory-table"
 
+export const metadata = {
+  title: "Seraphine - Inventaire",
+}
+
 const inventoryItems: InventoryItem[] = [
   {
     id: "prod-001",

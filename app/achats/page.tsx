@@ -1,6 +1,10 @@
 import { AchatsPage } from "@/components/achats-page"
 import type { DeliveryNote, PurchaseOrder } from "@/components/procurement-data"
 
+export const metadata = {
+  title: "Seraphine - Achats",
+}
+
 const purchaseOrders: PurchaseOrder[] = [
   {
     id: "BC-2401",

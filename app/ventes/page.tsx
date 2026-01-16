@@ -3,6 +3,10 @@ import {
 } from "@/components/sales-history-table"
 import { VentesPage } from "@/components/ventes-page"
 
+export const metadata = {
+  title: "Seraphine - Ventes",
+}
+
 const salesHistory: SaleHistoryItem[] = [
   {
     id: "VT-2407-001",

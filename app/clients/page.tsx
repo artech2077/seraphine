@@ -1,6 +1,10 @@
 import { ClientsPage } from "@/components/clients-page"
 import type { Client } from "@/components/clients-table"
 
+export const metadata = {
+  title: "Seraphine - Clients",
+}
+
 const clientItems: Client[] = [
   {
     id: "cli-001",

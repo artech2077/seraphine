@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { SearchIcon } from "lucide-react"
 
@@ -33,15 +34,32 @@ export function AppSidebar() {
   return (
     <>
       <Sidebar variant="inset" collapsible="icon">
-        <SidebarHeader className="px-0 py-5">
-          <div className="flex w-full items-center gap-2">
-            <div className="bg-sidebar-primary text-sidebar-primary-foreground flex size-9 items-center justify-center rounded-full text-sm font-semibold">
-              S
-            </div>
-            <span className="text-base font-semibold tracking-tight min-w-0 w-full whitespace-nowrap transition-[width,opacity] duration-300 ease-in-out group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden">
-              Seraphine
-            </span>
-          </div>
+        <SidebarHeader className="px-0 py-3">
+          <SidebarMenu className="gap-2">
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                className="h-12 pl-0 pr-0 group-data-[collapsible=icon]:!p-0 hover:bg-transparent hover:text-sidebar-foreground active:bg-transparent active:text-sidebar-foreground data-active:bg-transparent"
+                render={renderLink("/")}
+              >
+                <Image
+                  src="/seraphine-logo-small.svg"
+                  alt="Seraphine"
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 shrink-0"
+                  priority
+                />
+                <span className="min-w-0 w-full whitespace-nowrap transition-all duration-300 ease-in-out group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden">
+                  <span className="block truncate text-sm font-semibold">
+                    La grande pharmacie
+                  </span>
+                  <span className="block truncate text-xs text-sidebar-foreground/70">
+                    Imintanout
+                  </span>
+                </span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
         </SidebarHeader>
         <SidebarContent className="px-0 py-3">
           <SidebarMenu className="gap-2">
@@ -60,7 +78,7 @@ export function AppSidebar() {
                     render={renderLink(item.href)}
                   >
                     <item.icon />
-                    <span className="min-w-0 w-full whitespace-nowrap transition-[width,opacity] duration-300 ease-in-out group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden">
+                    <span className="min-w-0 w-full whitespace-nowrap transition-all duration-300 ease-in-out group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden">
                       {item.title}
                     </span>
                   </SidebarMenuButton>
@@ -83,7 +101,7 @@ export function AppSidebar() {
                     render={renderLink(item.href)}
                   >
                     <item.icon />
-                    <span className="min-w-0 w-full whitespace-nowrap transition-[width,opacity] duration-300 ease-in-out group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden">
+                    <span className="min-w-0 w-full whitespace-nowrap transition-all duration-300 ease-in-out group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden">
                       {item.title}
                     </span>
                   </SidebarMenuButton>
@@ -97,7 +115,7 @@ export function AppSidebar() {
                 onClick={() => setSearchOpen(true)}
               >
                 <SearchIcon />
-                <span className="min-w-0 w-full whitespace-nowrap transition-[width,opacity] duration-300 ease-in-out group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden">
+                <span className="min-w-0 w-full whitespace-nowrap transition-all duration-300 ease-in-out group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden">
                   Recherche
                 </span>
               </SidebarMenuButton>

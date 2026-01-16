@@ -1,6 +1,10 @@
 import { SuppliersPage } from "@/components/suppliers-page"
 import type { Supplier } from "@/components/suppliers-table"
 
+export const metadata = {
+  title: "Seraphine - Fournisseurs",
+}
+
 const supplierItems: Supplier[] = [
   {
     id: "sup-001",

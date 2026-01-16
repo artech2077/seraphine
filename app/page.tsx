@@ -1,5 +1,9 @@
 import { PageShell } from "@/components/page-shell"
 
+export const metadata = {
+  title: "Seraphine - Tableau de bord",
+}
+
 export default function Page() {
   return (
     <PageShell
