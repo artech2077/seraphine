@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import {
   Accordion,
   AccordionContent,
@@ -20,12 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
-import {
-  Avatar,
-  AvatarBadge,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
   Breadcrumb,
@@ -36,11 +32,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
-import {
-  ButtonGroup,
-  ButtonGroupSeparator,
-  ButtonGroupText,
-} from "@/components/ui/button-group"
+import { ButtonGroup, ButtonGroupSeparator, ButtonGroupText } from "@/components/ui/button-group"
 import { Calendar } from "@/components/ui/calendar"
 import {
   Card,
@@ -65,11 +57,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
   Command,
   CommandDialog,
@@ -113,34 +101,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
   InputGroupText,
-  InputGroupTextarea,
 } from "@/components/ui/input-group"
 import { Input } from "@/components/ui/input"
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSeparator,
-  InputOTPSlot,
-} from "@/components/ui/input-otp"
+import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/components/ui/input-otp"
 import {
   Item,
   ItemContent,
@@ -179,21 +151,10 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Progress } from "@/components/ui/progress"
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/ui/radio-group"
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Select,
@@ -244,12 +205,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Toggle } from "@/components/ui/toggle"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { Combobox, ComboboxContent, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox"
+  Combobox,
+  ComboboxContent,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox"
 import { SelectLabel } from "@/components/ui/select"
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import { toast } from "sonner"
@@ -257,7 +220,6 @@ import {
   BellIcon,
   BookOpenIcon,
   CheckIcon,
-  ChevronRightIcon,
   InfoIcon,
   MousePointerClickIcon,
   StarIcon,
@@ -271,19 +233,11 @@ const chartData = [
 
 const frameworks = ["Next.js", "SvelteKit", "Nuxt.js"]
 
-function Section({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3">
       <div className="font-semibold">{title}</div>
-      <div className="border border-dashed rounded-lg p-4 space-y-3">
-        {children}
-      </div>
+      <div className="border border-dashed rounded-lg p-4 space-y-3">{children}</div>
     </section>
   )
 }
@@ -296,11 +250,8 @@ export function UiGallery() {
   type TableSortState = "default" | "asc" | "desc"
   type TableSortKey = "name" | "status" | "role"
 
-  const [tableSortKey, setTableSortKey] = React.useState<TableSortKey | null>(
-    null
-  )
-  const [tableSortState, setTableSortState] =
-    React.useState<TableSortState>("default")
+  const [tableSortKey, setTableSortKey] = React.useState<TableSortKey | null>(null)
+  const [tableSortState, setTableSortState] = React.useState<TableSortState>("default")
 
   const tableRows = React.useMemo(
     () => [
@@ -385,9 +336,7 @@ export function UiGallery() {
         <div className="flex items-center gap-2">
           <Kbd>⌘</Kbd>
           <Kbd>K</Kbd>
-          <span className="text-sm text-muted-foreground">
-            Keyboard hint with Kbd
-          </span>
+          <span className="text-sm text-muted-foreground">Keyboard hint with Kbd</span>
         </div>
       </Section>
 
@@ -395,9 +344,7 @@ export function UiGallery() {
         <Accordion defaultValue={["item-1"]}>
           <AccordionItem value="item-1">
             <AccordionTrigger>First item</AccordionTrigger>
-            <AccordionContent>
-              Content inside the first accordion panel.
-            </AccordionContent>
+            <AccordionContent>Content inside the first accordion panel.</AccordionContent>
           </AccordionItem>
           <AccordionItem value="item-2">
             <AccordionTrigger>Second item</AccordionTrigger>
@@ -430,9 +377,7 @@ export function UiGallery() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone.
-              </AlertDialogDescription>
+              <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -465,16 +410,12 @@ export function UiGallery() {
             </DrawerHeader>
             <DrawerFooter>
               <Button onClick={() => setDrawerOpen(false)}>Close</Button>
-              <DrawerClose className="rounded-lg border px-3 py-1.5 text-sm">
-                Cancel
-              </DrawerClose>
+              <DrawerClose className="rounded-lg border px-3 py-1.5 text-sm">Cancel</DrawerClose>
             </DrawerFooter>
           </DrawerContent>
         </Drawer>
         <Sheet>
-          <SheetTrigger className="rounded-lg border px-3 py-1.5 text-sm">
-            Open Sheet
-          </SheetTrigger>
+          <SheetTrigger className="rounded-lg border px-3 py-1.5 text-sm">Open Sheet</SheetTrigger>
           <SheetContent>
             <SheetHeader>
               <SheetTitle>Sheet panel</SheetTitle>
@@ -551,9 +492,9 @@ export function UiGallery() {
             <NavigationMenuItem>
               <NavigationMenuTrigger>Products</NavigationMenuTrigger>
               <NavigationMenuContent>
-              <NavigationMenuLink href="#" className="block rounded-md border p-3 text-sm">
-                Explore products
-              </NavigationMenuLink>
+                <NavigationMenuLink href="#" className="block rounded-md border p-3 text-sm">
+                  Explore products
+                </NavigationMenuLink>
               </NavigationMenuContent>
             </NavigationMenuItem>
             <NavigationMenuItem>
@@ -596,11 +537,7 @@ export function UiGallery() {
             Billing tab content.
           </TabsContent>
         </Tabs>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setCommandOpen(true)}
-        >
+        <Button size="sm" variant="outline" onClick={() => setCommandOpen(true)}>
           Open Command Palette
         </Button>
         <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
@@ -772,9 +709,11 @@ export function UiGallery() {
           </Item>
           <Item>
             <ItemMedia variant="image">
-              <img
+              <Image
                 alt="thumb"
                 src="https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?w=200"
+                width={200}
+                height={200}
               />
             </ItemMedia>
             <ItemContent>
@@ -787,10 +726,11 @@ export function UiGallery() {
 
       <Section title="Media & Layout">
         <AspectRatio ratio={16 / 9} className="overflow-hidden rounded-lg border">
-          <img
+          <Image
             src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800"
             alt="Landscape"
-            className="h-full w-full object-cover"
+            fill
+            className="object-cover"
           />
         </AspectRatio>
         <ScrollArea className="h-24 w-full rounded border">
@@ -845,9 +785,7 @@ export function UiGallery() {
               <TableRow key={`${row.name}-${row.role}`}>
                 <TableCell>{row.name}</TableCell>
                 <TableCell>
-                  <Badge
-                    variant={row.variant as React.ComponentProps<typeof Badge>["variant"]}
-                  >
+                  <Badge variant={row.variant as React.ComponentProps<typeof Badge>["variant"]}>
                     {row.status}
                   </Badge>
                 </TableCell>
@@ -878,9 +816,7 @@ export function UiGallery() {
                 </Avatar>
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Hover Card</p>
-                  <p className="text-sm text-muted-foreground">
-                    Rich preview content.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Rich preview content.</p>
                 </div>
               </div>
             </HoverCardContent>
@@ -929,12 +865,7 @@ export function UiGallery() {
                 <YAxis />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <ChartLegend content={<ChartLegendContent />} />
-                <Line
-                  type="monotone"
-                  dataKey="users"
-                  stroke="var(--color-users)"
-                  strokeWidth={2}
-                />
+                <Line type="monotone" dataKey="users" stroke="var(--color-users)" strokeWidth={2} />
                 <Line
                   type="monotone"
                   dataKey="sessions"
@@ -972,23 +903,14 @@ export function UiGallery() {
               <MousePointerClickIcon className="size-5" />
             </EmptyMedia>
             <EmptyTitle>Nothing here yet</EmptyTitle>
-            <EmptyDescription>
-              Use the empty state component for placeholders.
-            </EmptyDescription>
+            <EmptyDescription>Use the empty state component for placeholders.</EmptyDescription>
           </EmptyHeader>
         </Empty>
         <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            onClick={() => toast.success("Success toast from Sonner")}
-          >
+          <Button size="sm" onClick={() => toast.success("Success toast from Sonner")}>
             Show toast
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => toast("Neutral toast")}
-          >
+          <Button size="sm" variant="outline" onClick={() => toast("Neutral toast")}>
             Neutral toast
           </Button>
         </div>

@@ -13,7 +13,7 @@ Your main goals:
 - Maintain **security** and protect secrets and user data at all times.
 - Keep the project easy to understand for a non-developer owner.
 
-If anything in this file conflicts with an explicit user message, **follow the user**.
+If anything in this file conflicts with an explicit user message, **tell that to the user**.
 
 ---
 
@@ -190,6 +190,36 @@ Testing (when applicable):
 
 ---
 
+### 9.1 Definition of Done (Implementation Discipline)
+
+When an agent implements any roadmap item, feature, refactor, or non-trivial change, the work is only considered **done** when all of the following conditions are met:
+
+1. **Tests and Checks Must Be Run**
+   - The agent MUST run the project’s relevant test suite after implementation.
+   - At minimum, run all applicable checks available in the repository, such as:
+     - Unit tests
+     - Integration tests
+     - Linting
+     - Type checking
+     - Build verification
+   - If no automated tests exist for the affected area, the agent MUST:
+     - Run all existing checks (e.g. lint, typecheck, build), and
+     - Explicitly note the absence of tests in the roadmap implementation notes.
+
+2. **Roadmap Documentation Is Mandatory**
+   - When a roadmap task or checkbox item is completed (`[ ]` → `[x]`), the agent MUST add an entry to the corresponding **Implementation notes** section in `roadmap.md`.
+   - Each implementation note MUST include:
+     - **What was implemented or changed**
+     - **How it was verified**, including exact commands run (e.g. `pnpm test`, `npm run lint`)
+     - **Any manual QA steps performed**
+     - **Known limitations, follow-ups, or assumptions**, if applicable
+
+3. **No Silent Completion**
+   - Roadmap items may NOT be marked complete without accompanying implementation notes.
+   - Code changes without tests or verification notes are considered incomplete, even if the code compiles.
+
+This rule exists to ensure traceability, reproducibility, and long-term maintainability of the project.
+
 ## 10. Git & Collaboration
 
 - Make changes in a way that would be easy to review:
@@ -235,13 +265,13 @@ If a requested change conflicts with these security rules, prefer the **more sec
 
 If not otherwise specified, assume a standard workflow like:
 
-1. Install dependencies  
+1. Install dependencies
    - `npm install` or `pnpm install` or `yarn` (follow existing lockfile).
-2. Start dev server  
+2. Start dev server
    - `npm run dev`
-3. Run tests (if configured)  
+3. Run tests (if configured)
    - `npm test` or `npm run test`
-4. Build for production  
+4. Build for production
    - `npm run build`
 
 Always check existing scripts in `package.json` before adding new ones.
@@ -252,8 +282,8 @@ Always check existing scripts in `package.json` before adding new ones.
 
 When there are conflicting instructions:
 
-1. **User’s explicit request** (most recent message)  
-2. This `AGENTS.md` file (project rules)  
+1. **User’s explicit request** (most recent message)
+2. This `AGENTS.md` file (project rules)
 3. Default conventions of the frameworks (Next.js, Tailwind, shadcn/ui, Convex, Clerk)
 
 When in doubt:

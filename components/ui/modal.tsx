@@ -95,32 +95,90 @@ function Modal({
   )
 }
 
-function ModalTrigger({ ...props }: React.ComponentProps<typeof DialogTrigger>) {
-  const { variant } = useModalContext()
-
-  if (variant === "dialog") {
-    return <DialogTrigger {...props} />
-  }
-
-  if (variant === "sheet") {
-    return <SheetTrigger {...props} />
-  }
-
-  return <DrawerTrigger {...props} />
+type ModalTriggerProps = React.ComponentPropsWithoutRef<"button"> & {
+  render?: React.ReactNode
+  asChild?: boolean
 }
 
-function ModalClose({ ...props }: React.ComponentProps<typeof DialogClose>) {
+function ModalTrigger({ render, asChild, children, ...props }: ModalTriggerProps) {
   const { variant } = useModalContext()
+  const triggerElement = React.useMemo(
+    () => (render ? React.isValidElement(render) ? render : <span>{render}</span> : undefined),
+    [render]
+  )
 
   if (variant === "dialog") {
-    return <DialogClose {...props} />
+    return triggerElement ? (
+      <DialogTrigger render={triggerElement} {...props} />
+    ) : (
+      <DialogTrigger {...props}>{children}</DialogTrigger>
+    )
   }
 
   if (variant === "sheet") {
-    return <SheetClose {...props} />
+    return triggerElement ? (
+      <SheetTrigger render={triggerElement} {...props} />
+    ) : (
+      <SheetTrigger {...props}>{children}</SheetTrigger>
+    )
   }
 
-  return <DrawerClose {...props} />
+  if (triggerElement) {
+    return (
+      <DrawerTrigger asChild {...props}>
+        {triggerElement}
+      </DrawerTrigger>
+    )
+  }
+
+  return (
+    <DrawerTrigger asChild={asChild} {...props}>
+      {children}
+    </DrawerTrigger>
+  )
+}
+
+type ModalCloseProps = React.ComponentPropsWithoutRef<"button"> & {
+  render?: React.ReactNode
+  asChild?: boolean
+}
+
+function ModalClose({ render, asChild, children, ...props }: ModalCloseProps) {
+  const { variant } = useModalContext()
+  const closeElement = React.useMemo(
+    () => (render ? React.isValidElement(render) ? render : <span>{render}</span> : undefined),
+    [render]
+  )
+
+  if (variant === "dialog") {
+    return closeElement ? (
+      <DialogClose render={closeElement} {...props} />
+    ) : (
+      <DialogClose {...props}>{children}</DialogClose>
+    )
+  }
+
+  if (variant === "sheet") {
+    return closeElement ? (
+      <SheetClose render={closeElement} {...props} />
+    ) : (
+      <SheetClose {...props}>{children}</SheetClose>
+    )
+  }
+
+  if (closeElement) {
+    return (
+      <DrawerClose asChild {...props}>
+        {closeElement}
+      </DrawerClose>
+    )
+  }
+
+  return (
+    <DrawerClose asChild={asChild} {...props}>
+      {children}
+    </DrawerClose>
+  )
 }
 
 type ModalContentProps = React.ComponentProps<"div"> & {
@@ -140,9 +198,9 @@ function ModalContent({
 
   if (variant === "dialog") {
     return (
-        <DialogContent
-          showCloseButton={showCloseButton}
-          className={cn(
+      <DialogContent
+        showCloseButton={showCloseButton}
+        className={cn(
           "w-full sm:w-2/5 sm:max-w-none p-0 gap-0 flex flex-col bg-primary-foreground rounded-l-xl",
           baseClasses,
           className
@@ -225,7 +283,9 @@ function ModalHeader({
   )
 }
 
-function ModalTitle({ ...props }: React.ComponentProps<typeof DialogTitle>) {
+type ModalTitleProps = React.ComponentPropsWithoutRef<"h2">
+
+function ModalTitle({ ...props }: ModalTitleProps) {
   const { variant } = useModalContext()
 
   if (variant === "dialog") {
@@ -239,9 +299,9 @@ function ModalTitle({ ...props }: React.ComponentProps<typeof DialogTitle>) {
   return <DrawerTitle {...props} />
 }
 
-function ModalDescription({
-  ...props
-}: React.ComponentProps<typeof DialogDescription>) {
+type ModalDescriptionProps = React.ComponentPropsWithoutRef<"p">
+
+function ModalDescription({ ...props }: ModalDescriptionProps) {
   const { variant } = useModalContext()
 
   if (variant === "dialog") {
@@ -256,12 +316,7 @@ function ModalDescription({
 }
 
 function ModalBody({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      className={cn("flex-1 space-y-4 overflow-y-auto p-4", className)}
-      {...props}
-    />
-  )
+  return <div className={cn("flex-1 space-y-4 overflow-y-auto p-4", className)} {...props} />
 }
 
 function ModalFooter({ className, ...props }: React.ComponentProps<"div">) {
