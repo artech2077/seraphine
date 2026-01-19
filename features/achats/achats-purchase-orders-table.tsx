@@ -31,8 +31,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import type { ProcurementFormValues } from "@/features/achats/api"
 import { ProcurementOrderModal } from "@/features/achats/procurement-order-modal"
 import type { PurchaseOrder, PurchaseOrderStatus } from "@/features/achats/procurement-data"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { Download, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
 const currencyFormatter = new Intl.NumberFormat("fr-MA", {
@@ -72,13 +74,27 @@ type PurchaseOrdersTableProps = {
   orders: PurchaseOrder[]
   page?: number
   pageSize?: number
+  suppliers: Array<{ id: string; name: string }>
+  products: Array<{ id: string; name: string; unitPrice: number }>
+  onUpdate?: (order: PurchaseOrder, values: ProcurementFormValues) => void | Promise<void>
+  onDelete?: (order: PurchaseOrder) => void | Promise<void>
 }
 
 type PurchaseOrdersSortKey = "supplier" | "channel" | "createdAt" | "orderDate" | "total" | "status"
 
-export function PurchaseOrdersTable({ orders, page = 1, pageSize }: PurchaseOrdersTableProps) {
+export function PurchaseOrdersTable({
+  orders,
+  page = 1,
+  pageSize,
+  suppliers,
+  products,
+  onUpdate,
+  onDelete,
+}: PurchaseOrdersTableProps) {
   type SortState = "default" | "asc" | "desc"
 
+  const { canManage } = useRoleAccess()
+  const canManagePurchases = canManage("achats")
   const [sortKey, setSortKey] = React.useState<PurchaseOrdersSortKey | null>(null)
   const [sortState, setSortState] = React.useState<SortState>("default")
   const [editOpen, setEditOpen] = React.useState(false)
@@ -150,6 +166,11 @@ export function PurchaseOrdersTable({ orders, page = 1, pageSize }: PurchaseOrde
     if (!nextOpen) {
       setActiveOrder(null)
     }
+  }
+
+  function handleUpdate(values: ProcurementFormValues) {
+    if (!activeOrder) return
+    void onUpdate?.(activeOrder, values)
   }
 
   return (
@@ -228,7 +249,10 @@ export function PurchaseOrdersTable({ orders, page = 1, pageSize }: PurchaseOrde
                   <DropdownMenuContent align="end">
                     <DropdownMenuGroup>
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={() => handleEdit(order)}>
+                      <DropdownMenuItem
+                        onClick={() => handleEdit(order)}
+                        disabled={!canManagePurchases}
+                      >
                         <Pencil />
                         Modifier
                       </DropdownMenuItem>
@@ -239,7 +263,13 @@ export function PurchaseOrdersTable({ orders, page = 1, pageSize }: PurchaseOrde
                       <AlertDialog>
                         <AlertDialogTrigger
                           nativeButton={false}
-                          render={<DropdownMenuItem variant="destructive" />}
+                          disabled={!canManagePurchases}
+                          render={
+                            <DropdownMenuItem
+                              variant="destructive"
+                              disabled={!canManagePurchases}
+                            />
+                          }
                         >
                           <Trash2 />
                           Supprimer
@@ -253,7 +283,13 @@ export function PurchaseOrdersTable({ orders, page = 1, pageSize }: PurchaseOrde
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction variant="destructive">Supprimer</AlertDialogAction>
+                            <AlertDialogAction
+                              variant="destructive"
+                              disabled={!canManagePurchases || !onDelete}
+                              onClick={() => onDelete?.(order)}
+                            >
+                              Supprimer
+                            </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
@@ -271,6 +307,9 @@ export function PurchaseOrdersTable({ orders, page = 1, pageSize }: PurchaseOrde
         open={editOpen}
         onOpenChange={handleEditOpenChange}
         order={activeOrder ?? undefined}
+        suppliers={suppliers}
+        products={products}
+        onSubmit={handleUpdate}
       />
     </>
   )

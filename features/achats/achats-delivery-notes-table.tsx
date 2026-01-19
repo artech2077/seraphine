@@ -31,8 +31,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import type { ProcurementFormValues } from "@/features/achats/api"
 import { ProcurementOrderModal } from "@/features/achats/procurement-order-modal"
 import type { DeliveryNote, DeliveryNoteStatus } from "@/features/achats/procurement-data"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { Download, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
 const currencyFormatter = new Intl.NumberFormat("fr-MA", {
@@ -72,6 +74,10 @@ type DeliveryNotesTableProps = {
   notes: DeliveryNote[]
   page?: number
   pageSize?: number
+  suppliers: Array<{ id: string; name: string }>
+  products: Array<{ id: string; name: string; unitPrice: number }>
+  onUpdate?: (note: DeliveryNote, values: ProcurementFormValues) => void | Promise<void>
+  onDelete?: (note: DeliveryNote) => void | Promise<void>
 }
 
 type DeliveryNotesSortKey =
@@ -82,9 +88,19 @@ type DeliveryNotesSortKey =
   | "total"
   | "status"
 
-export function DeliveryNotesTable({ notes, page = 1, pageSize }: DeliveryNotesTableProps) {
+export function DeliveryNotesTable({
+  notes,
+  page = 1,
+  pageSize,
+  suppliers,
+  products,
+  onUpdate,
+  onDelete,
+}: DeliveryNotesTableProps) {
   type SortState = "default" | "asc" | "desc"
 
+  const { canManage } = useRoleAccess()
+  const canManagePurchases = canManage("achats")
   const [sortKey, setSortKey] = React.useState<DeliveryNotesSortKey | null>(null)
   const [sortState, setSortState] = React.useState<SortState>("default")
   const [editOpen, setEditOpen] = React.useState(false)
@@ -156,6 +172,11 @@ export function DeliveryNotesTable({ notes, page = 1, pageSize }: DeliveryNotesT
     if (!nextOpen) {
       setActiveNote(null)
     }
+  }
+
+  function handleUpdate(values: ProcurementFormValues) {
+    if (!activeNote) return
+    void onUpdate?.(activeNote, values)
   }
 
   return (
@@ -234,7 +255,10 @@ export function DeliveryNotesTable({ notes, page = 1, pageSize }: DeliveryNotesT
                   <DropdownMenuContent align="end">
                     <DropdownMenuGroup>
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={() => handleEdit(note)}>
+                      <DropdownMenuItem
+                        onClick={() => handleEdit(note)}
+                        disabled={!canManagePurchases}
+                      >
                         <Pencil />
                         Modifier
                       </DropdownMenuItem>
@@ -245,7 +269,13 @@ export function DeliveryNotesTable({ notes, page = 1, pageSize }: DeliveryNotesT
                       <AlertDialog>
                         <AlertDialogTrigger
                           nativeButton={false}
-                          render={<DropdownMenuItem variant="destructive" />}
+                          disabled={!canManagePurchases}
+                          render={
+                            <DropdownMenuItem
+                              variant="destructive"
+                              disabled={!canManagePurchases}
+                            />
+                          }
                         >
                           <Trash2 />
                           Supprimer
@@ -259,7 +289,13 @@ export function DeliveryNotesTable({ notes, page = 1, pageSize }: DeliveryNotesT
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction variant="destructive">Supprimer</AlertDialogAction>
+                            <AlertDialogAction
+                              variant="destructive"
+                              disabled={!canManagePurchases || !onDelete}
+                              onClick={() => onDelete?.(note)}
+                            >
+                              Supprimer
+                            </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
@@ -277,6 +313,9 @@ export function DeliveryNotesTable({ notes, page = 1, pageSize }: DeliveryNotesT
         open={editOpen}
         onOpenChange={handleEditOpenChange}
         order={activeNote ?? undefined}
+        suppliers={suppliers}
+        products={products}
+        onSubmit={handleUpdate}
       />
     </>
   )

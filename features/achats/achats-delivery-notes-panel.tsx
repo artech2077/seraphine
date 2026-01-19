@@ -9,6 +9,7 @@ import { DatePickerField } from "@/components/forms/date-picker-field"
 import { FilterMultiCombobox } from "@/components/filters/filter-multi-combobox"
 import { FilterMultiSelect } from "@/components/filters/filter-multi-select"
 import { FiltersBar } from "@/components/filters/filters-bar"
+import type { ProcurementFormValues } from "@/features/achats/api"
 import { DeliveryNotesTable } from "@/features/achats/achats-delivery-notes-table"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,11 +22,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Download, Printer } from "lucide-react"
-import {
-  DELIVERY_STATUS_OPTIONS,
-  SUPPLIER_OPTIONS,
-  type DeliveryNote,
-} from "@/features/achats/procurement-data"
+import { DELIVERY_STATUS_OPTIONS, type DeliveryNote } from "@/features/achats/procurement-data"
 
 const PAGE_SIZE = 5
 
@@ -94,9 +91,21 @@ function toCsv(items: DeliveryNote[]) {
 
 type DeliveryNotesPanelProps = {
   notes: DeliveryNote[]
+  isLoading?: boolean
+  suppliers: Array<{ id: string; name: string }>
+  products: Array<{ id: string; name: string; unitPrice: number }>
+  onUpdate?: (note: DeliveryNote, values: ProcurementFormValues) => void | Promise<void>
+  onDelete?: (note: DeliveryNote) => void | Promise<void>
 }
 
-export function DeliveryNotesPanel({ notes }: DeliveryNotesPanelProps) {
+export function DeliveryNotesPanel({
+  notes,
+  isLoading = false,
+  suppliers,
+  products,
+  onUpdate,
+  onDelete,
+}: DeliveryNotesPanelProps) {
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
   const [createdRange, setCreatedRange] = React.useState<DateRange | undefined>()
   const [supplierFilter, setSupplierFilter] = React.useState<string[]>([])
@@ -104,6 +113,10 @@ export function DeliveryNotesPanel({ notes }: DeliveryNotesPanelProps) {
   const [referenceFilter, setReferenceFilter] = React.useState<string[]>([])
   const [currentPage, setCurrentPage] = React.useState(1)
 
+  const supplierOptions = React.useMemo(
+    () => Array.from(new Set(notes.map((note) => note.supplier))),
+    [notes]
+  )
   const referenceOptions = React.useMemo(
     () => Array.from(new Set(notes.map((note) => note.externalReference))),
     [notes]
@@ -165,6 +178,11 @@ export function DeliveryNotesPanel({ notes }: DeliveryNotesPanelProps) {
 
   return (
     <DataTable
+      isEmpty={!isLoading && filteredNotes.length === 0}
+      emptyState={{
+        title: "Aucun bon de livraison pour le moment",
+        description: "Enregistrez une livraison ou associez un fournisseur pour commencer.",
+      }}
       toolbar={
         <>
           <FiltersBar>
@@ -176,7 +194,7 @@ export function DeliveryNotesPanel({ notes }: DeliveryNotesPanelProps) {
             />
             <FilterMultiCombobox
               label="Fournisseurs"
-              options={SUPPLIER_OPTIONS}
+              options={supplierOptions}
               onChange={setSupplierFilter}
             />
             <FilterMultiCombobox
@@ -264,7 +282,15 @@ export function DeliveryNotesPanel({ notes }: DeliveryNotesPanelProps) {
         />
       }
     >
-      <DeliveryNotesTable notes={filteredNotes} page={currentPage} pageSize={PAGE_SIZE} />
+      <DeliveryNotesTable
+        notes={filteredNotes}
+        page={currentPage}
+        pageSize={PAGE_SIZE}
+        suppliers={suppliers}
+        products={products}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+      />
     </DataTable>
   )
 }

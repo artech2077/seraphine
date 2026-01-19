@@ -25,31 +25,6 @@ import { Download, Printer } from "lucide-react"
 
 const PAGE_SIZE = 20
 
-const clientOptions = [
-  "Tous les clients",
-  "Clinique Atlas",
-  "Pharmacie du Centre",
-  "Dr. Rania L.",
-  "Clinique internationale Mohammed VI de consultation specialisee",
-]
-
-const sellerOptions = [
-  "Tous les vendeurs",
-  "Nadia H.",
-  "Imane B.",
-  "Youssef A.",
-  "Equipe commerciale regionale du Nord Atlantique",
-]
-
-const productOptions = [
-  "Tous les produits",
-  "Paracetamol 500mg",
-  "Gel hydroalcoolique antiseptique extra longue duree 750ml edition professionnelle",
-  "Ibuprofene 400mg",
-  "Vitamine C 1000",
-  "Gel hydroalcoolique 250ml",
-]
-
 const paymentOptions = ["Tous", "Espèce", "Carte", "Crédit"]
 
 function normalizeSelections(values: string[]) {
@@ -69,15 +44,31 @@ function parseDiscount(value: string) {
 
 type SalesHistoryPanelProps = {
   sales: SaleHistoryItem[]
+  isLoading?: boolean
+  onDelete?: (sale: SaleHistoryItem) => void | Promise<void>
 }
 
-export function SalesHistoryPanel({ sales }: SalesHistoryPanelProps) {
+export function SalesHistoryPanel({ sales, isLoading = false, onDelete }: SalesHistoryPanelProps) {
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
   const [clients, setClients] = React.useState<string[]>([])
   const [sellers, setSellers] = React.useState<string[]>([])
   const [products, setProducts] = React.useState<string[]>([])
   const [payments, setPayments] = React.useState<string[]>([])
   const [discountOnly, setDiscountOnly] = React.useState(false)
+
+  const clientOptions = React.useMemo(
+    () => ["Tous les clients", ...Array.from(new Set(sales.map((sale) => sale.client)))],
+    [sales]
+  )
+  const sellerOptions = React.useMemo(
+    () => ["Tous les vendeurs", ...Array.from(new Set(sales.map((sale) => sale.seller)))],
+    [sales]
+  )
+  const productOptions = React.useMemo(() => {
+    const productsSet = new Set<string>()
+    sales.forEach((sale) => sale.items.forEach((item) => productsSet.add(item.product)))
+    return ["Tous les produits", ...Array.from(productsSet)]
+  }, [sales])
 
   const filteredSales = React.useMemo(() => {
     const selectedClients = normalizeSelections(clients)
@@ -124,6 +115,11 @@ export function SalesHistoryPanel({ sales }: SalesHistoryPanelProps) {
 
   return (
     <DataTable
+      isEmpty={!isLoading && filteredSales.length === 0}
+      emptyState={{
+        title: "Aucune vente enregistrée",
+        description: "Les ventes apparaîtront ici après leur enregistrement.",
+      }}
       toolbar={
         <>
           <FiltersBar>
@@ -182,7 +178,7 @@ export function SalesHistoryPanel({ sales }: SalesHistoryPanelProps) {
         />
       }
     >
-      <SalesHistoryTable sales={filteredSales} />
+      <SalesHistoryTable sales={filteredSales} onDelete={onDelete} />
     </DataTable>
   )
 }

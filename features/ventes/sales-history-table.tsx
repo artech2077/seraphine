@@ -14,6 +14,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import {
   ExpandableTable,
   ExpandableTableRow,
   ExpandableTableTrigger,
@@ -26,6 +37,7 @@ import {
   TableRow,
   SortableTableHead,
 } from "@/components/ui/table"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { Download, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
 export type SaleLineItem = {
@@ -67,7 +79,15 @@ function formatCurrency(value: number) {
   return currencyFormatter.format(value)
 }
 
-export function SalesHistoryTable({ sales }: { sales: SaleHistoryItem[] }) {
+export function SalesHistoryTable({
+  sales,
+  onDelete,
+}: {
+  sales: SaleHistoryItem[]
+  onDelete?: (sale: SaleHistoryItem) => void | Promise<void>
+}) {
+  const { canManage } = useRoleAccess()
+  const canManageSales = canManage("ventes")
   type SortState = "default" | "asc" | "desc"
   type SalesSortKey =
     | "id"
@@ -321,7 +341,7 @@ export function SalesHistoryTable({ sales }: { sales: SaleHistoryItem[] }) {
                     <DropdownMenuContent align="end">
                       <DropdownMenuGroup>
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem disabled={!canManageSales}>
                           <Pencil />
                           Modifier
                         </DropdownMenuItem>
@@ -330,10 +350,36 @@ export function SalesHistoryTable({ sales }: { sales: SaleHistoryItem[] }) {
                           Telecharger la facture
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem variant="destructive">
-                          <Trash2 />
-                          Supprimer
-                        </DropdownMenuItem>
+                        <AlertDialog>
+                          <AlertDialogTrigger
+                            nativeButton={false}
+                            disabled={!canManageSales}
+                            render={
+                              <DropdownMenuItem variant="destructive" disabled={!canManageSales} />
+                            }
+                          >
+                            <Trash2 />
+                            Supprimer
+                          </AlertDialogTrigger>
+                          <AlertDialogContent size="sm">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Supprimer cette vente ?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Cette action est définitive et supprimera la vente.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Annuler</AlertDialogCancel>
+                              <AlertDialogAction
+                                variant="destructive"
+                                disabled={!canManageSales || !onDelete}
+                                onClick={() => onDelete?.(sale)}
+                              >
+                                Supprimer
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </DropdownMenuGroup>
                     </DropdownMenuContent>
                   </DropdownMenu>

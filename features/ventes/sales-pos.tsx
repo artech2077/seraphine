@@ -41,6 +41,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
+import { useClients } from "@/features/clients/api"
+import { useProductCatalog } from "@/features/inventaire/api"
+import { useSalesHistory } from "@/features/ventes/api"
+import { toast } from "sonner"
 
 type DiscountType = "percent" | "amount"
 
@@ -53,52 +58,12 @@ type Product = {
 
 type SaleLine = {
   id: string
+  productId?: string
   productName: string
   quantity: number
   discountType: DiscountType
   discountValue: number
 }
-
-const products: Product[] = [
-  {
-    id: "prod-001",
-    name: "Paracétamol 500mg",
-    unitPriceHt: 12.5,
-    vatRate: 7,
-  },
-  {
-    id: "prod-002",
-    name: "Ibuprofène 400mg",
-    unitPriceHt: 9.2,
-    vatRate: 7,
-  },
-  {
-    id: "prod-003",
-    name: "Vitamine C 1000",
-    unitPriceHt: 6.8,
-    vatRate: 0,
-  },
-  {
-    id: "prod-004",
-    name: "Gel hydroalcoolique 250ml",
-    unitPriceHt: 7.6,
-    vatRate: 19,
-  },
-  {
-    id: "prod-005",
-    name: "Sérum physiologique 500ml",
-    unitPriceHt: 8.9,
-    vatRate: 7,
-  },
-  {
-    id: "prod-006",
-    name: "Solution antiseptique usage hospitalier extra longue durée 1 L",
-    unitPriceHt: 18.4,
-    vatRate: 7,
-  },
-]
-
-const productOptions = products.map((product) => product.name)
 
 const discountOptions: { value: DiscountType; label: string }[] = [
   { value: "percent", label: "%" },
@@ -111,16 +76,9 @@ const paymentOptions = [
   { value: "credit", label: "Crédit" },
 ]
 
-const clientOptions = [
-  "Clinique Atlas",
-  "Pharmacie du Centre",
-  "Dr. Rania L.",
-  "Clinique internationale Mohammed VI",
-  "Centre hospitalier universitaire Mohammed VI de consultation spécialisée",
-]
-
 const createEmptyLine = (): SaleLine => ({
   id: `line-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+  productId: undefined,
   productName: "",
   quantity: 0,
   discountType: "percent",
@@ -158,8 +116,10 @@ function getPaymentLabel(value: string | null | undefined) {
   return paymentOptions.find((option) => option.value === value)?.label ?? value
 }
 
-function getLinePricing(line: SaleLine) {
-  const product = products.find((item) => item.name === line.productName)
+function getLinePricing(line: SaleLine, products: Product[]) {
+  const product = line.productId
+    ? products.find((item) => item.id === line.productId)
+    : products.find((item) => item.name === line.productName)
   const unitPriceHt = product?.unitPriceHt ?? 0
   const vatRate = product?.vatRate ?? 0
   const unitPriceTtc = unitPriceHt * (1 + vatRate / 100)
@@ -182,15 +142,34 @@ function getLinePricing(line: SaleLine) {
 }
 
 export function SalesPos() {
+  const { items: clients } = useClients()
+  const { items: catalogItems } = useProductCatalog()
+  const { createSale } = useSalesHistory()
+  const { canManage } = useRoleAccess()
+  const canManageSales = canManage("ventes")
   const [lines, setLines] = React.useState<SaleLine[]>([createEmptyLine()])
   const [globalDiscountType, setGlobalDiscountType] = React.useState<DiscountType>("percent")
   const [globalDiscountValue, setGlobalDiscountValue] = React.useState(0)
   const [paymentMethod, setPaymentMethod] = React.useState<string>("")
   const [clientName, setClientName] = React.useState<string>("")
+  const [clientId, setClientId] = React.useState<string | undefined>(undefined)
   const [notes, setNotes] = React.useState("")
   const [submitAttempted, setSubmitAttempted] = React.useState(false)
 
-  const pricing = lines.map((line) => getLinePricing(line))
+  const products = React.useMemo<Product[]>(
+    () =>
+      catalogItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        unitPriceHt: item.sellingPrice,
+        vatRate: item.vatRate,
+      })),
+    [catalogItems]
+  )
+  const productOptions = React.useMemo(() => products.map((product) => product.name), [products])
+  const clientOptions = React.useMemo(() => clients.map((client) => client.name), [clients])
+
+  const pricing = lines.map((line) => getLinePricing(line, products))
   const subtotalHt = pricing.reduce((sum, item) => sum + item.lineSubtotalHt, 0)
   const subtotalTtc = pricing.reduce((sum, item) => sum + item.lineSubtotalTtc, 0)
   const lineDiscountTotal = pricing.reduce((sum, item) => sum + item.discount, 0)
@@ -204,8 +183,8 @@ export function SalesPos() {
   const hasErrors = lines.some(
     (line) => (line.productName && line.quantity <= 0) || (!line.productName && line.quantity > 0)
   )
-  const canSave = hasValidLines && !hasErrors
-  const showValidation = submitAttempted && !canSave
+  const canSave = hasValidLines && !hasErrors && canManageSales
+  const showValidation = submitAttempted && !canSave && canManageSales
 
   React.useEffect(() => {
     if (canSave && submitAttempted) {
@@ -229,12 +208,55 @@ export function SalesPos() {
     setLines((current) => current.map((line) => (line.id === id ? { ...line, ...updates } : line)))
   }
 
+  async function handleSaveSale() {
+    if (!canManageSales) return
+    if (!hasValidLines || hasErrors) {
+      setSubmitAttempted(true)
+      toast.error("Ajoutez un produit et une quantité supérieure à 0.")
+      return
+    }
+    if (!paymentMethod) {
+      toast.error("Sélectionnez un mode de paiement.")
+      return
+    }
+
+    try {
+      await createSale({
+        clientId,
+        paymentMethod: paymentMethod as "cash" | "card" | "credit" | "check",
+        globalDiscountType,
+        globalDiscountValue,
+        lines: lines
+          .filter((line) => line.productId && line.quantity > 0)
+          .map((line, index) => ({
+            productId: line.productId as string,
+            productName: line.productName,
+            quantity: line.quantity,
+            unitPriceHt: pricing[index]?.unitPriceHt ?? 0,
+            vatRate: pricing[index]?.vatRate ?? 0,
+            discountType: line.discountType,
+            discountValue: line.discountValue,
+          })),
+      })
+
+      toast.success("Vente enregistrée.")
+      setLines([createEmptyLine()])
+      setGlobalDiscountValue(0)
+      setPaymentMethod("")
+      setClientName("")
+      setClientId(undefined)
+      setNotes("")
+    } catch {
+      toast.error("Impossible d'enregistrer la vente.")
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Point de vente</CardTitle>
         <CardAction>
-          <Button onClick={handleAddLine}>
+          <Button onClick={handleAddLine} disabled={!canManageSales}>
             <Plus className="size-4" />
             Ajouter une ligne
           </Button>
@@ -264,7 +286,14 @@ export function SalesPos() {
                       <Combobox
                         items={productOptions}
                         value={line.productName}
-                        onValueChange={(value) => updateLine(line.id, { productName: value ?? "" })}
+                        onValueChange={(value) => {
+                          const nextValue = value ?? ""
+                          const selected = products.find((product) => product.name === nextValue)
+                          updateLine(line.id, {
+                            productName: nextValue,
+                            productId: selected?.id,
+                          })
+                        }}
                       >
                         <ComboboxInput
                           placeholder="Chercher ou scanner le code barre"
@@ -367,6 +396,7 @@ export function SalesPos() {
                         aria-label="Supprimer la ligne"
                         className="text-destructive hover:text-destructive"
                         onClick={() => handleRemoveLine(line.id)}
+                        disabled={!canManageSales}
                       >
                         <Trash2 className="size-4" />
                       </Button>
@@ -444,7 +474,11 @@ export function SalesPos() {
                 <Combobox
                   items={clientOptions}
                   value={clientName}
-                  onValueChange={(value) => setClientName(value ?? "")}
+                  onValueChange={(value) => {
+                    const nextValue = value ?? ""
+                    setClientName(nextValue)
+                    setClientId(clients.find((client) => client.name === nextValue)?.id)
+                  }}
                 >
                   <ComboboxInput
                     placeholder="Sélectionner un client"
@@ -512,7 +546,7 @@ export function SalesPos() {
           </p>
         ) : null}
         <div className="relative">
-          {!canSave ? (
+          {!canSave && canManageSales ? (
             <span
               role="button"
               tabIndex={0}
@@ -526,7 +560,9 @@ export function SalesPos() {
               }}
             />
           ) : null}
-          <Button disabled={!canSave}>Enregistrer la vente</Button>
+          <Button disabled={!canSave} onClick={handleSaveSale}>
+            Enregistrer la vente
+          </Button>
         </div>
       </CardFooter>
     </Card>

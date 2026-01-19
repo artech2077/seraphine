@@ -5,6 +5,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { getPageTitle } from "@/lib/constants/navigation"
 import { usePathname } from "next/navigation"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
+import { UserMenu } from "@/components/layout/user-menu"
 
 export function SiteHeader() {
   const pathname = usePathname()
@@ -18,8 +19,9 @@ export function SiteHeader() {
         className="mx-2 h-5 data-[orientation=vertical]:self-center"
       />
       <div className="text-base font-medium leading-none">{title}</div>
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-2">
         <ThemeToggle />
+        <UserMenu />
       </div>
     </header>
   )

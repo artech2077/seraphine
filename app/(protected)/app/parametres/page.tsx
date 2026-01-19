@@ -1,14 +1,9 @@
-import { PageShell } from "@/components/layout/page-shell"
+import { ParametresPage } from "@/features/parametres/parametres-page"
 
 export const metadata = {
   title: "Seraphine - Paramètres",
 }
 
 export default function Page() {
-  return (
-    <PageShell
-      title="Paramètres"
-      description="Configurez les préférences et les accès de votre équipe."
-    />
-  )
+  return <ParametresPage />
 }

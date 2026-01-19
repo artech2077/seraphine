@@ -7,10 +7,12 @@ import { DataTableFooter } from "@/components/tables/data-table-footer"
 import { FilterMultiCombobox } from "@/components/filters/filter-multi-combobox"
 import { FilterMultiSelect } from "@/components/filters/filter-multi-select"
 import { FiltersBar } from "@/components/filters/filters-bar"
+import { useInventoryItems } from "@/features/inventaire/api"
 import { InventoryProductModal } from "@/features/inventaire/inventory-product-modal"
 import { InventoryTable, type InventoryItem } from "@/features/inventaire/inventory-table"
 import { PageShell } from "@/components/layout/page-shell"
 import { Button } from "@/components/ui/button"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
 import {
   Pagination,
   PaginationContent,
@@ -21,10 +23,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Download, Plus, Printer } from "lucide-react"
-
-type InventoryPageProps = {
-  items: InventoryItem[]
-}
+import { toast } from "sonner"
 
 const STOCK_FILTER_LABELS = ["Tous", "En stock", "Stock bas", "Rupture"]
 const VAT_FILTER_LABELS = ["Toutes", "0%", "7%", "20%"]
@@ -90,7 +89,10 @@ function toCsv(items: InventoryItem[]) {
     .join("\n")
 }
 
-export function InventoryPage({ items }: InventoryPageProps) {
+export function InventoryPage() {
+  const { items, isLoading, createProduct, updateProduct, removeProduct } = useInventoryItems()
+  const { canManage } = useRoleAccess()
+  const canManageInventory = canManage("inventaire")
   const [productFilter, setProductFilter] = React.useState<string[]>([])
   const [barcodeFilter, setBarcodeFilter] = React.useState<string[]>([])
   const [supplierFilter, setSupplierFilter] = React.useState<string[]>([])
@@ -206,8 +208,16 @@ export function InventoryPage({ items }: InventoryPageProps) {
       actions={
         <InventoryProductModal
           mode="create"
+          onSubmit={async (values) => {
+            try {
+              await createProduct(values)
+              toast.success("Produit ajouté.")
+            } catch {
+              toast.error("Impossible d'ajouter le produit.")
+            }
+          }}
           trigger={
-            <Button>
+            <Button disabled={!canManageInventory}>
               <Plus className="size-4" />
               Ajouter un produit
             </Button>
@@ -216,6 +226,11 @@ export function InventoryPage({ items }: InventoryPageProps) {
       }
     >
       <DataTable
+        isEmpty={!isLoading && filteredItems.length === 0}
+        emptyState={{
+          title: "Aucun produit pour le moment",
+          description: "Ajoutez un produit ou importez votre inventaire pour commencer.",
+        }}
         toolbar={
           <>
             <FiltersBar>
@@ -320,7 +335,27 @@ export function InventoryPage({ items }: InventoryPageProps) {
           />
         }
       >
-        <InventoryTable items={filteredItems} page={currentPage} pageSize={pageSize} />
+        <InventoryTable
+          items={filteredItems}
+          page={currentPage}
+          pageSize={pageSize}
+          onUpdate={async (item, values) => {
+            try {
+              await updateProduct(item, values)
+              toast.success("Produit mis à jour.")
+            } catch {
+              toast.error("Impossible de mettre à jour le produit.")
+            }
+          }}
+          onDelete={async (item) => {
+            try {
+              await removeProduct(item)
+              toast.success("Produit supprimé.")
+            } catch {
+              toast.error("Impossible de supprimer le produit.")
+            }
+          }}
+        />
       </DataTable>
     </PageShell>
   )

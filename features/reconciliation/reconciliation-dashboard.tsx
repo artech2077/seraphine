@@ -9,9 +9,12 @@ import { ContentCard } from "@/components/layout/content-card"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
+import { toast } from "sonner"
 
 export type ReconciliationDay = {
   id: string
@@ -46,7 +49,17 @@ function formatDayKey(value: Date) {
   return format(value, "yyyy-MM-dd")
 }
 
-export function ReconciliationDashboard({ days }: { days: ReconciliationDay[] }) {
+export function ReconciliationDashboard({
+  days,
+  onUpdateDay,
+  isLoading = false,
+}: {
+  days: ReconciliationDay[]
+  onUpdateDay?: (day: ReconciliationDay) => void | Promise<void>
+  isLoading?: boolean
+}) {
+  const { canManage } = useRoleAccess()
+  const canManageReconciliation = canManage("reconciliation")
   const [records, setRecords] = React.useState(days)
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(() => {
     if (!days.length) return undefined
@@ -54,6 +67,10 @@ export function ReconciliationDashboard({ days }: { days: ReconciliationDay[] })
   })
   const [openingInput, setOpeningInput] = React.useState("")
   const [closingInput, setClosingInput] = React.useState("")
+
+  React.useEffect(() => {
+    setRecords(days)
+  }, [days])
 
   const availableDays = React.useMemo(() => new Set(records.map((day) => day.date)), [records])
 
@@ -117,6 +134,21 @@ export function ReconciliationDashboard({ days }: { days: ReconciliationDay[] })
 
   const result = resultConfig[resultState]
 
+  if (!isLoading && records.length === 0) {
+    return (
+      <ContentCard contentClassName="py-6">
+        <Empty className="border border-dashed">
+          <EmptyHeader>
+            <EmptyTitle>Aucune journée de caisse</EmptyTitle>
+            <EmptyDescription>
+              Les journées apparaîtront après la première ouverture ou activité en caisse.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </ContentCard>
+    )
+  }
+
   function handleConfirmOpening() {
     if (!selectedDay) return
     const parsed = parseAmount(openingInput)
@@ -127,6 +159,9 @@ export function ReconciliationDashboard({ days }: { days: ReconciliationDay[] })
         day.id === selectedDay.id ? { ...day, opening: parsed, openingLocked: true } : day
       )
     )
+    void Promise.resolve(onUpdateDay?.({ ...selectedDay, opening: parsed, openingLocked: true }))
+      .then(() => toast.success("Ouverture enregistrée."))
+      .catch(() => toast.error("Impossible d'enregistrer l'ouverture."))
   }
 
   function handleConfirmClosing() {
@@ -139,10 +174,14 @@ export function ReconciliationDashboard({ days }: { days: ReconciliationDay[] })
         day.id === selectedDay.id ? { ...day, actual: parsed, isLocked: true } : day
       )
     )
+    void Promise.resolve(onUpdateDay?.({ ...selectedDay, actual: parsed, isLocked: true }))
+      .then(() => toast.success("Fermeture enregistrée."))
+      .catch(() => toast.error("Impossible d'enregistrer la fermeture."))
   }
 
-  const isOpeningLocked = selectedDay?.openingLocked || selectedDay?.isLocked
-  const isClosingLocked = selectedDay?.isLocked
+  const isOpeningLocked =
+    selectedDay?.openingLocked || selectedDay?.isLocked || !canManageReconciliation
+  const isClosingLocked = selectedDay?.isLocked || !canManageReconciliation
 
   const dateLabel = selectedDate ? format(selectedDate, "dd/MM/yyyy") : "Sélectionner"
 

@@ -31,7 +31,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import type { ClientFormValues } from "@/features/clients/api"
 import { ClientModal } from "@/features/clients/client-modal"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
 export type ClientStatus = "OK" | "Surveillé" | "Bloqué"
@@ -157,13 +159,19 @@ export function ClientsTable({
   items,
   page = 1,
   pageSize,
+  onUpdate,
+  onDelete,
 }: {
   items: Client[]
   page?: number
   pageSize?: number
+  onUpdate?: (item: Client, values: ClientFormValues) => void | Promise<void>
+  onDelete?: (item: Client) => void | Promise<void>
 }) {
   type SortState = "default" | "asc" | "desc"
 
+  const { canManage } = useRoleAccess()
+  const canManageClients = canManage("clients")
   const [sortKey, setSortKey] = React.useState<ClientSortKey | null>(null)
   const [sortState, setSortState] = React.useState<SortState>("default")
   const [editOpen, setEditOpen] = React.useState(false)
@@ -240,6 +248,11 @@ export function ClientsTable({
     }
   }
 
+  function handleUpdate(values: ClientFormValues) {
+    if (!activeItem) return
+    void onUpdate?.(activeItem, values)
+  }
+
   return (
     <>
       <Table>
@@ -273,14 +286,20 @@ export function ClientsTable({
                   <DropdownMenuContent align="end">
                     <DropdownMenuGroup>
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={() => handleEdit(item)}>
+                      <DropdownMenuItem
+                        onClick={() => handleEdit(item)}
+                        disabled={!canManageClients}
+                      >
                         <Pencil />
                         Modifier
                       </DropdownMenuItem>
                       <AlertDialog>
                         <AlertDialogTrigger
                           nativeButton={false}
-                          render={<DropdownMenuItem variant="destructive" />}
+                          disabled={!canManageClients}
+                          render={
+                            <DropdownMenuItem variant="destructive" disabled={!canManageClients} />
+                          }
                         >
                           <Trash2 />
                           Supprimer
@@ -294,7 +313,13 @@ export function ClientsTable({
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction variant="destructive">Supprimer</AlertDialogAction>
+                            <AlertDialogAction
+                              variant="destructive"
+                              disabled={!canManageClients || !onDelete}
+                              onClick={() => onDelete?.(item)}
+                            >
+                              Supprimer
+                            </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
@@ -311,6 +336,7 @@ export function ClientsTable({
         open={editOpen}
         onOpenChange={handleEditOpenChange}
         item={activeItem ?? undefined}
+        onSubmit={handleUpdate}
       />
     </>
   )

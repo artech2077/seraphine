@@ -21,6 +21,7 @@ import {
   TableRow,
   SortableTableHead,
 } from "@/components/ui/table"
+import type { InventoryFormValues } from "@/features/inventaire/api"
 import { InventoryProductModal } from "@/features/inventaire/inventory-product-modal"
 import {
   AlertDialog,
@@ -33,6 +34,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
 export type InventoryItem = {
@@ -161,13 +163,19 @@ export function InventoryTable({
   items,
   page = 1,
   pageSize,
+  onUpdate,
+  onDelete,
 }: {
   items: InventoryItem[]
   page?: number
   pageSize?: number
+  onUpdate?: (item: InventoryItem, values: InventoryFormValues) => void | Promise<void>
+  onDelete?: (item: InventoryItem) => void | Promise<void>
 }) {
   type SortState = "default" | "asc" | "desc"
 
+  const { canManage } = useRoleAccess()
+  const canManageInventory = canManage("inventaire")
   const [sortKey, setSortKey] = React.useState<InventorySortKey | null>(null)
   const [sortState, setSortState] = React.useState<SortState>("default")
   const [editOpen, setEditOpen] = React.useState(false)
@@ -252,6 +260,11 @@ export function InventoryTable({
     }
   }
 
+  function handleUpdate(values: InventoryFormValues) {
+    if (!activeItem) return
+    void onUpdate?.(activeItem, values)
+  }
+
   return (
     <>
       <Table>
@@ -295,14 +308,23 @@ export function InventoryTable({
                     <DropdownMenuContent align="end">
                       <DropdownMenuGroup>
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => handleEdit(item)}>
+                        <DropdownMenuItem
+                          onClick={() => handleEdit(item)}
+                          disabled={!canManageInventory}
+                        >
                           <Pencil />
                           Modifier
                         </DropdownMenuItem>
                         <AlertDialog>
                           <AlertDialogTrigger
                             nativeButton={false}
-                            render={<DropdownMenuItem variant="destructive" />}
+                            disabled={!canManageInventory}
+                            render={
+                              <DropdownMenuItem
+                                variant="destructive"
+                                disabled={!canManageInventory}
+                              />
+                            }
                           >
                             <Trash2 />
                             Supprimer
@@ -316,7 +338,13 @@ export function InventoryTable({
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Annuler</AlertDialogCancel>
-                              <AlertDialogAction variant="destructive">Supprimer</AlertDialogAction>
+                              <AlertDialogAction
+                                variant="destructive"
+                                disabled={!canManageInventory || !onDelete}
+                                onClick={() => onDelete?.(item)}
+                              >
+                                Supprimer
+                              </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
@@ -334,6 +362,7 @@ export function InventoryTable({
         open={editOpen}
         onOpenChange={handleEditOpenChange}
         item={activeItem ?? undefined}
+        onSubmit={handleUpdate}
       />
     </>
   )

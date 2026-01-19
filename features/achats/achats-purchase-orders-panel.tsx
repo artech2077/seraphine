@@ -9,6 +9,7 @@ import { DatePickerField } from "@/components/forms/date-picker-field"
 import { FilterMultiCombobox } from "@/components/filters/filter-multi-combobox"
 import { FilterMultiSelect } from "@/components/filters/filter-multi-select"
 import { FiltersBar } from "@/components/filters/filters-bar"
+import type { ProcurementFormValues } from "@/features/achats/api"
 import { PurchaseOrdersTable } from "@/features/achats/achats-purchase-orders-table"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,11 +22,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Download, Printer } from "lucide-react"
-import {
-  PURCHASE_STATUS_OPTIONS,
-  SUPPLIER_OPTIONS,
-  type PurchaseOrder,
-} from "@/features/achats/procurement-data"
+import { PURCHASE_STATUS_OPTIONS, type PurchaseOrder } from "@/features/achats/procurement-data"
 
 const PAGE_SIZE = 5
 
@@ -94,14 +91,31 @@ function toCsv(items: PurchaseOrder[]) {
 
 type PurchaseOrdersPanelProps = {
   orders: PurchaseOrder[]
+  isLoading?: boolean
+  suppliers: Array<{ id: string; name: string }>
+  products: Array<{ id: string; name: string; unitPrice: number }>
+  onUpdate?: (order: PurchaseOrder, values: ProcurementFormValues) => void | Promise<void>
+  onDelete?: (order: PurchaseOrder) => void | Promise<void>
 }
 
-export function PurchaseOrdersPanel({ orders }: PurchaseOrdersPanelProps) {
+export function PurchaseOrdersPanel({
+  orders,
+  isLoading = false,
+  suppliers,
+  products,
+  onUpdate,
+  onDelete,
+}: PurchaseOrdersPanelProps) {
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
   const [createdRange, setCreatedRange] = React.useState<DateRange | undefined>()
   const [supplierFilter, setSupplierFilter] = React.useState<string[]>([])
   const [statusFilter, setStatusFilter] = React.useState<string[]>([])
   const [currentPage, setCurrentPage] = React.useState(1)
+
+  const supplierOptions = React.useMemo(
+    () => Array.from(new Set(orders.map((order) => order.supplier))),
+    [orders]
+  )
 
   const filteredOrders = React.useMemo(() => {
     return orders.filter((order) => {
@@ -156,6 +170,11 @@ export function PurchaseOrdersPanel({ orders }: PurchaseOrdersPanelProps) {
 
   return (
     <DataTable
+      isEmpty={!isLoading && filteredOrders.length === 0}
+      emptyState={{
+        title: "Aucun bon de commande pour le moment",
+        description: "Créez un bon de commande ou ajoutez vos fournisseurs pour commencer.",
+      }}
       toolbar={
         <>
           <FiltersBar>
@@ -167,7 +186,7 @@ export function PurchaseOrdersPanel({ orders }: PurchaseOrdersPanelProps) {
             />
             <FilterMultiCombobox
               label="Fournisseurs"
-              options={SUPPLIER_OPTIONS}
+              options={supplierOptions}
               onChange={setSupplierFilter}
             />
             <FilterMultiSelect
@@ -250,7 +269,15 @@ export function PurchaseOrdersPanel({ orders }: PurchaseOrdersPanelProps) {
         />
       }
     >
-      <PurchaseOrdersTable orders={filteredOrders} page={currentPage} pageSize={PAGE_SIZE} />
+      <PurchaseOrdersTable
+        orders={filteredOrders}
+        page={currentPage}
+        pageSize={PAGE_SIZE}
+        suppliers={suppliers}
+        products={products}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+      />
     </DataTable>
   )
 }

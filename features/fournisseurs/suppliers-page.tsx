@@ -8,7 +8,9 @@ import { FilterMultiCombobox } from "@/components/filters/filter-multi-combobox"
 import { FilterMultiSelect } from "@/components/filters/filter-multi-select"
 import { FiltersBar } from "@/components/filters/filters-bar"
 import { PageShell } from "@/components/layout/page-shell"
+import { useSuppliers } from "@/features/fournisseurs/api"
 import { SupplierModal } from "@/features/fournisseurs/supplier-modal"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { SuppliersTable, type Supplier } from "@/features/fournisseurs/suppliers-table"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,10 +23,6 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Download, Plus, Printer } from "lucide-react"
-
-type SuppliersPageProps = {
-  items: Supplier[]
-}
 
 const BALANCE_FILTER_OPTIONS = ["Positive", "Negative", "Zero"]
 
@@ -76,7 +74,10 @@ function toCsv(items: Supplier[]) {
     .join("\n")
 }
 
-export function SuppliersPage({ items }: SuppliersPageProps) {
+export function SuppliersPage() {
+  const { items, isLoading, createSupplier, updateSupplier, removeSupplier } = useSuppliers()
+  const { canManage } = useRoleAccess()
+  const canManageSuppliers = canManage("fournisseurs")
   const [supplierFilter, setSupplierFilter] = React.useState<string[]>([])
   const [cityFilter, setCityFilter] = React.useState<string[]>([])
   const [balanceFilter, setBalanceFilter] = React.useState<string[]>([])
@@ -157,8 +158,9 @@ export function SuppliersPage({ items }: SuppliersPageProps) {
       actions={
         <SupplierModal
           mode="create"
+          onSubmit={(values) => createSupplier(values)}
           trigger={
-            <Button>
+            <Button disabled={!canManageSuppliers}>
               <Plus className="size-4" />
               Ajouter un fournisseur
             </Button>
@@ -167,6 +169,11 @@ export function SuppliersPage({ items }: SuppliersPageProps) {
       }
     >
       <DataTable
+        isEmpty={!isLoading && filteredItems.length === 0}
+        emptyState={{
+          title: "Aucun fournisseur pour le moment",
+          description: "Ajoutez un fournisseur pour demarrer vos achats.",
+        }}
         toolbar={
           <>
             <FiltersBar>
@@ -256,7 +263,13 @@ export function SuppliersPage({ items }: SuppliersPageProps) {
           />
         }
       >
-        <SuppliersTable items={filteredItems} page={currentPage} pageSize={pageSize} />
+        <SuppliersTable
+          items={filteredItems}
+          page={currentPage}
+          pageSize={pageSize}
+          onUpdate={updateSupplier}
+          onDelete={removeSupplier}
+        />
       </DataTable>
     </PageShell>
   )

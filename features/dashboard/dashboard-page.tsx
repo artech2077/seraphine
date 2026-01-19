@@ -26,6 +26,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import {
   Table,
@@ -135,10 +136,20 @@ function getOrderVariant(status: DashboardData["recentOrders"][number]["status"]
   return status === "Livré" ? "success" : "outline"
 }
 
-export function DashboardPage({ data }: { data: DashboardData }) {
+export function DashboardPage({
+  data,
+  isLoading = false,
+}: {
+  data: DashboardData
+  isLoading?: boolean
+}) {
   const [range, setRange] = React.useState<TrendRange>("30J")
 
   const trendData = data.trendData[range]
+  const showTrendEmpty = !isLoading && trendData.length === 0
+  const showStockEmpty = !isLoading && data.stockItems.length === 0
+  const showSalesEmpty = !isLoading && data.recentSales.length === 0
+  const showOrdersEmpty = !isLoading && data.recentOrders.length === 0
 
   return (
     <PageShell
@@ -303,33 +314,44 @@ export function DashboardPage({ data }: { data: DashboardData }) {
           }
         >
           <div className="h-72 w-full">
-            <ChartContainer
-              className="h-full w-full"
-              config={{
-                revenue: {
-                  label: "Chiffre d'affaires",
-                  color: "var(--chart-2)",
-                },
-              }}
-            >
-              <LineChart data={trendData} margin={{ left: 8, right: 8, top: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="date" tickLine={false} axisLine={false} />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => formatCurrency(Number(value))}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="var(--color-revenue)"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ChartContainer>
+            {showTrendEmpty ? (
+              <Empty className="border border-dashed h-full">
+                <EmptyHeader>
+                  <EmptyTitle>Aucune tendance disponible</EmptyTitle>
+                  <EmptyDescription>
+                    Les ventes apparaîtront ici dès qu&apos;une période contient des transactions.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <ChartContainer
+                className="h-full w-full"
+                config={{
+                  revenue: {
+                    label: "Chiffre d'affaires",
+                    color: "var(--chart-2)",
+                  },
+                }}
+              >
+                <LineChart data={trendData} margin={{ left: 8, right: 8, top: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="date" tickLine={false} axisLine={false} />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => formatCurrency(Number(value))}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="var(--color-revenue)"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ChartContainer>
+            )}
           </div>
         </ContentCard>
 
@@ -348,28 +370,39 @@ export function DashboardPage({ data }: { data: DashboardData }) {
               </Button>
             }
           >
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Produit</TableHead>
-                  <TableHead className="text-right">Seuil</TableHead>
-                  <TableHead className="text-right">Stock</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.stockItems.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell className="text-right tabular-nums">{item.threshold}</TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant={getStockVariant(item.stock, item.threshold)}>
-                        {item.stock}
-                      </Badge>
-                    </TableCell>
+            {showStockEmpty ? (
+              <Empty className="border border-dashed">
+                <EmptyHeader>
+                  <EmptyTitle>Aucune alerte stock</EmptyTitle>
+                  <EmptyDescription>
+                    Les alertes apparaîtront quand un produit passe sous son seuil.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produit</TableHead>
+                    <TableHead className="text-right">Seuil</TableHead>
+                    <TableHead className="text-right">Stock</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {data.stockItems.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell className="text-right tabular-nums">{item.threshold}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={getStockVariant(item.stock, item.threshold)}>
+                          {item.stock}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </ContentCard>
 
           <ContentCard
@@ -386,33 +419,44 @@ export function DashboardPage({ data }: { data: DashboardData }) {
               </Button>
             }
           >
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Ventes</TableHead>
-                  <TableHead>Heure</TableHead>
-                  <TableHead>Montant</TableHead>
-                  <TableHead className="text-right">Paiement</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.recentSales.map((sale) => (
-                  <TableRow key={sale.id}>
-                    <TableCell className="font-medium">{sale.id}</TableCell>
-                    <TableCell>{sale.time}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{formatAmount(sale.amount)}</span>
-                        <span className="text-muted-foreground text-xs">{sale.client}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant={getPaymentVariant(sale.payment)}>{sale.payment}</Badge>
-                    </TableCell>
+            {showSalesEmpty ? (
+              <Empty className="border border-dashed">
+                <EmptyHeader>
+                  <EmptyTitle>Aucune vente récente</EmptyTitle>
+                  <EmptyDescription>
+                    Les transactions apparaîtront ici après les premiers passages en caisse.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Ventes</TableHead>
+                    <TableHead>Heure</TableHead>
+                    <TableHead>Montant</TableHead>
+                    <TableHead className="text-right">Paiement</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {data.recentSales.map((sale) => (
+                    <TableRow key={sale.id}>
+                      <TableCell className="font-medium">{sale.id}</TableCell>
+                      <TableCell>{sale.time}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{formatAmount(sale.amount)}</span>
+                          <span className="text-muted-foreground text-xs">{sale.client}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={getPaymentVariant(sale.payment)}>{sale.payment}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </ContentCard>
         </div>
 
@@ -430,28 +474,39 @@ export function DashboardPage({ data }: { data: DashboardData }) {
             </Button>
           }
         >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fournisseur</TableHead>
-                <TableHead>Date de création</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead className="text-right">Statut</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.recentOrders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium">{order.supplier}</TableCell>
-                  <TableCell>{order.createdAt}</TableCell>
-                  <TableCell>{formatAmount(order.total)}</TableCell>
-                  <TableCell className="text-right">
-                    <Badge variant={getOrderVariant(order.status)}>{order.status}</Badge>
-                  </TableCell>
+          {showOrdersEmpty ? (
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyTitle>Aucune commande récente</EmptyTitle>
+                <EmptyDescription>
+                  Les bons de commande et livraisons apparaîtront ici après leur création.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fournisseur</TableHead>
+                  <TableHead>Date de création</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead className="text-right">Statut</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {data.recentOrders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">{order.supplier}</TableCell>
+                    <TableCell>{order.createdAt}</TableCell>
+                    <TableCell>{formatAmount(order.total)}</TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant={getOrderVariant(order.status)}>{order.status}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </ContentCard>
       </div>
     </PageShell>

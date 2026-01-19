@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
 
 export type ReconciliationHistoryItem = {
   id: string
@@ -82,6 +83,8 @@ function getStatusVariant(status: ReconciliationStatus) {
 }
 
 export function ReconciliationHistoryTable({ items }: { items: ReconciliationHistoryItem[] }) {
+  const { canManage } = useRoleAccess()
+  const canManageReconciliation = canManage("reconciliation")
   type SortState = "default" | "asc" | "desc"
 
   const [sortKey, setSortKey] = React.useState<ReconciliationSortKey | null>(null)
@@ -223,7 +226,7 @@ export function ReconciliationHistoryTable({ items }: { items: ReconciliationHis
                   <DropdownMenuContent align="end">
                     <DropdownMenuGroup>
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem disabled={!canManageReconciliation}>
                         <Pencil />
                         Modifier
                       </DropdownMenuItem>

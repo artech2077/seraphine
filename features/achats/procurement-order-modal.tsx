@@ -36,15 +36,30 @@ import { Trash2, Plus } from "lucide-react"
 import {
   CHANNEL_OPTIONS,
   DELIVERY_STATUS_OPTIONS,
-  PRODUCT_OPTIONS,
   PURCHASE_STATUS_OPTIONS,
-  SUPPLIER_OPTIONS,
   type DeliveryNote,
   type ProcurementLineItem,
   type PurchaseOrder,
 } from "@/features/achats/procurement-data"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
+import { toast } from "sonner"
 
-const emptyLine = (): ProcurementLineItem => ({
+type SupplierOption = {
+  id: string
+  name: string
+}
+
+type ProductOption = {
+  id: string
+  name: string
+  unitPrice: number
+}
+
+type ProcurementLineDraft = ProcurementLineItem & {
+  productId?: string
+}
+
+const emptyLine = (): ProcurementLineDraft => ({
   id: `line-${Date.now()}-${Math.round(Math.random() * 1000)}`,
   product: "",
   quantity: 0,
@@ -63,6 +78,16 @@ type ProcurementOrderModalProps = {
   open?: boolean
   onOpenChange?: (open: boolean) => void
   order?: PurchaseOrder | DeliveryNote
+  suppliers: SupplierOption[]
+  products: ProductOption[]
+  onSubmit?: (values: {
+    supplierId: string
+    channel: string
+    status: string
+    orderDate: string
+    externalReference?: string
+    items: Array<{ productId: string; quantity: number; unitPrice: number }>
+  }) => void | Promise<void>
 }
 
 export function ProcurementOrderModal({
@@ -72,7 +97,12 @@ export function ProcurementOrderModal({
   open,
   onOpenChange,
   order,
+  suppliers,
+  products,
+  onSubmit,
 }: ProcurementOrderModalProps) {
+  const { canManage } = useRoleAccess()
+  const canManagePurchases = canManage("achats")
   const id = React.useId()
   const isEdit = mode === "edit"
   const isDelivery = variant === "delivery"
@@ -88,30 +118,46 @@ export function ProcurementOrderModal({
   const statusOptions = isDelivery ? DELIVERY_STATUS_OPTIONS : PURCHASE_STATUS_OPTIONS
 
   const [supplier, setSupplier] = React.useState(order?.supplier ?? "")
+  const [supplierId, setSupplierId] = React.useState("")
   const [channel, setChannel] = React.useState(order?.channel ?? "")
   const [status, setStatus] = React.useState(order?.status ?? "Brouillon")
   const [orderDate, setOrderDate] = React.useState(order?.orderDate ?? "")
   const [externalReference, setExternalReference] = React.useState(
     (order as DeliveryNote | undefined)?.externalReference ?? ""
   )
-  const [lines, setLines] = React.useState<ProcurementLineItem[]>(() =>
-    order?.items?.length ? order.items : [emptyLine()]
+  const [lines, setLines] = React.useState<ProcurementLineDraft[]>(() =>
+    order?.items?.length ? order.items.map((item) => ({ ...item })) : [emptyLine()]
+  )
+
+  const supplierMap = React.useMemo(
+    () => new Map(suppliers.map((option) => [option.name, option.id])),
+    [suppliers]
+  )
+  const productMap = React.useMemo(
+    () => new Map(products.map((option) => [option.name, option])),
+    [products]
   )
 
   React.useEffect(() => {
-    if (order?.items?.length) {
-      setLines(order.items)
-    }
-    setLines(order?.items?.length ? order.items : [emptyLine()])
-    setSupplier(order?.supplier ?? "")
+    const nextLines = order?.items?.length
+      ? order.items.map((item) => ({
+          ...item,
+          productId: productMap.get(item.product)?.id,
+        }))
+      : [emptyLine()]
+    setLines(nextLines)
+    const nextSupplier = order?.supplier ?? ""
+    setSupplier(nextSupplier)
+    setSupplierId(nextSupplier ? (supplierMap.get(nextSupplier) ?? "") : "")
     setChannel(order?.channel ?? "")
     setStatus(order?.status ?? "Brouillon")
     setOrderDate(order?.orderDate ?? "")
     setExternalReference((order as DeliveryNote | undefined)?.externalReference ?? "")
-  }, [order])
+  }, [order, productMap, supplierMap])
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    submitWithStatus(status)
   }
 
   const handleAddLine = () => {
@@ -125,15 +171,55 @@ export function ProcurementOrderModal({
     })
   }
 
-  const updateLine = (lineId: string, updates: Partial<ProcurementLineItem>) => {
+  const updateLine = (lineId: string, updates: Partial<ProcurementLineDraft>) => {
     setLines((current) =>
       current.map((line) => (line.id === lineId ? { ...line, ...updates } : line))
     )
   }
 
   const getProductPrice = (productName: string) => {
-    const match = PRODUCT_OPTIONS.find((item) => item.name === productName)
-    return match?.unitPrice ?? 0
+    return productMap.get(productName)?.unitPrice ?? 0
+  }
+
+  const submitWithStatus = (nextStatus: string) => {
+    const items = lines
+      .filter((line) => line.productId && line.quantity > 0)
+      .map((line) => ({
+        productId: line.productId as string,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+      }))
+    if (items.length === 0) return
+
+    if (!supplierId) {
+      toast.error("Veuillez sélectionner un fournisseur.")
+      return
+    }
+    if (!orderDate) {
+      toast.error("Veuillez renseigner une date.")
+      return
+    }
+    if (items.length === 0) {
+      toast.error("Ajoutez au moins un article valide.")
+      return
+    }
+
+    void Promise.resolve(
+      onSubmit?.({
+        supplierId,
+        channel,
+        status: nextStatus,
+        orderDate,
+        externalReference: isDelivery ? externalReference : undefined,
+        items,
+      })
+    )
+      .then(() => {
+        toast.success(isDelivery ? "Bon de livraison enregistré." : "Bon de commande enregistré.")
+      })
+      .catch(() => {
+        toast.error("Impossible d'enregistrer ce document.")
+      })
   }
 
   return (
@@ -149,9 +235,13 @@ export function ProcurementOrderModal({
               <div className="grid gap-3">
                 <Label htmlFor={`${id}-supplier`}>Fournisseur</Label>
                 <Combobox
-                  items={SUPPLIER_OPTIONS}
+                  items={suppliers.map((option) => option.name)}
                   value={supplier}
-                  onValueChange={(value) => setSupplier(value ?? "")}
+                  onValueChange={(value) => {
+                    const nextValue = value ?? ""
+                    setSupplier(nextValue)
+                    setSupplierId(nextValue ? (supplierMap.get(nextValue) ?? "") : "")
+                  }}
                 >
                   <ComboboxInput
                     id={`${id}-supplier`}
@@ -229,7 +319,13 @@ export function ProcurementOrderModal({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-semibold">Articles</div>
-                <Button type="button" variant="outline" size="sm" onClick={handleAddLine}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddLine}
+                  disabled={!canManagePurchases}
+                >
                   <Plus className="size-4" />
                   Ajouter une ligne
                 </Button>
@@ -247,13 +343,14 @@ export function ProcurementOrderModal({
                   >
                     <div className="sm:col-span-6">
                       <Combobox
-                        items={PRODUCT_OPTIONS.map((option) => option.name)}
+                        items={products.map((option) => option.name)}
                         value={line.product}
                         onValueChange={(value) => {
                           const nextValue = value ?? ""
                           const nextPrice = getProductPrice(nextValue)
                           updateLine(line.id, {
                             product: nextValue,
+                            productId: productMap.get(nextValue)?.id,
                             unitPrice: nextPrice || line.unitPrice,
                           })
                         }}
@@ -305,6 +402,7 @@ export function ProcurementOrderModal({
                         size="icon"
                         aria-label="Supprimer la ligne"
                         onClick={() => handleRemoveLine(line.id)}
+                        disabled={!canManagePurchases}
                       >
                         <Trash2 className="size-4" />
                       </Button>
@@ -315,10 +413,25 @@ export function ProcurementOrderModal({
             </div>
           </ModalBody>
           <ModalFooter>
-            <ModalClose render={<Button variant="outline" type="button" />}>
-              Enregistrer en brouillon
-            </ModalClose>
-            <ModalClose render={<Button type="submit" />}>Enregistrer</ModalClose>
+            <ModalClose
+              render={
+                <Button
+                  variant="outline"
+                  type="button"
+                  disabled={!canManagePurchases}
+                  onClick={() => submitWithStatus("Brouillon")}
+                >
+                  Enregistrer en brouillon
+                </Button>
+              }
+            />
+            <ModalClose
+              render={
+                <Button type="submit" disabled={!canManagePurchases}>
+                  Enregistrer
+                </Button>
+              }
+            />
           </ModalFooter>
         </ModalForm>
       </ModalContent>

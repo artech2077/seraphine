@@ -30,7 +30,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import type { SupplierFormValues } from "@/features/fournisseurs/api"
 import { SupplierModal } from "@/features/fournisseurs/supplier-modal"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
 export type Supplier = {
@@ -114,13 +116,19 @@ export function SuppliersTable({
   items,
   page = 1,
   pageSize,
+  onUpdate,
+  onDelete,
 }: {
   items: Supplier[]
   page?: number
   pageSize?: number
+  onUpdate?: (item: Supplier, values: SupplierFormValues) => void | Promise<void>
+  onDelete?: (item: Supplier) => void | Promise<void>
 }) {
   type SortState = "default" | "asc" | "desc"
 
+  const { canManage } = useRoleAccess()
+  const canManageSuppliers = canManage("fournisseurs")
   const [sortKey, setSortKey] = React.useState<SupplierSortKey | null>(null)
   const [sortState, setSortState] = React.useState<SortState>("default")
   const [editOpen, setEditOpen] = React.useState(false)
@@ -193,6 +201,11 @@ export function SuppliersTable({
     }
   }
 
+  function handleUpdate(values: SupplierFormValues) {
+    if (!activeItem) return
+    void onUpdate?.(activeItem, values)
+  }
+
   return (
     <>
       <Table>
@@ -229,14 +242,23 @@ export function SuppliersTable({
                     <DropdownMenuContent align="end">
                       <DropdownMenuGroup>
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => handleEdit(item)}>
+                        <DropdownMenuItem
+                          onClick={() => handleEdit(item)}
+                          disabled={!canManageSuppliers}
+                        >
                           <Pencil />
                           Modifier
                         </DropdownMenuItem>
                         <AlertDialog>
                           <AlertDialogTrigger
                             nativeButton={false}
-                            render={<DropdownMenuItem variant="destructive" />}
+                            disabled={!canManageSuppliers}
+                            render={
+                              <DropdownMenuItem
+                                variant="destructive"
+                                disabled={!canManageSuppliers}
+                              />
+                            }
                           >
                             <Trash2 />
                             Supprimer
@@ -250,7 +272,13 @@ export function SuppliersTable({
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Annuler</AlertDialogCancel>
-                              <AlertDialogAction variant="destructive">Supprimer</AlertDialogAction>
+                              <AlertDialogAction
+                                variant="destructive"
+                                disabled={!canManageSuppliers || !onDelete}
+                                onClick={() => onDelete?.(item)}
+                              >
+                                Supprimer
+                              </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
@@ -268,6 +296,7 @@ export function SuppliersTable({
         open={editOpen}
         onOpenChange={handleEditOpenChange}
         item={activeItem ?? undefined}
+        onSubmit={handleUpdate}
       />
     </>
   )

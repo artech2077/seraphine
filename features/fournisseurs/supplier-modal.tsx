@@ -18,7 +18,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import type { SupplierFormValues } from "@/features/fournisseurs/api"
 import type { Supplier } from "@/features/fournisseurs/suppliers-table"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
 
 type SupplierModalProps = {
   mode: "create" | "edit"
@@ -26,15 +28,37 @@ type SupplierModalProps = {
   open?: boolean
   onOpenChange?: (open: boolean) => void
   item?: Supplier
+  onSubmit?: (values: SupplierFormValues, item?: Supplier) => void | Promise<void>
 }
 
-export function SupplierModal({ mode, trigger, open, onOpenChange, item }: SupplierModalProps) {
+export function SupplierModal({
+  mode,
+  trigger,
+  open,
+  onOpenChange,
+  item,
+  onSubmit,
+}: SupplierModalProps) {
+  const { canManage } = useRoleAccess()
+  const canManageSuppliers = canManage("fournisseurs")
   const id = React.useId()
   const isEdit = mode === "edit"
   const title = isEdit ? "Modifier un fournisseur" : "Ajouter un fournisseur"
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    const balanceValue = Number(formData.get("balance") ?? 0)
+    const payload: SupplierFormValues = {
+      name: String(formData.get("name") ?? ""),
+      email: String(formData.get("email") ?? ""),
+      phone: String(formData.get("phone") ?? ""),
+      city: String(formData.get("city") ?? ""),
+      balance: Number.isFinite(balanceValue) ? balanceValue : 0,
+      notes: String(formData.get("notes") ?? ""),
+    }
+
+    void onSubmit?.(payload, item)
   }
 
   return (
@@ -51,6 +75,7 @@ export function SupplierModal({ mode, trigger, open, onOpenChange, item }: Suppl
                 <Label htmlFor={`${id}-supplier-name`}>Fournisseur</Label>
                 <Input
                   id={`${id}-supplier-name`}
+                  name="name"
                   placeholder="Raison sociale"
                   defaultValue={item?.name}
                 />
@@ -59,6 +84,7 @@ export function SupplierModal({ mode, trigger, open, onOpenChange, item }: Suppl
                 <Label htmlFor={`${id}-supplier-email`}>Email</Label>
                 <Input
                   id={`${id}-supplier-email`}
+                  name="email"
                   type="email"
                   placeholder="email@example.com"
                   defaultValue={item?.email}
@@ -70,6 +96,7 @@ export function SupplierModal({ mode, trigger, open, onOpenChange, item }: Suppl
                 <Label htmlFor={`${id}-supplier-phone`}>Telephone</Label>
                 <Input
                   id={`${id}-supplier-phone`}
+                  name="phone"
                   placeholder="+212 ..."
                   defaultValue={item?.phone}
                 />
@@ -78,6 +105,7 @@ export function SupplierModal({ mode, trigger, open, onOpenChange, item }: Suppl
                 <Label htmlFor={`${id}-supplier-city`}>Ville</Label>
                 <Input
                   id={`${id}-supplier-city`}
+                  name="city"
                   placeholder="Casablanca"
                   defaultValue={item?.city}
                 />
@@ -88,6 +116,7 @@ export function SupplierModal({ mode, trigger, open, onOpenChange, item }: Suppl
                 <Label htmlFor={`${id}-supplier-balance`}>Balance</Label>
                 <Input
                   id={`${id}-supplier-balance`}
+                  name="balance"
                   type="number"
                   step="0.01"
                   placeholder="0"
@@ -99,14 +128,27 @@ export function SupplierModal({ mode, trigger, open, onOpenChange, item }: Suppl
               <Label htmlFor={`${id}-supplier-notes`}>Notes internes</Label>
               <Textarea
                 id={`${id}-supplier-notes`}
+                name="notes"
                 placeholder="Infos logistiques, conditions negociees..."
                 defaultValue={item?.notes}
               />
             </div>
           </ModalBody>
           <ModalFooter>
-            <ModalClose render={<Button variant="outline" />}>Annuler</ModalClose>
-            <Button type="submit">Enregistrer</Button>
+            <ModalClose
+              render={
+                <Button variant="outline" type="button">
+                  Annuler
+                </Button>
+              }
+            />
+            <ModalClose
+              render={
+                <Button type="submit" disabled={!canManageSuppliers}>
+                  Enregistrer
+                </Button>
+              }
+            />
           </ModalFooter>
         </ModalForm>
       </ModalContent>

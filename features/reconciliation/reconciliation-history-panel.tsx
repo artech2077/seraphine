@@ -46,7 +46,13 @@ function parseDate(value: string) {
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
-export function ReconciliationHistoryPanel({ items }: { items: ReconciliationHistoryItem[] }) {
+export function ReconciliationHistoryPanel({
+  items,
+  isLoading = false,
+}: {
+  items: ReconciliationHistoryItem[]
+  isLoading?: boolean
+}) {
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
   const [statusFilter, setStatusFilter] = React.useState("Tous")
   const [currentPage, setCurrentPage] = React.useState(1)
@@ -115,6 +121,11 @@ export function ReconciliationHistoryPanel({ items }: { items: ReconciliationHis
 
   return (
     <DataTable
+      isEmpty={!isLoading && filteredItems.length === 0}
+      emptyState={{
+        title: "Aucune réconciliation enregistrée",
+        description: "Les clôtures apparaîtront ici après la première journée enregistrée.",
+      }}
       toolbar={
         <>
           <FiltersBar>

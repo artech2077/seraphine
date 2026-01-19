@@ -97,11 +97,9 @@
 **Goal:** Provide the PRD POS flow UI: product input (search/barcode), cart totals, optional client, payment method, and clear VAT breakdown.
 
 - [x] POS cart UI
-- [ ] Barcode input flow
 - [x] Client selection
 - [x] Payment method selector
 - [x] VAT breakdown
-- [ ] Validation + toasts
 
 **Implementation notes:**
 
@@ -157,7 +155,6 @@
 - [x] Orders UI
 - [x] Status chips
 - [x] Supplier selection
-- [ ] Send to supplier (mock)
 
 **Implementation notes:**
 
@@ -175,7 +172,6 @@
 - [x] Balance logic
 - [x] Filters
 - [x] Supplier form
-- [ ] Supplier detail page
 
 **Implementation notes:**
 
@@ -193,8 +189,6 @@
 - [x] Client list
 - [x] Status badges
 - [x] Client form
-- [ ] Credit status logic
-- [ ] Client detail page
 
 **Implementation notes:**
 
@@ -248,8 +242,6 @@
 **Goal:** Provide report/analytics UI scaffolding (structured sections/cards) to guide future backend wiring.
 
 - [x] Placeholders
-- [ ] Structured report cards
-- [ ] Chart placeholders
 
 **Implementation notes:**
 
@@ -265,36 +257,51 @@
 
 **Goal:** Require sign-in for protected areas and provide a basic signed-in user menu.
 
-- [ ] Clerk setup
-- [ ] Public vs protected routes
-- [ ] User menu in header
+- [x] Clerk setup
+- [x] Public vs protected routes
+- [x] User menu in header
 
 **Implementation notes:**
 
->
+> - Added Clerk provider at the root layout and Clerk auth routes under `app/(public)/sign-in` and `app/(public)/sign-up`.
+> - Added Clerk middleware to protect non-public routes under `/app` and leave `/`, `/sign-in`, `/sign-up` public.
+> - Added a signed-in user menu in the header with settings link and sign-out action in `components/layout/user-menu.tsx`, wired into `components/layout/site-header.tsx`.
+> - How verified: `pnpm lint`, `pnpm build` (fails: missing Clerk publishable key env during prerender).
+> - Manual QA: not run (auth requires local Clerk keys).
 
 ### 3.2 Organization context
 
 **Goal:** Ensure users operate inside the correct pharmacy org and can create/select an organization.
 
-- [ ] Enforce organization membership
-- [ ] Create/select organization flow
+- [x] Enforce organization membership
+- [x] Create/select organization flow
 
 **Implementation notes:**
 
->
+> - Added organization gate in `proxy.ts` to redirect signed-in users without an active org to `/app/parametres?tab=pharmacies`.
+> - Added the organization management UI to the Pharmacies tab in `features/parametres/parametres-page.tsx` (switcher + list).
+> - Updated the org gate in `proxy.ts` to send users without an active org to `/app/parametres?tab=pharmacies`.
+> - How verified: `pnpm lint` (warnings: unused eslint-disable directives in `convex/_generated/*`), `pnpm build`.
+> - Manual QA: not run (requires local Clerk keys and org setup).
 
 ### 3.3 Role-based access control
 
 **Goal:** Define roles and restrict UI actions/routes to match the PRD (Owner/Staff/Restricted).
 
-- [ ] Define roles (Owner / Staff / Restricted)
-- [ ] UI permission checks
-- [ ] Disable/hide actions per role
+- [x] Define roles (Owner / Staff / Restricted)
+- [x] UI permission checks
+- [x] Disable/hide actions per role
 
 **Implementation notes:**
 
->
+> - Added role normalization + module permissions in `lib/auth/roles.ts` and `lib/auth/use-role-access.ts` (Owner/Staff/Restricted mapping).
+> - Applied UI gating across modules: sales, inventory, purchases, suppliers, clients, reconciliation, and settings using `canManage(...)`.
+> - Filtered sidebar navigation by role in `components/layout/app-sidebar.tsx` and limited Pharmacies settings to owners in `features/parametres/parametres-page.tsx`.
+> - Added route-level guards in `proxy.ts` to block access to non-allowed modules based on org role.
+> - Limited Restricted users to Paramètres + Assistance access and Staff users to Ventes/Inventaire/Achats/Paramètres in `lib/auth/roles.ts`.
+> - Filtered search navigation results by role in `components/layout/search-command.tsx`.
+> - How verified: `pnpm lint` (warnings: unused eslint-disable directives in `convex/_generated/*`), `pnpm build`.
+> - Manual QA: not run (requires Clerk org roles configured).
 
 ## Phase 4 — Backend Wiring (Convex)
 
@@ -304,41 +311,131 @@
 
 **Goal:** Create the Convex foundation and schema (products, sales, clients, suppliers, procurement) with indexes scoped per pharmacy/org.
 
-- [ ] Convex project setup
-- [ ] Define schema (products, sales, suppliers, etc.)
-- [ ] Indexes per pharmacy
+- [x] Convex project setup
+- [x] Define schema (products, sales, suppliers, etc.)
+- [x] Indexes per pharmacy
 
 **Implementation notes:**
 
->
+> - Added Convex dependency and a base schema aligned to the PRD collections in `convex/schema.ts`.
+> - Included supporting `pharmacies` and `users` tables for `pharmacyId` and `sellerId` references, plus relationship indexes for sale/procurement items.
+> - How verified: `pnpm lint`, `pnpm build`.
+> - Manual QA: not run (schema-only change).
 
 ### 4.2 Repository abstraction
 
 **Goal:** Centralize data access per feature to keep UI components simple and make the mock → real-data migration incremental.
 
-- [ ] Create features/\*/api.ts
-- [ ] Replace mocks gradually
+- [x] Create features/\*/api.ts
+- [x] Replace mocks gradually
 
 **Implementation notes:**
 
->
+> - Added repository-style accessors in `features/*/api.ts` for dashboard, ventes, inventaire, achats, fournisseurs, clients, and reconciliation.
+> - Moved route-level mock data into the new accessors and updated app routes to read from them.
+> - How verified: `pnpm lint`, `pnpm build`.
+> - Manual QA: not run (data wiring only).
 
 ### 4.3 Module wiring order
 
 **Goal:** Wire modules in a stable order, starting with products and core entities before transactional flows and aggregates.
 
-- [ ] Inventory
-- [ ] Suppliers & Clients
-- [ ] Procurement
-- [ ] Sales
-- [ ] Cash
-- [ ] Dashboard aggregates
+- [x] Inventory
+- [x] Suppliers & Clients
+- [x] Procurement
+- [x] Sales
+- [x] Cash
+- [x] Dashboard aggregates
+
+**Implementation notes:**
+
+> - Added Convex inventory wiring: `convex/products.ts` query, `convex/pharmacies.ts` org bootstrap mutation, and a client hook in `features/inventaire/api.ts`.
+> - Wrapped the app with Convex + Clerk provider in `components/providers/convex-provider.tsx` and `app/layout.tsx`.
+> - Updated the inventory route to use Convex data via `features/inventaire/inventory-page.tsx` and `app/(protected)/app/inventaire/page.tsx`.
+> - How verified: `pnpm lint`, `pnpm build`.
+> - Manual QA: not run (requires Convex data to render).
+
+## Phase 5 — UI Finalization (Deferred)
+
+**Goal:** Finish remaining UI-only gaps from Phase 2 once core surfaces are stable.
+
+### 5.1 Sales POS
+
+**Goal:** Complete the remaining POS UI flows.
+
+- [ ] Barcode scan auto-adds product as a sales line
+- [ ] Validation + toasts
+
+**Implementation notes:**
+
+> - Wired Achats to Convex with `convex/procurement.ts` query and client hooks in `features/achats/api.ts`.
+> - Updated Achats pages/panels to consume Convex data and show empty-state messaging when no orders are present.
+> - Added inventory empty-state messaging to explain why the table is empty.
+> - Wired Fournisseurs + Clients CRUD to Convex with `convex/suppliers.ts`, `convex/clients.ts`, and client hooks in `features/fournisseurs/api.ts`, `features/clients/api.ts`.
+> - Hooked create/edit/delete actions in the Supplier and Client modals/tables and added empty-state messaging in `features/fournisseurs/suppliers-page.tsx` and `features/clients/clients-page.tsx`.
+> - Wired Inventory CRUD to Convex with mutations in `convex/products.ts` and UI hooks in `features/inventaire/api.ts` (create/edit/delete from existing modals and menus).
+> - Wired Achats create/edit/delete flows to Convex via `features/achats/api.ts` and `features/achats/procurement-order-modal.tsx`, with supplier/product options sourced from Convex.
+> - Wired Sales history + POS to Convex with `convex/sales.ts` and `features/ventes/api.ts`, added delete action, and added validation/toasts in the POS flow.
+> - Wired Cash reconciliation to Convex with `convex/reconciliation.ts`, added a schema table, and persisted opening/closing updates with toasts.
+> - Wired Dashboard aggregates to Convex via `convex/dashboard.ts` and `features/dashboard/api.ts` (client data source).
+> - How verified: `pnpm lint` (warnings: unused eslint-disable directives in `convex/_generated/*`), `pnpm build`.
+> - Manual QA: not run (requires Convex data to render).
+
+### 5.2 Procurement
+
+**Goal:** Round out procurement UI actions.
+
+- [ ] Send to supplier (mock)
 
 **Implementation notes:**
 
 >
 
-## Phase 5 — Finalization
+### 5.3 Suppliers
+
+**Goal:** Add supplier deep-dive UI.
+
+- [ ] Supplier detail page
+
+**Implementation notes:**
+
+>
+
+### 5.4 Clients
+
+**Goal:** Complete client credit UX and detail views.
+
+- [ ] Credit status logic
+- [ ] Client detail page
+
+**Implementation notes:**
+
+>
+
+### 5.5 Reports & Analytics
+
+**Goal:** Deliver report scaffolding consistency.
+
+- [ ] Structured report cards
+- [ ] Chart placeholders
+
+**Implementation notes:**
+
+>
+
+## Phase 6 — Backend Support for UI Finalization (If Needed)
+
+**Goal:** Add minimal backend wiring required to support the deferred UI gaps.
+
+- [ ] Define required data shapes and endpoints
+- [ ] Add mock-to-Convex bridges for newly unblocked UI flows
+- [ ] Validate permissions/roles for the new UI actions
+
+**Implementation notes:**
+
+>
+
+## Phase 7 — Finalization
 
 **Goal:** Make the MVP production-ready with demo data, UX polish, exports/PDFs, and a reliable Vercel deployment.
 

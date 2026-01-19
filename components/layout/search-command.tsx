@@ -13,8 +13,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { mainNavItems, utilityNavItems } from "@/lib/constants/navigation"
-
-const quickLinks = [...mainNavItems, ...utilityNavItems]
+import { useRoleAccess } from "@/lib/auth/use-role-access"
 
 type SearchCommandProps = {
   open: boolean
@@ -23,6 +22,26 @@ type SearchCommandProps = {
 
 export function SearchCommand({ open, onOpenChange }: SearchCommandProps) {
   const router = useRouter()
+  const { canView, canManageSettings } = useRoleAccess()
+
+  const quickLinks = React.useMemo(() => {
+    return [...mainNavItems, ...utilityNavItems].filter((item) => {
+      if (item.href === "/app") return canView("dashboard")
+      if (item.href.startsWith("/app/ventes")) return canView("ventes")
+      if (item.href.startsWith("/app/inventaire")) return canView("inventaire")
+      if (item.href.startsWith("/app/achats")) return canView("achats")
+      if (item.href.startsWith("/app/fournisseurs")) return canView("fournisseurs")
+      if (item.href.startsWith("/app/clients")) return canView("clients")
+      if (item.href.startsWith("/app/reconciliation-caisse")) return canView("reconciliation")
+      if (item.href.startsWith("/app/rapports")) return canView("rapports")
+      if (item.href.startsWith("/app/analytique")) return canView("analytique")
+      if (item.href.startsWith("/app/parametres")) {
+        return canView("parametres") || canManageSettings
+      }
+      if (item.href.startsWith("/app/assistance")) return canView("assistance")
+      return true
+    })
+  }, [canManageSettings, canView])
 
   return (
     <CommandDialog

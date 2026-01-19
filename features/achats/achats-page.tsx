@@ -3,23 +3,45 @@
 import * as React from "react"
 
 import { PageShell } from "@/components/layout/page-shell"
+import { useDeliveryNotes, usePurchaseOrders } from "@/features/achats/api"
 import { PurchaseOrdersPanel } from "@/features/achats/achats-purchase-orders-panel"
 import { DeliveryNotesPanel } from "@/features/achats/achats-delivery-notes-panel"
 import { ProcurementOrderModal } from "@/features/achats/procurement-order-modal"
+import { useSuppliers } from "@/features/fournisseurs/api"
+import { useProductOptions } from "@/features/inventaire/api"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type { DeliveryNote, PurchaseOrder } from "@/features/achats/procurement-data"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { Plus } from "lucide-react"
 
 const TAB_STORAGE_KEY = "achats:last-tab"
 
-type AchatsPageProps = {
-  purchaseOrders: PurchaseOrder[]
-  deliveryNotes: DeliveryNote[]
-}
-
-export function AchatsPage({ purchaseOrders, deliveryNotes }: AchatsPageProps) {
+export function AchatsPage() {
+  const {
+    orders: purchaseOrders,
+    isLoading: isLoadingOrders,
+    createOrder,
+    updateOrder,
+    removeOrder,
+  } = usePurchaseOrders()
+  const {
+    notes: deliveryNotes,
+    isLoading: isLoadingNotes,
+    createNote,
+    updateNote,
+    removeNote,
+  } = useDeliveryNotes()
+  const { items: suppliers } = useSuppliers()
+  const { options: productOptions } = useProductOptions()
+  const { canManage } = useRoleAccess()
+  const canManagePurchases = canManage("achats")
   const [activeTab, setActiveTab] = React.useState<"commande" | "livraison">("commande")
+
+  const supplierOptions = React.useMemo(
+    () => suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name })),
+    [suppliers]
+  )
 
   React.useEffect(() => {
     const stored = window.localStorage.getItem(TAB_STORAGE_KEY)
@@ -41,8 +63,18 @@ export function AchatsPage({ purchaseOrders, deliveryNotes }: AchatsPageProps) {
       <ProcurementOrderModal
         mode="create"
         variant="delivery"
+        suppliers={supplierOptions}
+        products={productOptions}
+        onSubmit={async (values) => {
+          try {
+            await createNote(values)
+            toast.success("Bon de livraison enregistré.")
+          } catch {
+            toast.error("Impossible d'enregistrer le bon de livraison.")
+          }
+        }}
         trigger={
-          <Button>
+          <Button disabled={!canManagePurchases}>
             <Plus className="size-4" />
             Créer un bon de livraison
           </Button>
@@ -52,8 +84,18 @@ export function AchatsPage({ purchaseOrders, deliveryNotes }: AchatsPageProps) {
       <ProcurementOrderModal
         mode="create"
         variant="purchase"
+        suppliers={supplierOptions}
+        products={productOptions}
+        onSubmit={async (values) => {
+          try {
+            await createOrder(values)
+            toast.success("Bon de commande enregistré.")
+          } catch {
+            toast.error("Impossible d'enregistrer le bon de commande.")
+          }
+        }}
         trigger={
-          <Button>
+          <Button disabled={!canManagePurchases}>
             <Plus className="size-4" />
             Créer un bon de commande
           </Button>
@@ -75,10 +117,52 @@ export function AchatsPage({ purchaseOrders, deliveryNotes }: AchatsPageProps) {
         }
       >
         <TabsContent value="commande" className="space-y-4">
-          <PurchaseOrdersPanel orders={purchaseOrders} />
+          <PurchaseOrdersPanel
+            orders={purchaseOrders}
+            isLoading={isLoadingOrders}
+            suppliers={supplierOptions}
+            products={productOptions}
+            onUpdate={async (order, values) => {
+              try {
+                await updateOrder(order, values)
+                toast.success("Bon de commande mis à jour.")
+              } catch {
+                toast.error("Impossible de mettre à jour le bon de commande.")
+              }
+            }}
+            onDelete={async (order) => {
+              try {
+                await removeOrder(order)
+                toast.success("Bon de commande supprimé.")
+              } catch {
+                toast.error("Impossible de supprimer le bon de commande.")
+              }
+            }}
+          />
         </TabsContent>
         <TabsContent value="livraison" className="space-y-4">
-          <DeliveryNotesPanel notes={deliveryNotes} />
+          <DeliveryNotesPanel
+            notes={deliveryNotes}
+            isLoading={isLoadingNotes}
+            suppliers={supplierOptions}
+            products={productOptions}
+            onUpdate={async (note, values) => {
+              try {
+                await updateNote(note, values)
+                toast.success("Bon de livraison mis à jour.")
+              } catch {
+                toast.error("Impossible de mettre à jour le bon de livraison.")
+              }
+            }}
+            onDelete={async (note) => {
+              try {
+                await removeNote(note)
+                toast.success("Bon de livraison supprimé.")
+              } catch {
+                toast.error("Impossible de supprimer le bon de livraison.")
+              }
+            }}
+          />
         </TabsContent>
       </PageShell>
     </Tabs>

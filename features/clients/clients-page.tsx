@@ -8,7 +8,9 @@ import { FilterMultiCombobox } from "@/components/filters/filter-multi-combobox"
 import { FilterMultiSelect } from "@/components/filters/filter-multi-select"
 import { FiltersBar } from "@/components/filters/filters-bar"
 import { PageShell } from "@/components/layout/page-shell"
+import { useClients } from "@/features/clients/api"
 import { ClientModal } from "@/features/clients/client-modal"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { ClientsTable, type Client, type ClientStatus } from "@/features/clients/clients-table"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,10 +23,6 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Download, Plus, Printer } from "lucide-react"
-
-type ClientsPageProps = {
-  items: Client[]
-}
 
 const BALANCE_FILTER_OPTIONS: ClientStatus[] = ["OK", "Surveillé", "Bloqué"]
 
@@ -77,7 +75,10 @@ function toCsv(items: Client[]) {
     .join("\n")
 }
 
-export function ClientsPage({ items }: ClientsPageProps) {
+export function ClientsPage() {
+  const { items, isLoading, createClient, updateClient, removeClient } = useClients()
+  const { canManage } = useRoleAccess()
+  const canManageClients = canManage("clients")
   const [clientFilter, setClientFilter] = React.useState<string[]>([])
   const [cityFilter, setCityFilter] = React.useState<string[]>([])
   const [balanceFilter, setBalanceFilter] = React.useState<string[]>([])
@@ -155,8 +156,9 @@ export function ClientsPage({ items }: ClientsPageProps) {
       actions={
         <ClientModal
           mode="create"
+          onSubmit={(values) => createClient(values)}
           trigger={
-            <Button>
+            <Button disabled={!canManageClients}>
               <Plus className="size-4" />
               Ajouter un client
             </Button>
@@ -165,6 +167,11 @@ export function ClientsPage({ items }: ClientsPageProps) {
       }
     >
       <DataTable
+        isEmpty={!isLoading && filteredItems.length === 0}
+        emptyState={{
+          title: "Aucun client pour le moment",
+          description: "Ajoutez un client pour commencer à suivre les encours.",
+        }}
         toolbar={
           <>
             <FiltersBar>
@@ -254,7 +261,13 @@ export function ClientsPage({ items }: ClientsPageProps) {
           />
         }
       >
-        <ClientsTable items={filteredItems} page={currentPage} pageSize={pageSize} />
+        <ClientsTable
+          items={filteredItems}
+          page={currentPage}
+          pageSize={pageSize}
+          onUpdate={updateClient}
+          onDelete={removeClient}
+        />
       </DataTable>
     </PageShell>
   )

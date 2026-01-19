@@ -16,11 +16,16 @@ import {
 } from "@/components/ui/sidebar"
 import { SearchCommand } from "@/components/layout/search-command"
 import { mainNavItems, utilityNavItems } from "@/lib/constants/navigation"
+import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { usePathname } from "next/navigation"
+import { useOrganization } from "@clerk/nextjs"
 
 export function AppSidebar() {
   const pathname = usePathname()
   const [searchOpen, setSearchOpen] = React.useState(false)
+  const { canView, canManageSettings } = useRoleAccess()
+  const { organization } = useOrganization()
+  const orgName = organization?.name ?? "Votre pharmacie"
   const renderLink = React.useCallback((href: string) => {
     const LinkComponent = (props: React.ComponentPropsWithoutRef<"a">) => {
       return <Link href={href} {...props} />
@@ -28,6 +33,33 @@ export function AppSidebar() {
     LinkComponent.displayName = "SidebarLink"
     return LinkComponent
   }, [])
+
+  const visibleMainItems = React.useMemo(() => {
+    return mainNavItems.filter((item) => {
+      if (item.href === "/app") return canView("dashboard")
+      if (item.href.startsWith("/app/ventes")) return canView("ventes")
+      if (item.href.startsWith("/app/inventaire")) return canView("inventaire")
+      if (item.href.startsWith("/app/achats")) return canView("achats")
+      if (item.href.startsWith("/app/fournisseurs")) return canView("fournisseurs")
+      if (item.href.startsWith("/app/clients")) return canView("clients")
+      if (item.href.startsWith("/app/reconciliation-caisse")) return canView("reconciliation")
+      if (item.href.startsWith("/app/rapports")) return canView("rapports")
+      if (item.href.startsWith("/app/analytique")) return canView("analytique")
+      return true
+    })
+  }, [canView])
+
+  const visibleUtilityItems = React.useMemo(() => {
+    return utilityNavItems.filter((item) => {
+      if (item.href.startsWith("/app/parametres")) {
+        return canView("parametres") || canManageSettings
+      }
+      if (item.href.startsWith("/app/assistance")) {
+        return canView("assistance")
+      }
+      return true
+    })
+  }, [canManageSettings, canView])
 
   return (
     <>
@@ -48,7 +80,7 @@ export function AppSidebar() {
                   priority
                 />
                 <span className="min-w-0 w-full whitespace-nowrap transition-all duration-300 ease-in-out group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden">
-                  <span className="block truncate text-sm font-semibold">La grande pharmacie</span>
+                  <span className="block truncate text-sm font-semibold">{orgName}</span>
                   <span className="block truncate text-xs text-sidebar-foreground/70">
                     Imintanout
                   </span>
@@ -59,7 +91,7 @@ export function AppSidebar() {
         </SidebarHeader>
         <SidebarContent className="px-0 py-3">
           <SidebarMenu className="gap-2">
-            {mainNavItems.map((item) => {
+            {visibleMainItems.map((item) => {
               const isActive =
                 item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href)
 
@@ -83,7 +115,7 @@ export function AppSidebar() {
         </SidebarContent>
         <SidebarFooter className="mt-auto px-0 py-3">
           <SidebarMenu className="gap-2">
-            {utilityNavItems.map((item) => {
+            {visibleUtilityItems.map((item) => {
               const isActive = pathname.startsWith(item.href)
 
               return (
