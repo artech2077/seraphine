@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 
-import { Example, ExampleWrapper } from "@/components/example"
+import { Example, ExampleWrapper } from "@/components/examples/example"
 import {
   AlertDialog,
   AlertDialogAction,

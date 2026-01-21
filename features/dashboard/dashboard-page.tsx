@@ -12,6 +12,7 @@ import {
   Wallet,
 } from "lucide-react"
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
+import type { DateRange } from "react-day-picker"
 
 import { PageShell } from "@/components/layout/page-shell"
 import { ContentCard } from "@/components/layout/content-card"
@@ -37,11 +38,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { DatePickerField } from "@/components/forms/date-picker-field"
 
 export type TrendRange = "7J" | "30J" | "TRIM"
 
 export type SalesTrendPoint = {
   date: string
+  isoDate?: string
   revenue: number
 }
 
@@ -73,6 +76,7 @@ export type DashboardData = {
   }>
   recentSales: Array<{
     id: string
+    date: string
     time: string
     amount: number
     client: string
@@ -82,6 +86,7 @@ export type DashboardData = {
     id: string
     supplier: string
     createdAt: string
+    date?: string
     total: number
     status: "En cours" | "Livré"
   }>
@@ -114,6 +119,24 @@ function formatPercentage(value: number) {
   return formatted
 }
 
+function isWithinRange(dateValue: string | undefined, range?: DateRange) {
+  if (!dateValue || !range?.from) return true
+  const dateOnlyMatch = dateValue.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  const parsed = dateOnlyMatch
+    ? new Date(
+        Number.parseInt(dateOnlyMatch[1], 10),
+        Number.parseInt(dateOnlyMatch[2], 10) - 1,
+        Number.parseInt(dateOnlyMatch[3], 10)
+      )
+    : new Date(dateValue)
+  if (Number.isNaN(parsed.getTime())) return true
+  if (parsed < range.from) return false
+  if (!range.to) return true
+  const endOfDay = new Date(range.to)
+  endOfDay.setHours(23, 59, 59, 999)
+  return parsed <= endOfDay
+}
+
 function getStockVariant(stock: number, threshold: number) {
   if (stock === 0) return "destructive"
   if (stock <= threshold) return "warning"
@@ -144,37 +167,58 @@ export function DashboardPage({
   isLoading?: boolean
 }) {
   const [range, setRange] = React.useState<TrendRange>("30J")
+  const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
 
-  const trendData = data.trendData[range]
+  const trendData = React.useMemo(() => {
+    const points = data.trendData[range]
+    if (!dateRange?.from) return points
+    return points.filter((point) => isWithinRange(point.isoDate, dateRange))
+  }, [data.trendData, dateRange, range])
+
+  const recentSales = React.useMemo(() => {
+    if (!dateRange?.from) return data.recentSales
+    return data.recentSales.filter((sale) => isWithinRange(sale.date, dateRange))
+  }, [data.recentSales, dateRange])
+
+  const recentOrders = React.useMemo(() => {
+    if (!dateRange?.from) return data.recentOrders
+    return data.recentOrders.filter((order) =>
+      isWithinRange(order.date ?? order.createdAt, dateRange)
+    )
+  }, [data.recentOrders, dateRange])
+
   const showTrendEmpty = !isLoading && trendData.length === 0
   const showStockEmpty = !isLoading && data.stockItems.length === 0
-  const showSalesEmpty = !isLoading && data.recentSales.length === 0
-  const showOrdersEmpty = !isLoading && data.recentOrders.length === 0
+  const showSalesEmpty = !isLoading && recentSales.length === 0
+  const showOrdersEmpty = !isLoading && recentOrders.length === 0
 
   return (
     <PageShell
       title="Tableau de bord"
       description="Suivez vos indicateurs clés et l'activité récente."
       actions={
-        <ButtonGroup>
-          <Button size="sm" nativeButton={false} render={<a href="/app/achats" />}>
-            <Truck />
-            Livraison
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            nativeButton={false}
-            render={<a href="/app/achats" />}
-          >
-            <ClipboardList />
-            Commande
-          </Button>
-          <Button size="sm" nativeButton={false} render={<a href="/app/ventes" />}>
-            <ShoppingCart />
-            Nouvelle vente
-          </Button>
-        </ButtonGroup>
+        <div className="flex flex-wrap items-center gap-2">
+          <ButtonGroup>
+            <Button size="sm" nativeButton={false} render={<a href="/app/achats" />}>
+              <Truck />
+              Livraison
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              nativeButton={false}
+              render={<a href="/app/achats" />}
+            >
+              <ClipboardList />
+              Commande
+            </Button>
+            <Button size="sm" nativeButton={false} render={<a href="/app/ventes" />}>
+              <ShoppingCart />
+              Nouvelle vente
+            </Button>
+          </ButtonGroup>
+          <DatePickerField placeholder="Date" value={dateRange} onChange={setDateRange} />
+        </div>
       }
     >
       <div className="flex flex-col gap-4">
@@ -439,7 +483,7 @@ export function DashboardPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.recentSales.map((sale) => (
+                  {recentSales.map((sale) => (
                     <TableRow key={sale.id}>
                       <TableCell className="font-medium">{sale.id}</TableCell>
                       <TableCell>{sale.time}</TableCell>
@@ -494,7 +538,7 @@ export function DashboardPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.recentOrders.map((order) => (
+                {recentOrders.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">{order.supplier}</TableCell>
                     <TableCell>{order.createdAt}</TableCell>
