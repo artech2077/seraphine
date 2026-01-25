@@ -2,6 +2,8 @@
 
 import * as React from "react"
 import type { DateRange } from "react-day-picker"
+import { Download, Printer } from "lucide-react"
+import { toast } from "sonner"
 
 import { DataTable } from "@/components/tables/data-table"
 import { DataTableFooter } from "@/components/tables/data-table-footer"
@@ -10,7 +12,9 @@ import { FilterMultiCombobox } from "@/components/filters/filter-multi-combobox"
 import { FilterMultiSelect } from "@/components/filters/filter-multi-select"
 import { FiltersBar } from "@/components/filters/filters-bar"
 import type { ProcurementFormValues } from "@/features/achats/api"
+import { useDeliveryNotes } from "@/features/achats/api"
 import { DeliveryNotesTable } from "@/features/achats/achats-delivery-notes-table"
+import { DELIVERY_STATUS_OPTIONS, type DeliveryNote } from "@/features/achats/procurement-data"
 import { Button } from "@/components/ui/button"
 import {
   Pagination,
@@ -21,26 +25,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { Download, Printer } from "lucide-react"
-import { DELIVERY_STATUS_OPTIONS, type DeliveryNote } from "@/features/achats/procurement-data"
 
 const PAGE_SIZE = 5
-
-function parseDate(value: string) {
-  const parsed = Date.parse(value)
-  return Number.isNaN(parsed) ? null : new Date(parsed)
-}
-
-function isWithinRange(date: Date | null, range?: DateRange) {
-  if (!date || !range?.from) return true
-  if (date < range.from) return false
-  if (range.to) {
-    const endOfDay = new Date(range.to)
-    endOfDay.setHours(23, 59, 59, 999)
-    return date <= endOfDay
-  }
-  return true
-}
 
 function buildPageItems(currentPage: number, totalPages: number) {
   if (totalPages <= 7) {
@@ -65,7 +51,7 @@ function toCsv(items: DeliveryNote[]) {
     "Statut",
   ]
   const rows = items.map((note) => [
-    note.id,
+    note.orderNumber,
     note.supplier,
     note.createdAt,
     note.orderDate,
@@ -90,22 +76,38 @@ function toCsv(items: DeliveryNote[]) {
 }
 
 type DeliveryNotesPanelProps = {
-  notes: DeliveryNote[]
-  isLoading?: boolean
   suppliers: Array<{ id: string; name: string }>
   products: Array<{ id: string; name: string; unitPrice: number }>
-  onUpdate?: (note: DeliveryNote, values: ProcurementFormValues) => void | Promise<void>
-  onDelete?: (note: DeliveryNote) => void | Promise<void>
 }
 
-export function DeliveryNotesPanel({
-  notes,
-  isLoading = false,
-  suppliers,
-  products,
-  onUpdate,
-  onDelete,
-}: DeliveryNotesPanelProps) {
+function normalizeDateRange(range?: DateRange) {
+  if (!range) return { from: undefined, to: undefined }
+  const from = range.from ? new Date(range.from) : undefined
+  const to = range.to ? new Date(range.to) : undefined
+  if (from) {
+    from.setHours(0, 0, 0, 0)
+  }
+  if (to) {
+    to.setHours(23, 59, 59, 999)
+  }
+  return {
+    from: from ? from.getTime() : undefined,
+    to: to ? to.getTime() : undefined,
+  }
+}
+
+function mapDeliveryStatusFilter(value: string) {
+  switch (value) {
+    case "En cours":
+      return "ORDERED" as const
+    case "Livré":
+      return "DELIVERED" as const
+    default:
+      return "DRAFT" as const
+  }
+}
+
+export function DeliveryNotesPanel({ suppliers, products }: DeliveryNotesPanelProps) {
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
   const [createdRange, setCreatedRange] = React.useState<DateRange | undefined>()
   const [supplierFilter, setSupplierFilter] = React.useState<string[]>([])
@@ -113,45 +115,40 @@ export function DeliveryNotesPanel({
   const [referenceFilter, setReferenceFilter] = React.useState<string[]>([])
   const [currentPage, setCurrentPage] = React.useState(1)
 
-  const supplierOptions = React.useMemo(
-    () => Array.from(new Set(notes.map((note) => note.supplier))),
-    [notes]
-  )
-  const referenceOptions = React.useMemo(
-    () => Array.from(new Set(notes.map((note) => note.externalReference))),
-    [notes]
+  const orderDates = React.useMemo(() => normalizeDateRange(dateRange), [dateRange])
+  const createdDates = React.useMemo(() => normalizeDateRange(createdRange), [createdRange])
+  const statusValues = React.useMemo(
+    () => statusFilter.map((status) => mapDeliveryStatusFilter(status)),
+    [statusFilter]
   )
 
-  const filteredNotes = React.useMemo(() => {
-    return notes.filter((note) => {
-      if (supplierFilter.length > 0 && !supplierFilter.includes(note.supplier)) {
-        return false
-      }
-      if (statusFilter.length > 0 && !statusFilter.includes(note.status)) {
-        return false
-      }
-      if (referenceFilter.length > 0 && !referenceFilter.includes(note.externalReference)) {
-        return false
-      }
-      const orderDate = parseDate(note.orderDate)
-      const createdDate = parseDate(note.createdAt)
-      if (!isWithinRange(orderDate, dateRange)) return false
-      if (!isWithinRange(createdDate, createdRange)) return false
-      return true
+  const { notes, isLoading, totalCount, filterOptions, exportNotes, updateNote, removeNote } =
+    useDeliveryNotes({
+      mode: "paged",
+      page: currentPage,
+      pageSize: PAGE_SIZE,
+      filters: {
+        supplierNames: supplierFilter,
+        statuses: statusValues,
+        references: referenceFilter,
+        orderFrom: orderDates.from,
+        orderTo: orderDates.to,
+        createdFrom: createdDates.from,
+        createdTo: createdDates.to,
+      },
     })
-  }, [notes, supplierFilter, statusFilter, referenceFilter, dateRange, createdRange])
 
   React.useEffect(() => {
     setCurrentPage(1)
   }, [supplierFilter, statusFilter, referenceFilter, dateRange, createdRange])
 
-  const totalPages = Math.max(1, Math.ceil(filteredNotes.length / PAGE_SIZE))
-  const rangeStart = filteredNotes.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
-  const rangeEnd = Math.min(filteredNotes.length, currentPage * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
+  const rangeEnd = Math.min(totalCount, currentPage * PAGE_SIZE)
   const rangeLabel =
-    filteredNotes.length === 0
+    totalCount === 0
       ? "0 sur 0 bons de livraison"
-      : `${rangeStart}-${rangeEnd} sur ${filteredNotes.length} bons de livraison`
+      : `${rangeStart}-${rangeEnd} sur ${totalCount} bons de livraison`
 
   const pageItems = buildPageItems(currentPage, totalPages)
   const isFirstPage = currentPage <= 1
@@ -165,8 +162,9 @@ export function DeliveryNotesPanel({
     window.print()
   }
 
-  function handleExport() {
-    const csv = toCsv(filteredNotes)
+  async function handleExport() {
+    const exported = await exportNotes()
+    const csv = toCsv(exported)
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement("a")
@@ -176,9 +174,27 @@ export function DeliveryNotesPanel({
     window.URL.revokeObjectURL(url)
   }
 
+  async function handleUpdate(note: DeliveryNote, values: ProcurementFormValues) {
+    try {
+      await updateNote(note, values)
+      toast.success("Bon de livraison mis à jour.")
+    } catch {
+      toast.error("Impossible de mettre à jour le bon de livraison.")
+    }
+  }
+
+  async function handleDelete(note: DeliveryNote) {
+    try {
+      await removeNote(note)
+      toast.success("Bon de livraison supprimé.")
+    } catch {
+      toast.error("Impossible de supprimer le bon de livraison.")
+    }
+  }
+
   return (
     <DataTable
-      isEmpty={!isLoading && filteredNotes.length === 0}
+      isEmpty={!isLoading && totalCount === 0}
       emptyState={{
         title: "Aucun bon de livraison pour le moment",
         description: "Enregistrez une livraison ou associez un fournisseur pour commencer.",
@@ -194,12 +210,12 @@ export function DeliveryNotesPanel({
             />
             <FilterMultiCombobox
               label="Fournisseurs"
-              options={supplierOptions}
+              options={filterOptions.suppliers}
               onChange={setSupplierFilter}
             />
             <FilterMultiCombobox
               label="Réf livraison"
-              options={referenceOptions}
+              options={filterOptions.references}
               onChange={setReferenceFilter}
             />
             <FilterMultiSelect
@@ -283,13 +299,11 @@ export function DeliveryNotesPanel({
       }
     >
       <DeliveryNotesTable
-        notes={filteredNotes}
-        page={currentPage}
-        pageSize={PAGE_SIZE}
+        notes={notes}
         suppliers={suppliers}
         products={products}
-        onUpdate={onUpdate}
-        onDelete={onDelete}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
       />
     </DataTable>
   )

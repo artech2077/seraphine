@@ -2,6 +2,8 @@
 
 import * as React from "react"
 import type { DateRange } from "react-day-picker"
+import { Download, Printer } from "lucide-react"
+import { toast } from "sonner"
 
 import { DataTable } from "@/components/tables/data-table"
 import { DataTableFooter } from "@/components/tables/data-table-footer"
@@ -10,7 +12,9 @@ import { FilterMultiCombobox } from "@/components/filters/filter-multi-combobox"
 import { FilterMultiSelect } from "@/components/filters/filter-multi-select"
 import { FiltersBar } from "@/components/filters/filters-bar"
 import type { ProcurementFormValues } from "@/features/achats/api"
+import { usePurchaseOrders } from "@/features/achats/api"
 import { PurchaseOrdersTable } from "@/features/achats/achats-purchase-orders-table"
+import { PURCHASE_STATUS_OPTIONS, type PurchaseOrder } from "@/features/achats/procurement-data"
 import { Button } from "@/components/ui/button"
 import {
   Pagination,
@@ -21,26 +25,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { Download, Printer } from "lucide-react"
-import { PURCHASE_STATUS_OPTIONS, type PurchaseOrder } from "@/features/achats/procurement-data"
 
 const PAGE_SIZE = 5
-
-function parseDate(value: string) {
-  const parsed = Date.parse(value)
-  return Number.isNaN(parsed) ? null : new Date(parsed)
-}
-
-function isWithinRange(date: Date | null, range?: DateRange) {
-  if (!date || !range?.from) return true
-  if (date < range.from) return false
-  if (range.to) {
-    const endOfDay = new Date(range.to)
-    endOfDay.setHours(23, 59, 59, 999)
-    return date <= endOfDay
-  }
-  return true
-}
 
 function buildPageItems(currentPage: number, totalPages: number) {
   if (totalPages <= 7) {
@@ -65,7 +51,7 @@ function toCsv(items: PurchaseOrder[]) {
     "Statut",
   ]
   const rows = items.map((order) => [
-    order.id,
+    order.orderNumber,
     order.supplier,
     order.channel,
     order.createdAt,
@@ -90,60 +76,77 @@ function toCsv(items: PurchaseOrder[]) {
 }
 
 type PurchaseOrdersPanelProps = {
-  orders: PurchaseOrder[]
-  isLoading?: boolean
   suppliers: Array<{ id: string; name: string }>
   products: Array<{ id: string; name: string; unitPrice: number }>
-  onUpdate?: (order: PurchaseOrder, values: ProcurementFormValues) => void | Promise<void>
-  onDelete?: (order: PurchaseOrder) => void | Promise<void>
 }
 
-export function PurchaseOrdersPanel({
-  orders,
-  isLoading = false,
-  suppliers,
-  products,
-  onUpdate,
-  onDelete,
-}: PurchaseOrdersPanelProps) {
+function normalizeDateRange(range?: DateRange) {
+  if (!range) return { from: undefined, to: undefined }
+  const from = range.from ? new Date(range.from) : undefined
+  const to = range.to ? new Date(range.to) : undefined
+  if (from) {
+    from.setHours(0, 0, 0, 0)
+  }
+  if (to) {
+    to.setHours(23, 59, 59, 999)
+  }
+  return {
+    from: from ? from.getTime() : undefined,
+    to: to ? to.getTime() : undefined,
+  }
+}
+
+function mapPurchaseStatusFilter(value: string) {
+  switch (value) {
+    case "Commandé":
+      return "ORDERED" as const
+    case "Livré":
+      return "DELIVERED" as const
+    default:
+      return "DRAFT" as const
+  }
+}
+
+export function PurchaseOrdersPanel({ suppliers, products }: PurchaseOrdersPanelProps) {
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
   const [createdRange, setCreatedRange] = React.useState<DateRange | undefined>()
   const [supplierFilter, setSupplierFilter] = React.useState<string[]>([])
   const [statusFilter, setStatusFilter] = React.useState<string[]>([])
   const [currentPage, setCurrentPage] = React.useState(1)
 
-  const supplierOptions = React.useMemo(
-    () => Array.from(new Set(orders.map((order) => order.supplier))),
-    [orders]
+  const orderDates = React.useMemo(() => normalizeDateRange(dateRange), [dateRange])
+  const createdDates = React.useMemo(() => normalizeDateRange(createdRange), [createdRange])
+  const statusValues = React.useMemo(
+    () => statusFilter.map((status) => mapPurchaseStatusFilter(status)),
+    [statusFilter]
   )
 
-  const filteredOrders = React.useMemo(() => {
-    return orders.filter((order) => {
-      if (supplierFilter.length > 0 && !supplierFilter.includes(order.supplier)) {
-        return false
-      }
-      if (statusFilter.length > 0 && !statusFilter.includes(order.status)) {
-        return false
-      }
-      const orderDate = parseDate(order.orderDate)
-      const createdDate = parseDate(order.createdAt)
-      if (!isWithinRange(orderDate, dateRange)) return false
-      if (!isWithinRange(createdDate, createdRange)) return false
-      return true
+  const { orders, isLoading, totalCount, filterOptions, exportOrders, updateOrder, removeOrder } =
+    usePurchaseOrders({
+      mode: "paged",
+      page: currentPage,
+      pageSize: PAGE_SIZE,
+      filters: {
+        supplierNames: supplierFilter,
+        statuses: statusValues,
+        orderFrom: orderDates.from,
+        orderTo: orderDates.to,
+        createdFrom: createdDates.from,
+        createdTo: createdDates.to,
+      },
     })
-  }, [orders, supplierFilter, statusFilter, dateRange, createdRange])
 
   React.useEffect(() => {
     setCurrentPage(1)
   }, [supplierFilter, statusFilter, dateRange, createdRange])
 
-  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE))
-  const rangeStart = filteredOrders.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
-  const rangeEnd = Math.min(filteredOrders.length, currentPage * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
+  const rangeEnd = Math.min(totalCount, currentPage * PAGE_SIZE)
   const rangeLabel =
-    filteredOrders.length === 0
+    totalCount === 0
       ? "0 sur 0 bons de commande"
-      : `${rangeStart}-${rangeEnd} sur ${filteredOrders.length} bons de commande`
+      : `${rangeStart}-${rangeEnd} sur ${totalCount} bons de commande`
 
   const pageItems = buildPageItems(currentPage, totalPages)
   const isFirstPage = currentPage <= 1
@@ -157,8 +160,9 @@ export function PurchaseOrdersPanel({
     window.print()
   }
 
-  function handleExport() {
-    const csv = toCsv(filteredOrders)
+  async function handleExport() {
+    const exported = await exportOrders()
+    const csv = toCsv(exported)
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement("a")
@@ -168,9 +172,27 @@ export function PurchaseOrdersPanel({
     window.URL.revokeObjectURL(url)
   }
 
+  async function handleUpdate(order: PurchaseOrder, values: ProcurementFormValues) {
+    try {
+      await updateOrder(order, values)
+      toast.success("Bon de commande mis à jour.")
+    } catch {
+      toast.error("Impossible de mettre à jour le bon de commande.")
+    }
+  }
+
+  async function handleDelete(order: PurchaseOrder) {
+    try {
+      await removeOrder(order)
+      toast.success("Bon de commande supprimé.")
+    } catch {
+      toast.error("Impossible de supprimer le bon de commande.")
+    }
+  }
+
   return (
     <DataTable
-      isEmpty={!isLoading && filteredOrders.length === 0}
+      isEmpty={!isLoading && totalCount === 0}
       emptyState={{
         title: "Aucun bon de commande pour le moment",
         description: "Créez un bon de commande ou ajoutez vos fournisseurs pour commencer.",
@@ -186,7 +208,7 @@ export function PurchaseOrdersPanel({
             />
             <FilterMultiCombobox
               label="Fournisseurs"
-              options={supplierOptions}
+              options={filterOptions.suppliers}
               onChange={setSupplierFilter}
             />
             <FilterMultiSelect
@@ -270,13 +292,11 @@ export function PurchaseOrdersPanel({
       }
     >
       <PurchaseOrdersTable
-        orders={filteredOrders}
-        page={currentPage}
-        pageSize={PAGE_SIZE}
+        orders={orders}
         suppliers={suppliers}
         products={products}
-        onUpdate={onUpdate}
-        onDelete={onDelete}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
       />
     </DataTable>
   )

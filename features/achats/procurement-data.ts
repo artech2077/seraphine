@@ -10,6 +10,7 @@ export type DeliveryNoteStatus = "Brouillon" | "En cours" | "Livré"
 
 export type PurchaseOrder = {
   id: string
+  orderNumber: string
   supplier: string
   channel: string
   createdAt: string
@@ -21,6 +22,7 @@ export type PurchaseOrder = {
 
 export type DeliveryNote = {
   id: string
+  orderNumber: string
   supplier: string
   channel: string
   createdAt: string

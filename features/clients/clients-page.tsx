@@ -25,6 +25,7 @@ import {
 import { Download, Plus, Printer } from "lucide-react"
 
 const BALANCE_FILTER_OPTIONS: ClientStatus[] = ["OK", "Surveillé", "Bloqué"]
+const PAGE_SIZE_OPTIONS = ["20", "50", "100"]
 
 function buildPageItems(currentPage: number, totalPages: number) {
   if (totalPages <= 7) {
@@ -40,6 +41,7 @@ function buildPageItems(currentPage: number, totalPages: number) {
 
 function toCsv(items: Client[]) {
   const header = [
+    "ID",
     "Nom",
     "Telephone",
     "Ville",
@@ -50,6 +52,7 @@ function toCsv(items: Client[]) {
     "Notes internes",
   ]
   const rows = items.map((item) => [
+    item.clientNumber,
     item.name,
     item.phone,
     item.city,
@@ -76,54 +79,46 @@ function toCsv(items: Client[]) {
 }
 
 export function ClientsPage() {
-  const { items, isLoading, createClient, updateClient, removeClient } = useClients()
   const { canManage } = useRoleAccess()
   const canManageClients = canManage("clients")
   const [clientFilter, setClientFilter] = React.useState<string[]>([])
   const [cityFilter, setCityFilter] = React.useState<string[]>([])
-  const [balanceFilter, setBalanceFilter] = React.useState<string[]>([])
+  const [balanceFilter, setBalanceFilter] = React.useState<ClientStatus[]>([])
   const [currentPage, setCurrentPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState(20)
 
-  const pageSize = 5
+  const {
+    items,
+    isLoading,
+    createClient,
+    updateClient,
+    removeClient,
+    totalCount,
+    filterOptions,
+    exportClients,
+  } = useClients({
+    mode: "paged",
+    page: currentPage,
+    pageSize,
+    filters: {
+      names: clientFilter,
+      cities: cityFilter,
+      statuses: balanceFilter,
+    },
+  })
 
-  const clientOptions = React.useMemo(
-    () => Array.from(new Set(items.map((item) => item.name))),
-    [items]
-  )
-  const cityOptions = React.useMemo(
-    () => Array.from(new Set(items.map((item) => item.city))),
-    [items]
-  )
+  const clientOptions = filterOptions.names
+  const cityOptions = filterOptions.cities
 
-  const filteredItems = React.useMemo(() => {
-    return items.filter((item) => {
-      if (clientFilter.length > 0 && !clientFilter.includes(item.name)) {
-        return false
-      }
-
-      if (cityFilter.length > 0 && !cityFilter.includes(item.city)) {
-        return false
-      }
-
-      if (balanceFilter.length > 0 && !balanceFilter.includes(item.status)) {
-        return false
-      }
-
-      return true
-    })
-  }, [items, clientFilter, cityFilter, balanceFilter])
-
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize))
-  const rangeStart = filteredItems.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
-  const rangeEnd = Math.min(filteredItems.length, currentPage * pageSize)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const rangeEnd = Math.min(totalCount, currentPage * pageSize)
   const rangeLabel =
-    filteredItems.length === 0
-      ? "0 sur 0 clients"
-      : `${rangeStart}-${rangeEnd} sur ${filteredItems.length} clients`
+    totalCount === 0 ? "0 sur 0 clients" : `${rangeStart}-${rangeEnd} sur ${totalCount} clients`
 
   React.useEffect(() => {
     setCurrentPage(1)
-  }, [clientFilter, cityFilter, balanceFilter])
+  }, [clientFilter, cityFilter, balanceFilter, pageSize])
 
   const pageItems = buildPageItems(currentPage, totalPages)
 
@@ -131,12 +126,20 @@ export function ClientsPage() {
     setCurrentPage(Math.min(Math.max(nextPage, 1), totalPages))
   }
 
+  function handlePageSizeChange(value: string) {
+    const nextSize = Number(value)
+    if (!Number.isNaN(nextSize) && nextSize > 0) {
+      setPageSize(nextSize)
+    }
+  }
+
   function handlePrint() {
     window.print()
   }
 
-  function handleExport() {
-    const csv = toCsv(filteredItems)
+  async function handleExport() {
+    const exported = await exportClients()
+    const csv = toCsv(exported)
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement("a")
@@ -167,7 +170,7 @@ export function ClientsPage() {
       }
     >
       <DataTable
-        isEmpty={!isLoading && filteredItems.length === 0}
+        isEmpty={!isLoading && totalCount === 0}
         emptyState={{
           title: "Aucun client pour le moment",
           description: "Ajoutez un client pour commencer à suivre les encours.",
@@ -200,8 +203,9 @@ export function ClientsPage() {
         footer={
           <DataTableFooter
             rangeLabel={rangeLabel}
-            itemsPerPageOptions={["5", "10", "20"]}
+            itemsPerPageOptions={PAGE_SIZE_OPTIONS}
             itemsPerPageValue={String(pageSize)}
+            itemsPerPageOnChange={handlePageSizeChange}
             selectId="clients-items-per-page"
             pagination={
               <Pagination className="mx-0 w-auto justify-end">
@@ -261,13 +265,7 @@ export function ClientsPage() {
           />
         }
       >
-        <ClientsTable
-          items={filteredItems}
-          page={currentPage}
-          pageSize={pageSize}
-          onUpdate={updateClient}
-          onDelete={removeClient}
-        />
+        <ClientsTable items={items} onUpdate={updateClient} onDelete={removeClient} />
       </DataTable>
     </PageShell>
   )

@@ -29,7 +29,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import type { ClientFormValues } from "@/features/clients/api"
 import { ClientModal } from "@/features/clients/client-modal"
@@ -40,6 +39,7 @@ export type ClientStatus = "OK" | "Surveillé" | "Bloqué"
 
 export type Client = {
   id: string
+  clientNumber: string
   name: string
   phone: string
   city: string
@@ -176,6 +176,8 @@ export function ClientsTable({
   const [sortState, setSortState] = React.useState<SortState>("default")
   const [editOpen, setEditOpen] = React.useState(false)
   const [activeItem, setActiveItem] = React.useState<Client | null>(null)
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [pendingDelete, setPendingDelete] = React.useState<Client | null>(null)
 
   const sortedItems = React.useMemo(() => {
     const next = [...items]
@@ -248,6 +250,26 @@ export function ClientsTable({
     }
   }
 
+  const handleDeleteRequest = React.useCallback((item: Client) => {
+    setPendingDelete(item)
+    setDeleteOpen(true)
+  }, [])
+
+  const handleDeleteOpenChange = React.useCallback((open: boolean) => {
+    setDeleteOpen(open)
+    if (!open) {
+      setPendingDelete(null)
+    }
+  }, [])
+
+  const handleDeleteConfirm = React.useCallback(() => {
+    if (!pendingDelete || !onDelete) return
+    void Promise.resolve()
+      .then(() => onDelete(pendingDelete))
+      .then(() => setDeleteOpen(false))
+      .catch(() => null)
+  }, [onDelete, pendingDelete])
+
   function handleUpdate(values: ClientFormValues) {
     if (!activeItem) return
     void onUpdate?.(activeItem, values)
@@ -293,36 +315,14 @@ export function ClientsTable({
                         <Pencil />
                         Modifier
                       </DropdownMenuItem>
-                      <AlertDialog>
-                        <AlertDialogTrigger
-                          nativeButton={false}
-                          disabled={!canManageClients}
-                          render={
-                            <DropdownMenuItem variant="destructive" disabled={!canManageClients} />
-                          }
-                        >
-                          <Trash2 />
-                          Supprimer
-                        </AlertDialogTrigger>
-                        <AlertDialogContent size="sm">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Supprimer ce client ?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Cette action est definitive et supprimera la fiche client.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction
-                              variant="destructive"
-                              disabled={!canManageClients || !onDelete}
-                              onClick={() => onDelete?.(item)}
-                            >
-                              Supprimer
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        disabled={!canManageClients}
+                        onClick={() => handleDeleteRequest(item)}
+                      >
+                        <Trash2 />
+                        Supprimer
+                      </DropdownMenuItem>
                     </DropdownMenuGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -331,6 +331,26 @@ export function ClientsTable({
           ))}
         </TableBody>
       </Table>
+      <AlertDialog open={deleteOpen} onOpenChange={handleDeleteOpenChange}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce client ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est definitive et supprimera la fiche client.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={!canManageClients || !onDelete || !pendingDelete}
+              onClick={handleDeleteConfirm}
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <ClientModal
         mode="edit"
         open={editOpen}

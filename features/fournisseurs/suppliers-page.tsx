@@ -25,16 +25,7 @@ import {
 import { Download, Plus, Printer } from "lucide-react"
 
 const BALANCE_FILTER_OPTIONS = ["Positive", "Negative", "Zero"]
-
-function getBalanceStatus(balance: number) {
-  if (balance > 0) {
-    return "Positive"
-  }
-  if (balance < 0) {
-    return "Negative"
-  }
-  return "Zero"
-}
+const PAGE_SIZE_OPTIONS = ["20", "50", "100"]
 
 function buildPageItems(currentPage: number, totalPages: number) {
   if (totalPages <= 7) {
@@ -49,8 +40,9 @@ function buildPageItems(currentPage: number, totalPages: number) {
 }
 
 function toCsv(items: Supplier[]) {
-  const header = ["Nom", "Email", "Telephone", "Ville", "Balance", "Notes internes"]
+  const header = ["ID", "Nom", "Email", "Telephone", "Ville", "Balance", "Notes internes"]
   const rows = items.map((item) => [
+    item.supplierNumber,
     item.name,
     item.email,
     item.phone,
@@ -75,57 +67,48 @@ function toCsv(items: Supplier[]) {
 }
 
 export function SuppliersPage() {
-  const { items, isLoading, createSupplier, updateSupplier, removeSupplier } = useSuppliers()
   const { canManage } = useRoleAccess()
   const canManageSuppliers = canManage("fournisseurs")
   const [supplierFilter, setSupplierFilter] = React.useState<string[]>([])
   const [cityFilter, setCityFilter] = React.useState<string[]>([])
   const [balanceFilter, setBalanceFilter] = React.useState<string[]>([])
   const [currentPage, setCurrentPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState(20)
 
-  const pageSize = 5
+  const {
+    items,
+    isLoading,
+    createSupplier,
+    updateSupplier,
+    removeSupplier,
+    totalCount,
+    filterOptions,
+    exportSuppliers,
+  } = useSuppliers({
+    mode: "paged",
+    page: currentPage,
+    pageSize,
+    filters: {
+      names: supplierFilter,
+      cities: cityFilter,
+      balances: balanceFilter,
+    },
+  })
 
-  const supplierOptions = React.useMemo(
-    () => Array.from(new Set(items.map((item) => item.name))),
-    [items]
-  )
-  const cityOptions = React.useMemo(
-    () => Array.from(new Set(items.map((item) => item.city))),
-    [items]
-  )
+  const supplierOptions = filterOptions.names
+  const cityOptions = filterOptions.cities
 
-  const filteredItems = React.useMemo(() => {
-    return items.filter((item) => {
-      if (supplierFilter.length > 0 && !supplierFilter.includes(item.name)) {
-        return false
-      }
-
-      if (cityFilter.length > 0 && !cityFilter.includes(item.city)) {
-        return false
-      }
-
-      if (balanceFilter.length > 0) {
-        const status = getBalanceStatus(item.balance)
-        if (!balanceFilter.includes(status)) {
-          return false
-        }
-      }
-
-      return true
-    })
-  }, [items, supplierFilter, cityFilter, balanceFilter])
-
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize))
-  const rangeStart = filteredItems.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
-  const rangeEnd = Math.min(filteredItems.length, currentPage * pageSize)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const rangeEnd = Math.min(totalCount, currentPage * pageSize)
   const rangeLabel =
-    filteredItems.length === 0
+    totalCount === 0
       ? "0 sur 0 fournisseurs"
-      : `${rangeStart}-${rangeEnd} sur ${filteredItems.length} fournisseurs`
+      : `${rangeStart}-${rangeEnd} sur ${totalCount} fournisseurs`
 
   React.useEffect(() => {
     setCurrentPage(1)
-  }, [supplierFilter, cityFilter, balanceFilter])
+  }, [supplierFilter, cityFilter, balanceFilter, pageSize])
 
   const pageItems = buildPageItems(currentPage, totalPages)
 
@@ -133,12 +116,20 @@ export function SuppliersPage() {
     setCurrentPage(Math.min(Math.max(nextPage, 1), totalPages))
   }
 
+  function handlePageSizeChange(value: string) {
+    const nextSize = Number(value)
+    if (!Number.isNaN(nextSize) && nextSize > 0) {
+      setPageSize(nextSize)
+    }
+  }
+
   function handlePrint() {
     window.print()
   }
 
-  function handleExport() {
-    const csv = toCsv(filteredItems)
+  async function handleExport() {
+    const exported = await exportSuppliers()
+    const csv = toCsv(exported)
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement("a")
@@ -169,7 +160,7 @@ export function SuppliersPage() {
       }
     >
       <DataTable
-        isEmpty={!isLoading && filteredItems.length === 0}
+        isEmpty={!isLoading && totalCount === 0}
         emptyState={{
           title: "Aucun fournisseur pour le moment",
           description: "Ajoutez un fournisseur pour demarrer vos achats.",
@@ -202,8 +193,9 @@ export function SuppliersPage() {
         footer={
           <DataTableFooter
             rangeLabel={rangeLabel}
-            itemsPerPageOptions={["5", "10", "20"]}
+            itemsPerPageOptions={PAGE_SIZE_OPTIONS}
             itemsPerPageValue={String(pageSize)}
+            itemsPerPageOnChange={handlePageSizeChange}
             selectId="suppliers-items-per-page"
             pagination={
               <Pagination className="mx-0 w-auto justify-end">
@@ -263,13 +255,7 @@ export function SuppliersPage() {
           />
         }
       >
-        <SuppliersTable
-          items={filteredItems}
-          page={currentPage}
-          pageSize={pageSize}
-          onUpdate={updateSupplier}
-          onDelete={removeSupplier}
-        />
+        <SuppliersTable items={items} onUpdate={updateSupplier} onDelete={removeSupplier} />
       </DataTable>
     </PageShell>
   )

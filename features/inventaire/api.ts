@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useAuth, useOrganization } from "@clerk/nextjs"
-import { useMutation, useQuery } from "convex/react"
+import { useConvex, useMutation, useQuery } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
@@ -32,6 +32,33 @@ export type ProductCatalogItem = {
   name: string
   sellingPrice: number
   vatRate: number
+}
+
+type InventoryListFilters = {
+  names?: string[]
+  barcodes?: string[]
+  suppliers?: string[]
+  categories?: string[]
+  stockStatuses?: string[]
+  vatRates?: number[]
+}
+
+type InventoryListOptions = {
+  mode?: "all" | "paged"
+  page?: number
+  pageSize?: number
+  filters?: InventoryListFilters
+}
+
+type InventoryListResponse = {
+  items: InventoryProduct[]
+  totalCount: number
+  filterOptions: {
+    names: string[]
+    barcodes: string[]
+    suppliers: string[]
+    categories: string[]
+  }
 }
 
 type InventoryProduct = {
@@ -100,22 +127,114 @@ function useProducts() {
   }
 }
 
-export function useInventoryItems() {
-  const { orgId } = useAuth()
-  const { products, isLoading } = useProducts()
+export function useInventoryItems(options?: InventoryListOptions) {
+  const { isLoaded, orgId, userId } = useAuth()
+  const { organization } = useOrganization()
+  const ensurePharmacy = useMutation(api.pharmacies.ensureForOrg)
+  const orgName = organization?.name ?? "Pharmacie"
+  const convex = useConvex()
+  const mode = options?.mode ?? "all"
+  const page = options?.page ?? 1
+  const pageSize = options?.pageSize ?? 10
+
+  const listFilters = React.useMemo(
+    () => ({
+      names: options?.filters?.names ?? [],
+      barcodes: options?.filters?.barcodes ?? [],
+      suppliers: options?.filters?.suppliers ?? [],
+      categories: options?.filters?.categories ?? [],
+      stockStatuses: options?.filters?.stockStatuses ?? [],
+      vatRates: options?.filters?.vatRates ?? [],
+    }),
+    [
+      options?.filters?.barcodes,
+      options?.filters?.categories,
+      options?.filters?.names,
+      options?.filters?.stockStatuses,
+      options?.filters?.suppliers,
+      options?.filters?.vatRates,
+    ]
+  )
+
+  React.useEffect(() => {
+    if (!isLoaded || !userId || !orgId) return
+    void ensurePharmacy({ clerkOrgId: orgId, name: orgName })
+  }, [ensurePharmacy, isLoaded, orgId, orgName, userId])
+
+  const pagedResponse = useQuery(
+    api.products.listByOrgPaginated,
+    orgId && mode === "paged"
+      ? { clerkOrgId: orgId, pagination: { page, pageSize }, filters: listFilters }
+      : "skip"
+  ) as InventoryListResponse | undefined
+
+  const products = useQuery(
+    api.products.listByOrg,
+    orgId && mode !== "paged" ? { clerkOrgId: orgId } : "skip"
+  ) as InventoryProduct[] | undefined
+
+  const isLoading = mode === "paged" ? pagedResponse === undefined : products === undefined
   const createProductMutation = useMutation(api.products.create)
   const updateProductMutation = useMutation(api.products.update)
   const removeProductMutation = useMutation(api.products.remove)
 
   const items = React.useMemo(() => {
-    if (!products) return []
-    return products.map(mapProductToInventoryItem)
-  }, [products])
+    const source = mode === "paged" ? pagedResponse?.items : products
+    if (!source) return []
+    return source.map(mapProductToInventoryItem)
+  }, [mode, pagedResponse?.items, products])
+
+  const filterOptions = React.useMemo(() => {
+    if (mode === "paged") {
+      return (
+        pagedResponse?.filterOptions ?? {
+          names: [],
+          barcodes: [],
+          suppliers: [],
+          categories: [],
+        }
+      )
+    }
+    if (!products) {
+      return { names: [], barcodes: [], suppliers: [], categories: [] }
+    }
+    const names = Array.from(new Set(products.map((product) => product.name)))
+    const barcodes = Array.from(
+      new Set(
+        products
+          .map((product) => product.barcode)
+          .filter((barcode): barcode is string => Boolean(barcode))
+      )
+    )
+    if (!barcodes.includes("Sans code barre")) {
+      barcodes.push("Sans code barre")
+    }
+    const categories = Array.from(new Set(products.map((product) => product.category)))
+    return { names, barcodes, suppliers: [], categories }
+  }, [mode, pagedResponse?.filterOptions, products])
+
+  const totalCount = mode === "paged" ? (pagedResponse?.totalCount ?? 0) : items.length
 
   return {
     items,
     isLoading,
     hasOrg: Boolean(orgId),
+    totalCount,
+    filterOptions,
+    exportInventory: React.useCallback(async () => {
+      if (!orgId) return []
+      if (mode !== "paged") {
+        return items
+      }
+      const exportCount = pagedResponse?.totalCount ?? 0
+      if (!exportCount) return []
+      const response = (await convex.query(api.products.listByOrgPaginated, {
+        clerkOrgId: orgId,
+        pagination: { page: 1, pageSize: exportCount },
+        filters: listFilters,
+      })) as InventoryListResponse
+      return response.items.map(mapProductToInventoryItem)
+    }, [convex, items, listFilters, mode, orgId, pagedResponse?.totalCount]),
     async createProduct(values: InventoryFormValues) {
       if (!orgId) return
       await createProductMutation({

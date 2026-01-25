@@ -1,6 +1,6 @@
 import { vi } from "vitest"
 
-import { create, listByOrg, remove } from "@/convex/sales"
+import { create, listByOrg, listByOrgPaginated, remove } from "@/convex/sales"
 
 type ConvexHandler<Args, Result = unknown> = (ctx: unknown, args: Args) => Promise<Result>
 
@@ -75,12 +75,39 @@ describe("convex/sales", () => {
     )
     expect(ctx.db.insert).toHaveBeenCalledWith(
       "sales",
-      expect.objectContaining({ pharmacyId: "pharmacy-1" })
+      expect.objectContaining({
+        pharmacyId: "pharmacy-1",
+        saleNumber: "FAC-02",
+        saleSequence: 2,
+      })
     )
     expect(ctx.db.insert).toHaveBeenCalledWith(
       "saleItems",
-      expect.objectContaining({ productId: "product-1" })
+      expect.objectContaining({ pharmacyId: "pharmacy-1", productId: "product-1" })
     )
+  })
+
+  it("paginates sales for the org", async () => {
+    const ctx = buildContext()
+
+    const handler = listByOrgPaginated as unknown as ConvexHandler<
+      {
+        clerkOrgId: string
+        pagination: { page: number; pageSize: number }
+        filters?: { payments?: string[] }
+      },
+      { items: unknown[]; totalCount: number; filterOptions: { clients: string[] } }
+    >
+
+    const result = await handler(ctx, {
+      clerkOrgId: "org-1",
+      pagination: { page: 1, pageSize: 10 },
+      filters: { payments: ["Espèce"] },
+    })
+
+    expect(result.totalCount).toBe(1)
+    expect(result.items).toHaveLength(1)
+    expect(result.filterOptions.clients).toEqual(["Client A"])
   })
 
   it("removes a sale and its items", async () => {
@@ -109,10 +136,25 @@ function buildContext(options: BuildContextOptions = {}) {
     pharmacyId: "pharmacy-1",
     clientId: "client-1",
     sellerId: "seller-1",
+    saleNumber: "FAC-01",
+    saleSequence: 1,
+    saleDate: 1700000000000,
+    paymentMethod: "CASH",
   }
   const item = {
     _id: "item-1",
     saleId: "sale-1",
+    pharmacyId: "pharmacy-1",
+    productNameSnapshot: "Produit A",
+  }
+  const client = {
+    _id: "client-1",
+    pharmacyId: "pharmacy-1",
+    name: "Client A",
+  }
+  const seller = {
+    _id: "seller-1",
+    name: "Seller",
   }
   const existingUser =
     options.existingUser === undefined ? { _id: "seller-1" } : options.existingUser
@@ -140,11 +182,19 @@ function buildContext(options: BuildContextOptions = {}) {
           }),
         }
       }
+      if (table === "clients") {
+        return {
+          withIndex: () => ({
+            collect: async () => [client],
+          }),
+        }
+      }
       if (table === "users") {
         return {
           withIndex: () => ({
             unique: async () => existingUser,
           }),
+          collect: async () => [seller],
         }
       }
       return {

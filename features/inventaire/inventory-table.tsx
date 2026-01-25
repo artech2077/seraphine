@@ -32,7 +32,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
@@ -180,6 +179,8 @@ export function InventoryTable({
   const [sortState, setSortState] = React.useState<SortState>("default")
   const [editOpen, setEditOpen] = React.useState(false)
   const [activeItem, setActiveItem] = React.useState<InventoryItem | null>(null)
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [pendingDelete, setPendingDelete] = React.useState<InventoryItem | null>(null)
 
   const sortedItems = React.useMemo(() => {
     const next = [...items]
@@ -260,6 +261,26 @@ export function InventoryTable({
     }
   }
 
+  const handleDeleteRequest = React.useCallback((item: InventoryItem) => {
+    setPendingDelete(item)
+    setDeleteOpen(true)
+  }, [])
+
+  const handleDeleteOpenChange = React.useCallback((open: boolean) => {
+    setDeleteOpen(open)
+    if (!open) {
+      setPendingDelete(null)
+    }
+  }, [])
+
+  const handleDeleteConfirm = React.useCallback(() => {
+    if (!pendingDelete || !onDelete) return
+    void Promise.resolve()
+      .then(() => onDelete(pendingDelete))
+      .then(() => setDeleteOpen(false))
+      .catch(() => null)
+  }, [onDelete, pendingDelete])
+
   function handleUpdate(values: InventoryFormValues) {
     if (!activeItem) return
     void onUpdate?.(activeItem, values)
@@ -315,39 +336,14 @@ export function InventoryTable({
                           <Pencil />
                           Modifier
                         </DropdownMenuItem>
-                        <AlertDialog>
-                          <AlertDialogTrigger
-                            nativeButton={false}
-                            disabled={!canManageInventory}
-                            render={
-                              <DropdownMenuItem
-                                variant="destructive"
-                                disabled={!canManageInventory}
-                              />
-                            }
-                          >
-                            <Trash2 />
-                            Supprimer
-                          </AlertDialogTrigger>
-                          <AlertDialogContent size="sm">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Supprimer ce produit ?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Cette action est definitive et supprimera la fiche produit.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Annuler</AlertDialogCancel>
-                              <AlertDialogAction
-                                variant="destructive"
-                                disabled={!canManageInventory || !onDelete}
-                                onClick={() => onDelete?.(item)}
-                              >
-                                Supprimer
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          disabled={!canManageInventory}
+                          onClick={() => handleDeleteRequest(item)}
+                        >
+                          <Trash2 />
+                          Supprimer
+                        </DropdownMenuItem>
                       </DropdownMenuGroup>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -357,6 +353,26 @@ export function InventoryTable({
           })}
         </TableBody>
       </Table>
+      <AlertDialog open={deleteOpen} onOpenChange={handleDeleteOpenChange}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce produit ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est definitive et supprimera la fiche produit.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={!canManageInventory || !onDelete || !pendingDelete}
+              onClick={handleDeleteConfirm}
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <InventoryProductModal
         mode="edit"
         open={editOpen}

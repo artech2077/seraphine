@@ -1,6 +1,74 @@
 import { mutation, query } from "./_generated/server"
 import { v } from "convex/values"
 import { assertOrgAccess, getAuthOrgId } from "./auth"
+import type { Id } from "./_generated/dataModel"
+
+const ORDER_PREFIXES = {
+  PURCHASE_ORDER: "BC-",
+  DELIVERY_NOTE: "BL-",
+} as const
+
+type ProcurementOrderRecord = {
+  _id: Id<"procurementOrders">
+  orderNumber?: string | null
+  orderSequence?: number | null
+  supplierId: Id<"suppliers">
+  status: "DRAFT" | "ORDERED" | "DELIVERED"
+  externalReference?: string | null
+  channel?: "EMAIL" | "PHONE" | null
+  orderDate: number
+  totalAmount: number
+  createdAt: number
+  type: "PURCHASE_ORDER" | "DELIVERY_NOTE"
+}
+
+type ProcurementItemRecord = {
+  _id: Id<"procurementItems">
+  orderId: Id<"procurementOrders">
+  productId: Id<"products">
+  quantity: number
+  unitPrice: number
+}
+
+function formatOrderNumber(prefix: string, sequence: number) {
+  return `${prefix}${String(sequence).padStart(2, "0")}`
+}
+
+function parseOrderNumber(prefix: string, value?: string | null) {
+  if (!value) return null
+  const match = value.match(
+    new RegExp(`^${prefix.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}(\\d+)$`)
+  )
+  if (!match) return null
+  return Number(match[1])
+}
+
+function buildFallbackNumbers(orders: ProcurementOrderRecord[], prefix: string) {
+  const usedSequences = new Set<number>()
+  orders.forEach((order) => {
+    const sequence = order.orderSequence ?? parseOrderNumber(prefix, order.orderNumber) ?? 0
+    if (sequence) {
+      usedSequences.add(sequence)
+    }
+  })
+
+  const fallbackNumbers = new Map<string, string>()
+  const missing = orders
+    .filter((order) => !order.orderNumber && !order.orderSequence)
+    .sort((a, b) => a.createdAt - b.createdAt)
+
+  let nextSequence = 1
+  missing.forEach((order) => {
+    while (usedSequences.has(nextSequence)) {
+      nextSequence += 1
+    }
+    fallbackNumbers.set(String(order._id), formatOrderNumber(prefix, nextSequence))
+    usedSequences.add(nextSequence)
+    nextSequence += 1
+  })
+
+  return fallbackNumbers
+}
 
 export const listByOrg = query({
   args: {
@@ -29,40 +97,280 @@ export const listByOrg = query({
       .filter((q) => q.eq(q.field("type"), args.type))
       .collect()
 
-    return Promise.all(
-      orders.map(async (order) => {
-        const supplier = await ctx.db.get(order.supplierId)
-        const items = await ctx.db
-          .query("procurementItems")
-          .withIndex("by_orderId", (q) => q.eq("orderId", order._id))
-          .collect()
+    if (orders.length === 0) {
+      return []
+    }
 
-        const mappedItems = await Promise.all(
-          items.map(async (item) => {
-            const product = await ctx.db.get(item.productId)
-            return {
-              id: item._id,
-              productName: product?.name ?? "Produit inconnu",
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-            }
-          })
-        )
+    const [suppliers, items, products] = await Promise.all([
+      ctx.db
+        .query("suppliers")
+        .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+        .collect(),
+      ctx.db
+        .query("procurementItems")
+        .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+        .collect(),
+      ctx.db
+        .query("products")
+        .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+        .collect(),
+    ])
 
+    const suppliersById = new Map(suppliers.map((supplier) => [supplier._id, supplier]))
+    const productsById = new Map(products.map((product) => [product._id, product]))
+
+    const itemsByOrder = new Map<string, typeof items>()
+    items.forEach((item) => {
+      const orderItems = itemsByOrder.get(item.orderId) ?? []
+      orderItems.push(item)
+      itemsByOrder.set(item.orderId, orderItems)
+    })
+
+    const missingItemOrders = orders.filter((order) => !itemsByOrder.has(order._id))
+    if (missingItemOrders.length > 0) {
+      const fallbackItems = await Promise.all(
+        missingItemOrders.map(async (order) => ({
+          orderId: order._id,
+          items: await ctx.db
+            .query("procurementItems")
+            .withIndex("by_orderId", (q) => q.eq("orderId", order._id))
+            .collect(),
+        }))
+      )
+      fallbackItems.forEach(({ orderId, items: orderItems }) => {
+        if (orderItems.length === 0) {
+          return
+        }
+        const existingItems = itemsByOrder.get(orderId) ?? []
+        itemsByOrder.set(orderId, [...existingItems, ...orderItems])
+      })
+    }
+
+    return orders.map((order) => {
+      const supplier = suppliersById.get(order.supplierId)
+      const mappedItems = (itemsByOrder.get(order._id) ?? []).map((item) => {
+        const product = productsById.get(item.productId)
         return {
-          id: order._id,
-          supplierName: supplier?.name ?? "Fournisseur inconnu",
-          channel: order.channel ?? null,
-          createdAt: order.createdAt,
-          orderDate: order.orderDate,
-          totalAmount: order.totalAmount,
-          status: order.status,
-          type: order.type,
-          externalReference: order.externalReference ?? null,
-          items: mappedItems,
+          id: item._id,
+          productName: product?.name ?? "Produit inconnu",
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
         }
       })
+
+      return {
+        id: order._id,
+        orderNumber: order.orderNumber ?? null,
+        orderSequence: order.orderSequence ?? null,
+        supplierName: supplier?.name ?? "Fournisseur inconnu",
+        channel: order.channel ?? null,
+        createdAt: order.createdAt,
+        orderDate: order.orderDate,
+        totalAmount: order.totalAmount,
+        status: order.status,
+        type: order.type,
+        externalReference: order.externalReference ?? null,
+        items: mappedItems,
+      }
+    })
+  },
+})
+
+export const listByOrgPaginated = query({
+  args: {
+    clerkOrgId: v.string(),
+    type: v.union(v.literal("PURCHASE_ORDER"), v.literal("DELIVERY_NOTE")),
+    pagination: v.object({
+      page: v.number(),
+      pageSize: v.number(),
+    }),
+    filters: v.optional(
+      v.object({
+        supplierNames: v.optional(v.array(v.string())),
+        statuses: v.optional(
+          v.array(v.union(v.literal("DRAFT"), v.literal("ORDERED"), v.literal("DELIVERED")))
+        ),
+        references: v.optional(v.array(v.string())),
+        orderFrom: v.optional(v.number()),
+        orderTo: v.optional(v.number()),
+        createdFrom: v.optional(v.number()),
+        createdTo: v.optional(v.number()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    const orgId = getAuthOrgId(identity)
+    if (!orgId || orgId !== args.clerkOrgId) {
+      return {
+        items: [],
+        totalCount: 0,
+        filterOptions: { suppliers: [], references: [] },
+        fallbackNumbers: {},
+      }
+    }
+
+    const pharmacy = await ctx.db
+      .query("pharmacies")
+      .withIndex("by_clerkOrgId", (q) => q.eq("clerkOrgId", args.clerkOrgId))
+      .unique()
+
+    if (!pharmacy) {
+      return {
+        items: [],
+        totalCount: 0,
+        filterOptions: { suppliers: [], references: [] },
+        fallbackNumbers: {},
+      }
+    }
+
+    const orders = (await ctx.db
+      .query("procurementOrders")
+      .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+      .filter((q) => q.eq(q.field("type"), args.type))
+      .collect()) as ProcurementOrderRecord[]
+
+    if (orders.length === 0) {
+      return {
+        items: [],
+        totalCount: 0,
+        filterOptions: { suppliers: [], references: [] },
+        fallbackNumbers: {},
+      }
+    }
+
+    const [suppliers, items, products] = await Promise.all([
+      ctx.db
+        .query("suppliers")
+        .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+        .collect(),
+      ctx.db
+        .query("procurementItems")
+        .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+        .collect(),
+      ctx.db
+        .query("products")
+        .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+        .collect(),
+    ])
+
+    const suppliersById = new Map(suppliers.map((supplier) => [String(supplier._id), supplier]))
+    const productsById = new Map(products.map((product) => [String(product._id), product]))
+
+    const itemsByOrder = new Map<string, ProcurementItemRecord[]>()
+    ;(items as ProcurementItemRecord[]).forEach((item) => {
+      const orderItems = itemsByOrder.get(String(item.orderId)) ?? []
+      orderItems.push(item)
+      itemsByOrder.set(String(item.orderId), orderItems)
+    })
+
+    const missingItemOrders = orders.filter((order) => !itemsByOrder.has(String(order._id)))
+    if (missingItemOrders.length > 0) {
+      const fallbackItems = await Promise.all(
+        missingItemOrders.map(async (order) => ({
+          orderId: String(order._id),
+          items: await ctx.db
+            .query("procurementItems")
+            .withIndex("by_orderId", (q) => q.eq("orderId", order._id))
+            .collect(),
+        }))
+      )
+      fallbackItems.forEach(({ orderId, items: orderItems }) => {
+        if (orderItems.length === 0) {
+          return
+        }
+        const existingItems = itemsByOrder.get(orderId) ?? []
+        itemsByOrder.set(orderId, [...existingItems, ...(orderItems as ProcurementItemRecord[])])
+      })
+    }
+
+    const mappedOrders = orders.map((order) => {
+      const supplier = suppliersById.get(String(order.supplierId))
+      const mappedItems = (itemsByOrder.get(String(order._id)) ?? []).map((item) => {
+        const product = productsById.get(String(item.productId))
+        return {
+          id: item._id,
+          productName: product?.name ?? "Produit inconnu",
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+        }
+      })
+
+      return {
+        id: order._id,
+        orderNumber: order.orderNumber ?? null,
+        orderSequence: order.orderSequence ?? null,
+        supplierName: supplier?.name ?? "Fournisseur inconnu",
+        channel: order.channel ?? null,
+        createdAt: order.createdAt,
+        orderDate: order.orderDate,
+        totalAmount: order.totalAmount,
+        status: order.status,
+        type: order.type,
+        externalReference: order.externalReference ?? null,
+        items: mappedItems,
+      }
+    })
+
+    const supplierOptions = Array.from(new Set(mappedOrders.map((order) => order.supplierName)))
+    const referenceOptions = Array.from(
+      new Set(mappedOrders.map((order) => order.externalReference ?? "-"))
     )
+
+    const supplierFilter = new Set(args.filters?.supplierNames ?? [])
+    const statusFilter = new Set(args.filters?.statuses ?? [])
+    const referenceFilter = new Set(args.filters?.references ?? [])
+    const orderFrom = args.filters?.orderFrom
+    const orderTo = args.filters?.orderTo
+    const createdFrom = args.filters?.createdFrom
+    const createdTo = args.filters?.createdTo
+
+    const filtered = mappedOrders.filter((order) => {
+      if (supplierFilter.size > 0 && !supplierFilter.has(order.supplierName)) {
+        return false
+      }
+      if (statusFilter.size > 0 && !statusFilter.has(order.status)) {
+        return false
+      }
+      const reference = order.externalReference ?? "-"
+      if (referenceFilter.size > 0 && !referenceFilter.has(reference)) {
+        return false
+      }
+      if (typeof orderFrom === "number" && order.orderDate < orderFrom) {
+        return false
+      }
+      if (typeof orderTo === "number" && order.orderDate > orderTo) {
+        return false
+      }
+      if (typeof createdFrom === "number" && order.createdAt < createdFrom) {
+        return false
+      }
+      if (typeof createdTo === "number" && order.createdAt > createdTo) {
+        return false
+      }
+      return true
+    })
+
+    const totalCount = filtered.length
+    const start = (args.pagination.page - 1) * args.pagination.pageSize
+    const itemsPage = filtered.slice(start, start + args.pagination.pageSize)
+
+    const orderPrefix = ORDER_PREFIXES[args.type]
+    const fallbackNumbers = buildFallbackNumbers(orders, orderPrefix)
+    const pagedFallbackNumbers: Record<string, string> = {}
+    itemsPage.forEach((order) => {
+      const fallback = fallbackNumbers.get(String(order.id))
+      if (fallback) {
+        pagedFallbackNumbers[String(order.id)] = fallback
+      }
+    })
+
+    return {
+      items: itemsPage,
+      totalCount,
+      filterOptions: { suppliers: supplierOptions, references: referenceOptions },
+      fallbackNumbers: pagedFallbackNumbers,
+    }
   },
 })
 
@@ -102,8 +410,24 @@ export const create = mutation({
       throw new Error("Unauthorized")
     }
 
+    const orderPrefix = ORDER_PREFIXES[args.type]
+    const existingOrders = await ctx.db
+      .query("procurementOrders")
+      .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+      .filter((q) => q.eq(q.field("type"), args.type))
+      .collect()
+
+    const maxSequence = existingOrders.reduce((max, order) => {
+      const sequence = order.orderSequence ?? parseOrderNumber(orderPrefix, order.orderNumber) ?? 0
+      return Math.max(max, sequence)
+    }, existingOrders.length)
+    const orderSequence = maxSequence + 1
+    const orderNumber = formatOrderNumber(orderPrefix, orderSequence)
+
     const orderId = await ctx.db.insert("procurementOrders", {
       pharmacyId: pharmacy._id,
+      orderNumber,
+      orderSequence,
       type: args.type,
       supplierId: args.supplierId,
       status: args.status,
@@ -117,6 +441,7 @@ export const create = mutation({
     await Promise.all(
       args.items.map((item) =>
         ctx.db.insert("procurementItems", {
+          pharmacyId: pharmacy._id,
           orderId,
           productId: item.productId,
           quantity: item.quantity,
@@ -190,6 +515,7 @@ export const update = mutation({
     await Promise.all(
       args.items.map((item) =>
         ctx.db.insert("procurementItems", {
+          pharmacyId: pharmacy._id,
           orderId: args.id,
           productId: item.productId,
           quantity: item.quantity,

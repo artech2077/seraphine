@@ -18,6 +18,7 @@ type DataTableFooterProps = {
   itemsPerPageLabel?: string
   itemsPerPageOptions?: string[]
   itemsPerPageValue?: string
+  itemsPerPageOnChange?: (value: string) => void
   selectId?: string
   className?: string
 }
@@ -28,9 +29,21 @@ export function DataTableFooter({
   itemsPerPageLabel = "Afficher",
   itemsPerPageOptions = ["20", "50", "100"],
   itemsPerPageValue = "20",
+  itemsPerPageOnChange,
   selectId = "items-per-page",
   className,
 }: DataTableFooterProps) {
+  const selectProps = itemsPerPageOnChange
+    ? {
+        value: itemsPerPageValue,
+        onValueChange: (value: string | null) => {
+          if (value) {
+            itemsPerPageOnChange(value)
+          }
+        },
+      }
+    : { defaultValue: itemsPerPageValue }
+
   return (
     <div className={cn("flex w-full flex-wrap items-center gap-3 text-sm", className)}>
       <div className="flex flex-wrap items-center gap-4 text-muted-foreground">
@@ -39,11 +52,13 @@ export function DataTableFooter({
           <Label htmlFor={selectId} className="text-muted-foreground">
             {itemsPerPageLabel}
           </Label>
-          <Select defaultValue={itemsPerPageValue}>
+          <Select {...selectProps}>
             <SelectTrigger id={selectId} className="h-8">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              collisionAvoidance={{ side: "flip", align: "shift", fallbackAxisSide: "none" }}
+            >
               {itemsPerPageOptions.map((option) => (
                 <SelectItem key={option} value={option}>
                   {option}

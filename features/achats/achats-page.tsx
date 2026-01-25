@@ -18,20 +18,8 @@ import { Plus } from "lucide-react"
 const TAB_STORAGE_KEY = "achats:last-tab"
 
 export function AchatsPage() {
-  const {
-    orders: purchaseOrders,
-    isLoading: isLoadingOrders,
-    createOrder,
-    updateOrder,
-    removeOrder,
-  } = usePurchaseOrders()
-  const {
-    notes: deliveryNotes,
-    isLoading: isLoadingNotes,
-    createNote,
-    updateNote,
-    removeNote,
-  } = useDeliveryNotes()
+  const { createOrder } = usePurchaseOrders({ mode: "mutations" })
+  const { createNote } = useDeliveryNotes({ mode: "mutations" })
   const { items: suppliers } = useSuppliers()
   const { options: productOptions } = useProductOptions()
   const { canManage } = useRoleAccess()
@@ -117,52 +105,10 @@ export function AchatsPage() {
         }
       >
         <TabsContent value="commande" className="space-y-4">
-          <PurchaseOrdersPanel
-            orders={purchaseOrders}
-            isLoading={isLoadingOrders}
-            suppliers={supplierOptions}
-            products={productOptions}
-            onUpdate={async (order, values) => {
-              try {
-                await updateOrder(order, values)
-                toast.success("Bon de commande mis à jour.")
-              } catch {
-                toast.error("Impossible de mettre à jour le bon de commande.")
-              }
-            }}
-            onDelete={async (order) => {
-              try {
-                await removeOrder(order)
-                toast.success("Bon de commande supprimé.")
-              } catch {
-                toast.error("Impossible de supprimer le bon de commande.")
-              }
-            }}
-          />
+          <PurchaseOrdersPanel suppliers={supplierOptions} products={productOptions} />
         </TabsContent>
         <TabsContent value="livraison" className="space-y-4">
-          <DeliveryNotesPanel
-            notes={deliveryNotes}
-            isLoading={isLoadingNotes}
-            suppliers={supplierOptions}
-            products={productOptions}
-            onUpdate={async (note, values) => {
-              try {
-                await updateNote(note, values)
-                toast.success("Bon de livraison mis à jour.")
-              } catch {
-                toast.error("Impossible de mettre à jour le bon de livraison.")
-              }
-            }}
-            onDelete={async (note) => {
-              try {
-                await removeNote(note)
-                toast.success("Bon de livraison supprimé.")
-              } catch {
-                toast.error("Impossible de supprimer le bon de livraison.")
-              }
-            }}
-          />
+          <DeliveryNotesPanel suppliers={supplierOptions} products={productOptions} />
         </TabsContent>
       </PageShell>
     </Tabs>

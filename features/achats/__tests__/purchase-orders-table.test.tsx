@@ -16,7 +16,8 @@ describe("PurchaseOrdersTable", () => {
       <PurchaseOrdersTable
         orders={[
           {
-            id: "PO-2",
+            id: "order-2",
+            orderNumber: "BC-02",
             supplier: "Beta",
             channel: "Email",
             createdAt: "2026-01-02",
@@ -26,7 +27,8 @@ describe("PurchaseOrdersTable", () => {
             items: [],
           },
           {
-            id: "PO-1",
+            id: "order-1",
+            orderNumber: "BC-01",
             supplier: "Alpha",
             channel: "Email",
             createdAt: "2026-01-01",
@@ -48,7 +50,7 @@ describe("PurchaseOrdersTable", () => {
       .slice(1)
       .map((row) => row.textContent)
 
-    expect(ids[0]).toContain("PO-1")
-    expect(ids[1]).toContain("PO-2")
+    expect(ids[0]).toContain("BC-01")
+    expect(ids[1]).toContain("BC-02")
   })
 })

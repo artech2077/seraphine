@@ -18,6 +18,8 @@ const emptyData: DashboardData = {
   recentOrders: [],
 }
 
+const SESSION_NOW = Date.now()
+
 export function useDashboardData() {
   const { isLoaded, orgId, userId } = useAuth()
   const { organization } = useOrganization()
@@ -29,10 +31,10 @@ export function useDashboardData() {
     void ensurePharmacy({ clerkOrgId: orgId, name: orgName })
   }, [ensurePharmacy, isLoaded, orgId, orgName, userId])
 
-  const summary = useQuery(api.dashboard.getSummary, orgId ? { clerkOrgId: orgId } : "skip") as
-    | Partial<DashboardData>
-    | null
-    | undefined
+  const summary = useQuery(
+    api.dashboard.getSummary,
+    orgId ? { clerkOrgId: orgId, now: SESSION_NOW } : "skip"
+  ) as Partial<DashboardData> | null | undefined
 
   return {
     data: summary ? { ...emptyData, ...summary } : emptyData,

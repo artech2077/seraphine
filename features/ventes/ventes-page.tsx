@@ -5,14 +5,11 @@ import * as React from "react"
 import { PageShell } from "@/components/layout/page-shell"
 import { SalesHistoryPanel } from "@/features/ventes/sales-history-panel"
 import { SalesPos } from "@/features/ventes/sales-pos"
-import { useSalesHistory } from "@/features/ventes/api"
-import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const TAB_STORAGE_KEY = "ventes:last-tab"
 
 export function VentesPage() {
-  const { items: salesHistory, isLoading, removeSale } = useSalesHistory()
   const [activeTab, setActiveTab] = React.useState<"pos" | "historique">("pos")
 
   React.useEffect(() => {
@@ -46,18 +43,7 @@ export function VentesPage() {
           <SalesPos />
         </TabsContent>
         <TabsContent value="historique" className="space-y-4">
-          <SalesHistoryPanel
-            sales={salesHistory}
-            isLoading={isLoading}
-            onDelete={async (sale) => {
-              try {
-                await removeSale(sale)
-                toast.success("Vente supprimée.")
-              } catch {
-                toast.error("Impossible de supprimer la vente.")
-              }
-            }}
-          />
+          <SalesHistoryPanel />
         </TabsContent>
       </PageShell>
     </Tabs>

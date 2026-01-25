@@ -11,6 +11,7 @@
 import type * as auth from "../auth.js"
 import type * as clients from "../clients.js"
 import type * as dashboard from "../dashboard.js"
+import type * as migrations from "../migrations.js"
 import type * as pharmacies from "../pharmacies.js"
 import type * as procurement from "../procurement.js"
 import type * as products from "../products.js"
@@ -24,6 +25,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth
   clients: typeof clients
   dashboard: typeof dashboard
+  migrations: typeof migrations
   pharmacies: typeof pharmacies
   procurement: typeof procurement
   products: typeof products

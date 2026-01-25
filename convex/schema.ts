@@ -5,6 +5,8 @@ export default defineSchema({
   pharmacies: defineTable({
     name: v.string(),
     clerkOrgId: v.string(),
+    pharmacyNumber: v.optional(v.string()),
+    pharmacySequence: v.optional(v.number()),
     createdAt: v.number(),
   }).index("by_clerkOrgId", ["clerkOrgId"]),
   users: defineTable({
@@ -32,6 +34,8 @@ export default defineSchema({
     clientId: v.optional(v.id("clients")),
     sellerId: v.id("users"),
     saleDate: v.number(),
+    saleNumber: v.optional(v.string()),
+    saleSequence: v.optional(v.number()),
     paymentMethod: v.union(
       v.literal("CASH"),
       v.literal("CARD"),
@@ -46,6 +50,7 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_pharmacyId", ["pharmacyId"]),
   saleItems: defineTable({
+    pharmacyId: v.optional(v.id("pharmacies")),
     saleId: v.id("sales"),
     productId: v.id("products"),
     productNameSnapshot: v.string(),
@@ -55,9 +60,13 @@ export default defineSchema({
     lineDiscountType: v.optional(v.union(v.literal("PERCENT"), v.literal("AMOUNT"))),
     lineDiscountValue: v.optional(v.number()),
     totalLineTtc: v.number(),
-  }).index("by_saleId", ["saleId"]),
+  })
+    .index("by_saleId", ["saleId"])
+    .index("by_pharmacyId", ["pharmacyId"]),
   suppliers: defineTable({
     pharmacyId: v.id("pharmacies"),
+    supplierNumber: v.optional(v.string()),
+    supplierSequence: v.optional(v.number()),
     name: v.string(),
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
@@ -68,6 +77,8 @@ export default defineSchema({
   }).index("by_pharmacyId", ["pharmacyId"]),
   clients: defineTable({
     pharmacyId: v.id("pharmacies"),
+    clientNumber: v.optional(v.string()),
+    clientSequence: v.optional(v.number()),
     name: v.string(),
     phone: v.optional(v.string()),
     city: v.optional(v.string()),
@@ -80,6 +91,8 @@ export default defineSchema({
   }).index("by_pharmacyId", ["pharmacyId"]),
   procurementOrders: defineTable({
     pharmacyId: v.id("pharmacies"),
+    orderNumber: v.optional(v.string()),
+    orderSequence: v.optional(v.number()),
     type: v.union(v.literal("PURCHASE_ORDER"), v.literal("DELIVERY_NOTE")),
     supplierId: v.id("suppliers"),
     status: v.union(v.literal("DRAFT"), v.literal("ORDERED"), v.literal("DELIVERED")),
@@ -90,14 +103,19 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_pharmacyId", ["pharmacyId"]),
   procurementItems: defineTable({
+    pharmacyId: v.optional(v.id("pharmacies")),
     orderId: v.id("procurementOrders"),
     productId: v.id("products"),
     quantity: v.number(),
     unitPrice: v.number(),
     lineTotal: v.number(),
-  }).index("by_orderId", ["orderId"]),
+  })
+    .index("by_orderId", ["orderId"])
+    .index("by_pharmacyId", ["pharmacyId"]),
   cashReconciliations: defineTable({
     pharmacyId: v.id("pharmacies"),
+    cashNumber: v.optional(v.string()),
+    cashSequence: v.optional(v.number()),
     date: v.string(),
     opening: v.number(),
     openingLocked: v.boolean(),

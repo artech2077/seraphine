@@ -16,7 +16,8 @@ describe("DeliveryNotesTable", () => {
       <DeliveryNotesTable
         notes={[
           {
-            id: "BL-2",
+            id: "note-2",
+            orderNumber: "BL-02",
             supplier: "Beta",
             channel: "Portail",
             createdAt: "2026-01-02",
@@ -27,7 +28,8 @@ describe("DeliveryNotesTable", () => {
             items: [],
           },
           {
-            id: "BL-1",
+            id: "note-1",
+            orderNumber: "BL-01",
             supplier: "Alpha",
             channel: "Portail",
             createdAt: "2026-01-01",
@@ -50,7 +52,7 @@ describe("DeliveryNotesTable", () => {
       .slice(1)
       .map((row) => row.textContent)
 
-    expect(ids[0]).toContain("BL-1")
-    expect(ids[1]).toContain("BL-2")
+    expect(ids[0]).toContain("BL-01")
+    expect(ids[1]).toContain("BL-02")
   })
 })

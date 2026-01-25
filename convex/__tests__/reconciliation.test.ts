@@ -1,6 +1,6 @@
 import { vi } from "vitest"
 
-import { listByOrg, upsertDay } from "@/convex/reconciliation"
+import { listByOrg, listByOrgPaginated, upsertDay } from "@/convex/reconciliation"
 
 type ConvexHandler<Args, Result = unknown> = (ctx: unknown, args: Args) => Promise<Result>
 
@@ -89,10 +89,34 @@ describe("convex/reconciliation", () => {
       "cashReconciliations",
       expect.objectContaining({
         pharmacyId: "pharmacy-1",
+        cashNumber: "CASH-02",
+        cashSequence: 2,
         date: "2026-01-03",
         opening: 0,
       })
     )
+  })
+
+  it("paginates reconciliation history", async () => {
+    const ctx = buildContext()
+
+    const handler = listByOrgPaginated as unknown as ConvexHandler<
+      {
+        clerkOrgId: string
+        pagination: { page: number; pageSize: number }
+        filters?: { status?: string }
+      },
+      { items: unknown[]; totalCount: number }
+    >
+
+    const result = await handler(ctx, {
+      clerkOrgId: "org-1",
+      pagination: { page: 1, pageSize: 10 },
+      filters: { status: "Validé" },
+    })
+
+    expect(result.totalCount).toBe(1)
+    expect(result.items).toHaveLength(1)
   })
 })
 
@@ -108,7 +132,16 @@ function buildContext(options: BuildContextOptions = { existingDay: true }) {
   const day = {
     _id: "day-1",
     pharmacyId: "pharmacy-1",
+    cashNumber: "CASH-01",
+    cashSequence: 1,
     date: "2026-01-02",
+    opening: 100,
+    openingLocked: true,
+    sales: 200,
+    withdrawals: 20,
+    adjustments: 0,
+    actual: 280,
+    isLocked: false,
   }
 
   const db = {

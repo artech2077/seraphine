@@ -13,17 +13,20 @@ vi.mock("@clerk/nextjs", () => ({
 vi.mock("convex/react", () => ({
   useMutation: vi.fn(),
   useQuery: vi.fn(),
+  useConvex: vi.fn(),
 }))
 
 const { useAuth, useOrganization } = await import("@clerk/nextjs")
-const { useMutation, useQuery } = await import("convex/react")
+const { useMutation, useQuery, useConvex } = await import("convex/react")
 
 describe("useSalesHistory", () => {
   beforeEach(() => {
     vi.mocked(useMutation).mockReset()
     vi.mocked(useQuery).mockReset()
+    vi.mocked(useConvex).mockReset()
     vi.mocked(useAuth).mockReturnValue(mockClerkAuth({ orgId: "org-1" }))
     vi.mocked(useOrganization).mockReturnValue(mockOrganization({ name: "Pharma" }))
+    vi.mocked(useConvex).mockReturnValue({ query: vi.fn() })
   })
 
   it("maps sales records into history items", async () => {
@@ -38,9 +41,11 @@ describe("useSalesHistory", () => {
 
     const saleDate = new Date("2026-01-02T00:00:00Z").valueOf()
 
-    vi.mocked(useQuery).mockReturnValue([
+    const records = [
       {
         _id: "sale-1",
+        saleNumber: "FAC-01",
+        saleSequence: 1,
         saleDate,
         paymentMethod: "CASH",
         totalAmountTtc: 120,
@@ -61,7 +66,9 @@ describe("useSalesHistory", () => {
           },
         ],
       },
-    ])
+    ]
+
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : records))
 
     const { result } = renderHook(() => useSalesHistory())
 
@@ -72,6 +79,7 @@ describe("useSalesHistory", () => {
     expect(result.current.items[0]).toEqual(
       expect.objectContaining({
         id: "sale-1",
+        saleNumber: "FAC-01",
         client: "Client A",
         seller: "Nora",
         paymentMethod: "Espèce",
@@ -98,7 +106,7 @@ describe("useSalesHistory", () => {
       .mockImplementationOnce(() => createMutation)
       .mockImplementationOnce(() => removeMutation)
 
-    vi.mocked(useQuery).mockReturnValue([])
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
 
     const nowSpy = vi.spyOn(Date, "now").mockReturnValue(123)
 
@@ -180,12 +188,13 @@ describe("useSalesHistory", () => {
       .mockImplementationOnce(() => createMutation)
       .mockImplementationOnce(() => removeMutation)
 
-    vi.mocked(useQuery).mockReturnValue([])
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
 
     const { result } = renderHook(() => useSalesHistory())
 
     await result.current.removeSale({
       id: "sale-1",
+      saleNumber: "FAC-01",
       date: "02 janv. 2026",
       client: "Client A",
       seller: "Nora",
@@ -199,5 +208,42 @@ describe("useSalesHistory", () => {
       clerkOrgId: "org-1",
       id: "sale-1",
     })
+  })
+
+  it("returns paginated sales metadata", async () => {
+    const ensurePharmacy = createMockMutation()
+    const createMutation = createMockMutation()
+    const removeMutation = createMockMutation()
+
+    vi.mocked(useMutation)
+      .mockImplementationOnce(() => ensurePharmacy)
+      .mockImplementationOnce(() => createMutation)
+      .mockImplementationOnce(() => removeMutation)
+
+    vi.mocked(useQuery).mockImplementation((_, args) => {
+      if (args === "skip") return undefined
+      return {
+        items: [
+          {
+            _id: "sale-2",
+            saleNumber: "FAC-02",
+            saleSequence: 2,
+            saleDate: 1700000000000,
+            paymentMethod: "CARD",
+            totalAmountTtc: 200,
+            items: [],
+          },
+        ],
+        totalCount: 4,
+        filterOptions: { clients: ["Client B"], sellers: ["Nora"], products: ["Produit A"] },
+        fallbackNumbers: {},
+      }
+    })
+
+    const { result } = renderHook(() => useSalesHistory({ mode: "paged", page: 1, pageSize: 10 }))
+
+    expect(result.current.totalCount).toBe(4)
+    expect(result.current.filterOptions.clients).toEqual(["Client B"])
+    expect(result.current.items[0].saleNumber).toBe("FAC-02")
   })
 })

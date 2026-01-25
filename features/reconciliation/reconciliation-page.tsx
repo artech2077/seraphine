@@ -8,7 +8,7 @@ import { ReconciliationHistoryPanel } from "@/features/reconciliation/reconcilia
 import { useReconciliationData } from "@/features/reconciliation/api"
 
 export function ReconciliationPage() {
-  const { days, history, upsertDay, isLoading } = useReconciliationData()
+  const { days, upsertDay, isLoading } = useReconciliationData()
   return (
     <PageShell
       title="Réconciliation de caisse"
@@ -16,7 +16,7 @@ export function ReconciliationPage() {
     >
       <div className="flex flex-col gap-4">
         <ReconciliationDashboard days={days} isLoading={isLoading} onUpdateDay={upsertDay} />
-        <ReconciliationHistoryPanel items={history} isLoading={isLoading} />
+        <ReconciliationHistoryPanel />
       </div>
     </PageShell>
   )

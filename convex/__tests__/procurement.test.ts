@@ -1,6 +1,6 @@
 import { vi } from "vitest"
 
-import { create, listByOrg, remove, update } from "@/convex/procurement"
+import { create, listByOrg, listByOrgPaginated, remove, update } from "@/convex/procurement"
 
 type ConvexHandler<Args, Result = unknown> = (ctx: unknown, args: Args) => Promise<Result>
 
@@ -21,6 +21,7 @@ describe("convex/procurement", () => {
     expect(result).toEqual([
       expect.objectContaining({
         id: "order-1",
+        orderNumber: "BC-01",
         supplierName: "Fournisseur A",
         items: [expect.objectContaining({ productName: "Produit A" })],
       }),
@@ -56,6 +57,8 @@ describe("convex/procurement", () => {
       "procurementOrders",
       expect.objectContaining({
         pharmacyId: "pharmacy-1",
+        orderNumber: "BC-02",
+        orderSequence: 2,
         supplierId: "supplier-1",
         status: "ORDERED",
       })
@@ -63,6 +66,7 @@ describe("convex/procurement", () => {
     expect(ctx.db.insert).toHaveBeenCalledWith(
       "procurementItems",
       expect.objectContaining({
+        pharmacyId: "pharmacy-1",
         orderId: "order-1",
         productId: "product-1",
         lineTotal: 100,
@@ -106,8 +110,33 @@ describe("convex/procurement", () => {
     expect(ctx.db.delete).toHaveBeenCalledWith("item-1")
     expect(ctx.db.insert).toHaveBeenCalledWith(
       "procurementItems",
-      expect.objectContaining({ orderId: "order-1", quantity: 1 })
+      expect.objectContaining({ pharmacyId: "pharmacy-1", orderId: "order-1", quantity: 1 })
     )
+  })
+
+  it("paginates procurement orders", async () => {
+    const ctx = buildContext()
+
+    const handler = listByOrgPaginated as unknown as ConvexHandler<
+      {
+        clerkOrgId: string
+        type: "PURCHASE_ORDER"
+        pagination: { page: number; pageSize: number }
+        filters?: { supplierNames?: string[] }
+      },
+      { items: unknown[]; totalCount: number; filterOptions: { suppliers: string[] } }
+    >
+
+    const result = await handler(ctx, {
+      clerkOrgId: "org-1",
+      type: "PURCHASE_ORDER",
+      pagination: { page: 1, pageSize: 10 },
+      filters: { supplierNames: ["Fournisseur A"] },
+    })
+
+    expect(result.totalCount).toBe(1)
+    expect(result.items).toHaveLength(1)
+    expect(result.filterOptions.suppliers).toEqual(["Fournisseur A"])
   })
 
   it("removes procurement orders and items", async () => {
@@ -134,11 +163,14 @@ function buildContext() {
   }
   const product = {
     _id: "product-1",
+    pharmacyId: "pharmacy-1",
     name: "Produit A",
   }
   const order = {
     _id: "order-1",
     pharmacyId: "pharmacy-1",
+    orderNumber: "BC-01",
+    orderSequence: 1,
     supplierId: "supplier-1",
     type: "PURCHASE_ORDER",
     status: "ORDERED",
@@ -149,6 +181,7 @@ function buildContext() {
   }
   const item = {
     _id: "item-1",
+    pharmacyId: "pharmacy-1",
     orderId: "order-1",
     productId: "product-1",
     quantity: 2,
@@ -173,10 +206,24 @@ function buildContext() {
           }),
         }
       }
+      if (table === "suppliers") {
+        return {
+          withIndex: () => ({
+            collect: async () => [supplier],
+          }),
+        }
+      }
       if (table === "procurementItems") {
         return {
           withIndex: () => ({
             collect: async () => [item],
+          }),
+        }
+      }
+      if (table === "products") {
+        return {
+          withIndex: () => ({
+            collect: async () => [product],
           }),
         }
       }

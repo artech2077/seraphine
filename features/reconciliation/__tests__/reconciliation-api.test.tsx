@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from "@testing-library/react"
 import { vi } from "vitest"
 
-import { useReconciliationData } from "@/features/reconciliation/api"
+import { useReconciliationData, useReconciliationHistory } from "@/features/reconciliation/api"
 import { mockClerkAuth, mockOrganization } from "@/tests/mocks/clerk"
 import { createMockMutation } from "@/tests/mocks/convex"
 
@@ -13,17 +13,20 @@ vi.mock("@clerk/nextjs", () => ({
 vi.mock("convex/react", () => ({
   useMutation: vi.fn(),
   useQuery: vi.fn(),
+  useConvex: vi.fn(),
 }))
 
 const { useAuth, useOrganization } = await import("@clerk/nextjs")
-const { useMutation, useQuery } = await import("convex/react")
+const { useMutation, useQuery, useConvex } = await import("convex/react")
 
 describe("useReconciliationData", () => {
   beforeEach(() => {
     vi.mocked(useMutation).mockReset()
     vi.mocked(useQuery).mockReset()
+    vi.mocked(useConvex).mockReset()
     vi.mocked(useAuth).mockReturnValue(mockClerkAuth({ orgId: "org-1" }))
     vi.mocked(useOrganization).mockReturnValue(mockOrganization({ name: "Pharmacie" }))
+    vi.mocked(useConvex).mockReturnValue({ query: vi.fn() })
   })
 
   it("maps reconciliation records into days and history", async () => {
@@ -34,9 +37,11 @@ describe("useReconciliationData", () => {
       .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => upsertMutation)
 
-    vi.mocked(useQuery).mockReturnValue([
+    const records = [
       {
         _id: "day-1",
+        cashNumber: "CASH-01",
+        cashSequence: 1,
         date: "2026-01-02",
         opening: 100,
         openingLocked: true,
@@ -46,7 +51,9 @@ describe("useReconciliationData", () => {
         actual: 260,
         isLocked: false,
       },
-    ])
+    ]
+
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : records))
 
     const { result } = renderHook(() => useReconciliationData())
 
@@ -56,7 +63,7 @@ describe("useReconciliationData", () => {
 
     expect(result.current.days[0]).toEqual(
       expect.objectContaining({
-        id: "day-1",
+        id: "CASH-01",
         opening: 100,
         openingLocked: true,
         sales: 200,
@@ -68,7 +75,7 @@ describe("useReconciliationData", () => {
 
     expect(result.current.history[0]).toEqual(
       expect.objectContaining({
-        id: "day-1",
+        id: "CASH-01",
         opening: 100,
         expected: 270,
         counted: 260,
@@ -84,7 +91,7 @@ describe("useReconciliationData", () => {
       .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => upsertMutation)
 
-    vi.mocked(useQuery).mockReturnValue([])
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
 
     const { result } = renderHook(() => useReconciliationData())
 
@@ -111,5 +118,44 @@ describe("useReconciliationData", () => {
       actual: 0,
       isLocked: false,
     })
+  })
+
+  it("returns paginated reconciliation history metadata", async () => {
+    const ensurePharmacy = createMockMutation()
+    const upsertMutation = createMockMutation()
+
+    vi.mocked(useMutation)
+      .mockImplementationOnce(() => ensurePharmacy)
+      .mockImplementationOnce(() => upsertMutation)
+
+    vi.mocked(useQuery).mockImplementation((_, args) => {
+      if (args === "skip") return undefined
+      return {
+        items: [
+          {
+            _id: "day-2",
+            cashNumber: "CASH-02",
+            cashSequence: 2,
+            date: "2026-01-03",
+            opening: 100,
+            openingLocked: true,
+            sales: 200,
+            withdrawals: 20,
+            adjustments: 0,
+            actual: 280,
+            isLocked: true,
+          },
+        ],
+        totalCount: 4,
+        fallbackNumbers: {},
+      }
+    })
+
+    const { result } = renderHook(() =>
+      useReconciliationHistory({ page: 1, pageSize: 5, filters: { status: "Validé" } })
+    )
+
+    expect(result.current.totalCount).toBe(4)
+    expect(result.current.items[0].id).toBe("CASH-02")
   })
 })

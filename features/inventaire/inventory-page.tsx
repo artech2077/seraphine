@@ -27,16 +27,7 @@ import { toast } from "sonner"
 
 const STOCK_FILTER_LABELS = ["Tous", "En stock", "Stock bas", "Rupture"]
 const VAT_FILTER_LABELS = ["Toutes", "0%", "7%", "20%"]
-
-function getStockStatus(item: InventoryItem) {
-  if (item.stock === 0) {
-    return "Rupture"
-  }
-  if (item.stock <= item.threshold) {
-    return "Stock bas"
-  }
-  return "En stock"
-}
+const PAGE_SIZE_OPTIONS = ["20", "50", "100"]
 
 function buildPageItems(currentPage: number, totalPages: number) {
   if (totalPages <= 7) {
@@ -90,7 +81,6 @@ function toCsv(items: InventoryItem[]) {
 }
 
 export function InventoryPage() {
-  const { items, isLoading, createProduct, updateProduct, removeProduct } = useInventoryItems()
   const { canManage } = useRoleAccess()
   const canManageInventory = canManage("inventaire")
   const [productFilter, setProductFilter] = React.useState<string[]>([])
@@ -100,82 +90,63 @@ export function InventoryPage() {
   const [vatFilter, setVatFilter] = React.useState<string[]>([])
   const [categoryFilter, setCategoryFilter] = React.useState<string[]>([])
   const [currentPage, setCurrentPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState(20)
 
-  const pageSize = 5
-
-  const productOptions = React.useMemo(
-    () => Array.from(new Set(items.map((item) => item.name))),
-    [items]
+  const stockFilterValues = React.useMemo(
+    () => stockFilter.filter((value) => value !== "Tous"),
+    [stockFilter]
   )
-  const barcodeOptions = React.useMemo(() => {
-    const barcodes = items
-      .map((item) => item.barcode)
-      .filter((barcode): barcode is string => Boolean(barcode))
-    return Array.from(new Set([...barcodes, "Sans code barre"]))
-  }, [items])
-  const supplierOptions = React.useMemo(() => {
-    const suppliers = items
-      .map((item) => item.supplier)
-      .filter((supplier): supplier is string => Boolean(supplier))
-    return Array.from(new Set(suppliers))
-  }, [items])
-  const categoryOptions = React.useMemo(
-    () => Array.from(new Set(items.map((item) => item.category))),
-    [items]
+  const vatRates = React.useMemo(
+    () =>
+      vatFilter.filter((value) => value !== "Toutes").map((rate) => Number(rate.replace("%", ""))),
+    [vatFilter]
   )
 
-  const filteredItems = React.useMemo(() => {
-    return items.filter((item) => {
-      if (productFilter.length > 0 && !productFilter.includes(item.name)) {
-        return false
-      }
+  const {
+    items,
+    isLoading,
+    createProduct,
+    updateProduct,
+    removeProduct,
+    totalCount,
+    filterOptions,
+    exportInventory,
+  } = useInventoryItems({
+    mode: "paged",
+    page: currentPage,
+    pageSize,
+    filters: {
+      names: productFilter,
+      barcodes: barcodeFilter,
+      suppliers: supplierFilter,
+      categories: categoryFilter,
+      stockStatuses: stockFilterValues,
+      vatRates,
+    },
+  })
 
-      if (barcodeFilter.length > 0) {
-        const hasBarcode = Boolean(item.barcode)
-        const matchBarcode = item.barcode ? barcodeFilter.includes(item.barcode) : false
-        const wantsMissing = barcodeFilter.includes("Sans code barre")
-        if (!matchBarcode && !(wantsMissing && !hasBarcode)) {
-          return false
-        }
-      }
+  const productOptions = filterOptions.names
+  const barcodeOptions = filterOptions.barcodes
+  const supplierOptions = filterOptions.suppliers
+  const categoryOptions = filterOptions.categories
 
-      if (supplierFilter.length > 0 && !supplierFilter.includes(item.supplier ?? "")) {
-        return false
-      }
-
-      if (categoryFilter.length > 0 && !categoryFilter.includes(item.category)) {
-        return false
-      }
-
-      if (stockFilter.length > 0 && !stockFilter.includes("Tous")) {
-        const status = getStockStatus(item)
-        if (!stockFilter.includes(status)) {
-          return false
-        }
-      }
-
-      if (vatFilter.length > 0 && !vatFilter.includes("Toutes")) {
-        const selectedRates = vatFilter.map((rate) => Number(rate.replace("%", "")))
-        if (!selectedRates.includes(item.vatRate)) {
-          return false
-        }
-      }
-
-      return true
-    })
-  }, [items, productFilter, barcodeFilter, supplierFilter, stockFilter, vatFilter, categoryFilter])
-
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize))
-  const rangeStart = filteredItems.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
-  const rangeEnd = Math.min(filteredItems.length, currentPage * pageSize)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const rangeEnd = Math.min(totalCount, currentPage * pageSize)
   const rangeLabel =
-    filteredItems.length === 0
-      ? "0 sur 0 produits"
-      : `${rangeStart}-${rangeEnd} sur ${filteredItems.length} produits`
+    totalCount === 0 ? "0 sur 0 produits" : `${rangeStart}-${rangeEnd} sur ${totalCount} produits`
 
   React.useEffect(() => {
     setCurrentPage(1)
-  }, [productFilter, barcodeFilter, supplierFilter, stockFilter, vatFilter, categoryFilter])
+  }, [
+    productFilter,
+    barcodeFilter,
+    supplierFilter,
+    stockFilter,
+    vatFilter,
+    categoryFilter,
+    pageSize,
+  ])
 
   const pageItems = buildPageItems(currentPage, totalPages)
 
@@ -183,12 +154,20 @@ export function InventoryPage() {
     setCurrentPage(Math.min(Math.max(nextPage, 1), totalPages))
   }
 
+  function handlePageSizeChange(value: string) {
+    const nextSize = Number(value)
+    if (!Number.isNaN(nextSize) && nextSize > 0) {
+      setPageSize(nextSize)
+    }
+  }
+
   function handlePrint() {
     window.print()
   }
 
-  function handleExport() {
-    const csv = toCsv(filteredItems)
+  async function handleExport() {
+    const exported = await exportInventory()
+    const csv = toCsv(exported)
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement("a")
@@ -226,7 +205,7 @@ export function InventoryPage() {
       }
     >
       <DataTable
-        isEmpty={!isLoading && filteredItems.length === 0}
+        isEmpty={!isLoading && totalCount === 0}
         emptyState={{
           title: "Aucun produit pour le moment",
           description: "Ajoutez un produit ou importez votre inventaire pour commencer.",
@@ -274,8 +253,9 @@ export function InventoryPage() {
         footer={
           <DataTableFooter
             rangeLabel={rangeLabel}
-            itemsPerPageOptions={["5", "10", "20"]}
+            itemsPerPageOptions={PAGE_SIZE_OPTIONS}
             itemsPerPageValue={String(pageSize)}
+            itemsPerPageOnChange={handlePageSizeChange}
             selectId="inventory-items-per-page"
             pagination={
               <Pagination className="mx-0 w-auto justify-end">
@@ -336,9 +316,7 @@ export function InventoryPage() {
         }
       >
         <InventoryTable
-          items={filteredItems}
-          page={currentPage}
-          pageSize={pageSize}
+          items={items}
           onUpdate={async (item, values) => {
             try {
               await updateProduct(item, values)

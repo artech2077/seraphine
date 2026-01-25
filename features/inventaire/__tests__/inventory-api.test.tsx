@@ -13,17 +13,20 @@ vi.mock("@clerk/nextjs", () => ({
 vi.mock("convex/react", () => ({
   useMutation: vi.fn(),
   useQuery: vi.fn(),
+  useConvex: vi.fn(),
 }))
 
 const { useAuth, useOrganization } = await import("@clerk/nextjs")
-const { useMutation, useQuery } = await import("convex/react")
+const { useMutation, useQuery, useConvex } = await import("convex/react")
 
 describe("useInventoryItems", () => {
   beforeEach(() => {
     vi.mocked(useMutation).mockReset()
     vi.mocked(useQuery).mockReset()
+    vi.mocked(useConvex).mockReset()
     vi.mocked(useAuth).mockReturnValue(mockClerkAuth({ orgId: "org-1" }))
     vi.mocked(useOrganization).mockReturnValue(mockOrganization({ name: "Test Org" }))
+    vi.mocked(useConvex).mockReturnValue({ query: vi.fn() })
   })
 
   it("maps products into inventory items", async () => {
@@ -38,7 +41,7 @@ describe("useInventoryItems", () => {
       .mockImplementationOnce(() => updateProduct)
       .mockImplementationOnce(() => removeProduct)
 
-    vi.mocked(useQuery).mockReturnValue([
+    const records = [
       {
         _id: "prod-1",
         name: "Doliprane",
@@ -51,7 +54,9 @@ describe("useInventoryItems", () => {
         lowStockThreshold: 1,
         dosageForm: "Comprime",
       },
-    ])
+    ]
+
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : records))
 
     const { result } = renderHook(() => useInventoryItems())
 
@@ -90,7 +95,7 @@ describe("useInventoryItems", () => {
       .mockImplementationOnce(() => updateProduct)
       .mockImplementationOnce(() => removeProduct)
 
-    vi.mocked(useQuery).mockReturnValue([])
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
 
     const { result } = renderHook(() => useInventoryItems())
 
@@ -120,5 +125,51 @@ describe("useInventoryItems", () => {
       dosageForm: "Comprime",
       internalNotes: undefined,
     })
+  })
+
+  it("returns paginated inventory metadata", async () => {
+    const ensurePharmacy = createMockMutation()
+    const createProduct = createMockMutation()
+    const updateProduct = createMockMutation()
+    const removeProduct = createMockMutation()
+
+    vi.mocked(useMutation)
+      .mockImplementationOnce(() => ensurePharmacy)
+      .mockImplementationOnce(() => createProduct)
+      .mockImplementationOnce(() => updateProduct)
+      .mockImplementationOnce(() => removeProduct)
+
+    vi.mocked(useQuery).mockImplementation((_, args) => {
+      if (args === "skip") return undefined
+      return {
+        items: [
+          {
+            _id: "prod-2",
+            name: "Test",
+            barcode: "",
+            category: "Dermato",
+            purchasePrice: 5,
+            sellingPrice: 7,
+            vatRate: 20,
+            stockQuantity: 2,
+            lowStockThreshold: 1,
+            dosageForm: "Gel",
+          },
+        ],
+        totalCount: 9,
+        filterOptions: {
+          names: ["Test"],
+          barcodes: ["Sans code barre"],
+          suppliers: [],
+          categories: ["Dermato"],
+        },
+      }
+    })
+
+    const { result } = renderHook(() => useInventoryItems({ mode: "paged", page: 1, pageSize: 10 }))
+
+    expect(result.current.totalCount).toBe(9)
+    expect(result.current.filterOptions.categories).toEqual(["Dermato"])
+    expect(result.current.items[0].name).toBe("Test")
   })
 })

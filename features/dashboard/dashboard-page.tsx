@@ -28,6 +28,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Skeleton } from "@/components/ui/skeleton"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import {
   Table,
@@ -241,11 +242,23 @@ export function DashboardPage({
               </CardAction>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div className="text-2xl font-semibold">{formatCurrency(data.sales.revenue)}</div>
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="text-muted-foreground">{data.sales.transactions} ventes</span>
-                <Badge variant="success">{formatPercentage(data.sales.trend)} vs hier</Badge>
-              </div>
+              {isLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-8 w-32" />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-6 w-20" />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="text-2xl font-semibold">{formatCurrency(data.sales.revenue)}</div>
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="text-muted-foreground">{data.sales.transactions} ventes</span>
+                    <Badge variant="success">{formatPercentage(data.sales.trend)} vs hier</Badge>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -267,15 +280,27 @@ export function DashboardPage({
               </CardAction>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl font-semibold">{data.cash.status}</span>
-                <Badge variant={data.cash.status === "Ouverte" ? "success" : "secondary"}>
-                  {data.cash.status}
-                </Badge>
-              </div>
-              <p className="text-muted-foreground text-sm">
-                Fond de roulement: {formatAmount(data.cash.floatAmount)}
-              </p>
+              {isLoading ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-8 w-24" />
+                    <Skeleton className="h-6 w-20" />
+                  </div>
+                  <Skeleton className="h-4 w-40" />
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-semibold">{data.cash.status}</span>
+                    <Badge variant={data.cash.status === "Ouverte" ? "success" : "secondary"}>
+                      {data.cash.status}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground text-sm">
+                    Fond de roulement: {formatAmount(data.cash.floatAmount)}
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -297,11 +322,23 @@ export function DashboardPage({
               </CardAction>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div className="text-2xl font-semibold">{data.stockAlerts.total} produits</div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="destructive">{data.stockAlerts.ruptures} ruptures</Badge>
-                <Badge variant="warning">{data.stockAlerts.lowStock} stock bas</Badge>
-              </div>
+              {isLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-8 w-28" />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Skeleton className="h-6 w-24" />
+                    <Skeleton className="h-6 w-24" />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="text-2xl font-semibold">{data.stockAlerts.total} produits</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="destructive">{data.stockAlerts.ruptures} ruptures</Badge>
+                    <Badge variant="warning">{data.stockAlerts.lowStock} stock bas</Badge>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -323,14 +360,29 @@ export function DashboardPage({
               </CardAction>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Livraisons en attente</span>
-                <span className="font-medium">{data.orders.pending}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Commandes livrées</span>
-                <span className="font-medium">{data.orders.delivered}</span>
-              </div>
+              {isLoading ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-4 w-8" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-4 w-8" />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Livraisons en attente</span>
+                    <span className="font-medium">{data.orders.pending}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Commandes livrées</span>
+                    <span className="font-medium">{data.orders.delivered}</span>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useAuth, useOrganization } from "@clerk/nextjs"
-import { useMutation, useQuery } from "convex/react"
+import { useConvex, useMutation, useQuery } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
@@ -22,6 +22,9 @@ type SaleItemRecord = {
 type SaleRecord = {
   _id: Id<"sales">
   saleDate: number
+  createdAt?: number
+  saleNumber?: string
+  saleSequence?: number
   paymentMethod: "CASH" | "CARD" | "CHECK" | "CREDIT"
   totalAmountTtc: number
   globalDiscountType?: "PERCENT" | "AMOUNT"
@@ -29,6 +32,34 @@ type SaleRecord = {
   clientName?: string
   sellerName?: string
   items: SaleItemRecord[]
+}
+
+type SalesListFilters = {
+  from?: number
+  to?: number
+  clients?: string[]
+  sellers?: string[]
+  products?: string[]
+  payments?: string[]
+  discountOnly?: boolean
+}
+
+type SalesListOptions = {
+  mode?: "all" | "paged" | "mutations"
+  page?: number
+  pageSize?: number
+  filters?: SalesListFilters
+}
+
+type SalesListResponse = {
+  items: SaleRecord[]
+  totalCount: number
+  filterOptions: {
+    clients: string[]
+    sellers: string[]
+    products: string[]
+  }
+  fallbackNumbers: Record<string, string>
 }
 
 export type SaleLineInput = {
@@ -56,6 +87,8 @@ const paymentLabels: Record<SaleRecord["paymentMethod"], SaleHistoryItem["paymen
   CREDIT: "Crédit",
 }
 
+const SALE_NUMBER_PREFIX = "FAC-"
+
 function formatDate(value: number) {
   return new Date(value).toLocaleDateString("fr-FR", {
     day: "2-digit",
@@ -69,9 +102,26 @@ function formatDiscount(type?: "PERCENT" | "AMOUNT", value?: number, fallback = 
   return type === "PERCENT" ? `${value}%` : `${value} MAD`
 }
 
-function mapSaleToHistory(sale: SaleRecord): SaleHistoryItem {
+function formatSaleNumber(sequence: number) {
+  return `${SALE_NUMBER_PREFIX}${String(sequence).padStart(2, "0")}`
+}
+
+function parseSaleNumber(value?: string | null) {
+  if (!value) return null
+  const match = value.match(/^FAC-(\d+)$/)
+  if (!match) return null
+  return Number(match[1])
+}
+
+function mapSaleToHistory(sale: SaleRecord, fallbackNumber?: string): SaleHistoryItem {
+  const saleNumber =
+    sale.saleNumber ??
+    (sale.saleSequence ? formatSaleNumber(sale.saleSequence) : undefined) ??
+    fallbackNumber ??
+    formatSaleNumber(1)
   return {
     id: String(sale._id),
+    saleNumber,
     date: formatDate(sale.saleDate),
     client: sale.clientName ?? "-",
     seller: sale.sellerName ?? "-",
@@ -108,20 +158,53 @@ function mapDiscountType(value?: "percent" | "amount") {
   return value === "percent" ? "PERCENT" : "AMOUNT"
 }
 
-export function useSalesHistory() {
+export function useSalesHistory(options?: SalesListOptions) {
   const { isLoaded, orgId, userId } = useAuth()
   const { organization } = useOrganization()
   const ensurePharmacy = useMutation(api.pharmacies.ensureForOrg)
   const orgName = organization?.name ?? "Pharmacie"
+  const convex = useConvex()
+  const mode = options?.mode ?? "all"
+  const page = options?.page ?? 1
+  const pageSize = options?.pageSize ?? 10
+
+  const listFilters = React.useMemo(
+    () => ({
+      from: options?.filters?.from,
+      to: options?.filters?.to,
+      clients: options?.filters?.clients ?? [],
+      sellers: options?.filters?.sellers ?? [],
+      products: options?.filters?.products ?? [],
+      payments: options?.filters?.payments ?? [],
+      discountOnly: options?.filters?.discountOnly ?? false,
+    }),
+    [
+      options?.filters?.clients,
+      options?.filters?.discountOnly,
+      options?.filters?.from,
+      options?.filters?.payments,
+      options?.filters?.products,
+      options?.filters?.sellers,
+      options?.filters?.to,
+    ]
+  )
 
   React.useEffect(() => {
     if (!isLoaded || !userId || !orgId) return
     void ensurePharmacy({ clerkOrgId: orgId, name: orgName })
   }, [ensurePharmacy, isLoaded, orgId, orgName, userId])
 
-  const records = useQuery(api.sales.listByOrg, orgId ? { clerkOrgId: orgId } : "skip") as
-    | SaleRecord[]
-    | undefined
+  const pagedResponse = useQuery(
+    api.sales.listByOrgPaginated,
+    orgId && mode === "paged"
+      ? { clerkOrgId: orgId, pagination: { page, pageSize }, filters: listFilters }
+      : "skip"
+  ) as SalesListResponse | undefined
+
+  const records = useQuery(
+    api.sales.listByOrg,
+    orgId && mode === "all" ? { clerkOrgId: orgId } : "skip"
+  ) as SaleRecord[] | undefined
 
   const createMutation = useMutation(api.sales.create)
   const removeMutation = useMutation(api.sales.remove)
@@ -175,11 +258,94 @@ export function useSalesHistory() {
     })
   }
 
-  const items = React.useMemo(() => (records ? records.map(mapSaleToHistory) : []), [records])
+  const items = React.useMemo(() => {
+    const source = mode === "paged" ? pagedResponse?.items : records
+    if (!source) return []
+
+    const fallbackNumbers =
+      mode === "paged"
+        ? new Map(Object.entries(pagedResponse?.fallbackNumbers ?? {}))
+        : (() => {
+            const usedSequences = new Set<number>()
+            source.forEach((sale) => {
+              const sequence = sale.saleSequence ?? parseSaleNumber(sale.saleNumber)
+              if (sequence) {
+                usedSequences.add(sequence)
+              }
+            })
+
+            const generated = new Map<string, string>()
+            const missing = [...source]
+              .filter((sale) => !sale.saleNumber && !sale.saleSequence)
+              .sort((a, b) => {
+                const dateA = a.createdAt ?? a.saleDate
+                const dateB = b.createdAt ?? b.saleDate
+                return dateA - dateB
+              })
+
+            let nextSequence = 1
+            missing.forEach((sale) => {
+              while (usedSequences.has(nextSequence)) {
+                nextSequence += 1
+              }
+              generated.set(String(sale._id), formatSaleNumber(nextSequence))
+              usedSequences.add(nextSequence)
+              nextSequence += 1
+            })
+
+            return generated
+          })()
+
+    return source.map((sale) => mapSaleToHistory(sale, fallbackNumbers.get(String(sale._id))))
+  }, [mode, pagedResponse?.fallbackNumbers, pagedResponse?.items, records])
+
+  const filterOptions = React.useMemo(() => {
+    if (mode === "paged") {
+      return pagedResponse?.filterOptions ?? { clients: [], sellers: [], products: [] }
+    }
+    if (!records) return { clients: [], sellers: [], products: [] }
+    const clients = Array.from(new Set(records.map((sale) => sale.clientName ?? "-")))
+    const sellers = Array.from(new Set(records.map((sale) => sale.sellerName ?? "-")))
+    const productSet = new Set<string>()
+    records.forEach((sale) =>
+      sale.items.forEach((item) => productSet.add(item.productNameSnapshot))
+    )
+    return { clients, sellers, products: Array.from(productSet) }
+  }, [mode, pagedResponse?.filterOptions, records])
+
+  const totalCount = mode === "paged" ? (pagedResponse?.totalCount ?? 0) : items.length
+
+  const exportSales = React.useCallback(async () => {
+    if (!orgId) return []
+    if (mode !== "paged") {
+      return items
+    }
+    const exportCount = pagedResponse?.totalCount ?? 0
+    if (!exportCount) return []
+
+    const response = (await convex.query(api.sales.listByOrgPaginated, {
+      clerkOrgId: orgId,
+      pagination: { page: 1, pageSize: exportCount },
+      filters: listFilters,
+    })) as SalesListResponse
+
+    const fallbackNumbers = new Map(Object.entries(response.fallbackNumbers ?? {}))
+    return response.items.map((sale) =>
+      mapSaleToHistory(sale, fallbackNumbers.get(String(sale._id)))
+    )
+  }, [convex, items, listFilters, mode, orgId, pagedResponse?.totalCount])
 
   return {
     items,
-    isLoading: records === undefined,
+    isLoading:
+      mode === "paged"
+        ? pagedResponse === undefined
+        : mode === "all"
+          ? records === undefined
+          : false,
+    totalCount,
+    filterOptions,
+    exportSales,
     createSale,
     removeSale,
   }

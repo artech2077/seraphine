@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useAuth, useOrganization } from "@clerk/nextjs"
-import { useMutation, useQuery } from "convex/react"
+import { useConvex, useMutation, useQuery } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
@@ -20,6 +20,8 @@ export type ClientFormValues = {
 
 type ClientRecord = {
   _id: Id<"clients">
+  clientNumber?: string
+  clientSequence?: number
   name: string
   phone?: string
   city?: string
@@ -28,6 +30,30 @@ type ClientRecord = {
   accountStatus: "OK" | "SURVEILLE" | "BLOQUE"
   lastPurchaseDate?: number
   internalNotes?: string
+  createdAt?: number
+}
+
+type ClientListFilters = {
+  names?: string[]
+  cities?: string[]
+  statuses?: ClientStatus[]
+}
+
+type ClientListOptions = {
+  mode?: "all" | "paged"
+  page?: number
+  pageSize?: number
+  filters?: ClientListFilters
+}
+
+type ClientsListResponse = {
+  items: ClientRecord[]
+  totalCount: number
+  filterOptions: {
+    names: string[]
+    cities: string[]
+  }
+  fallbackNumbers: Record<string, string>
 }
 
 const statusMap: Record<ClientStatus, ClientRecord["accountStatus"]> = {
@@ -42,14 +68,33 @@ const statusLabelMap: Record<ClientRecord["accountStatus"], ClientStatus> = {
   BLOQUE: "Bloqué",
 }
 
+const CLIENT_PREFIX = "CLI-"
+
 function formatDate(value?: number) {
   if (!value) return "-"
   return new Date(value).toISOString().slice(0, 10)
 }
 
-function mapClient(record: ClientRecord): Client {
+function formatClientNumber(sequence: number) {
+  return `${CLIENT_PREFIX}${String(sequence).padStart(2, "0")}`
+}
+
+function parseClientNumber(value?: string | null) {
+  if (!value) return null
+  const match = value.match(/^CLI-(\d+)$/)
+  if (!match) return null
+  return Number(match[1])
+}
+
+function mapClient(record: ClientRecord, fallbackNumber?: string): Client {
+  const clientNumber =
+    record.clientNumber ??
+    (record.clientSequence ? formatClientNumber(record.clientSequence) : undefined) ??
+    fallbackNumber ??
+    formatClientNumber(1)
   return {
     id: record._id,
+    clientNumber,
     name: record.name,
     phone: record.phone ?? "",
     city: record.city ?? "",
@@ -61,22 +106,91 @@ function mapClient(record: ClientRecord): Client {
   }
 }
 
-export function useClients() {
+export function useClients(options?: ClientListOptions) {
   const { isLoaded, orgId, userId } = useAuth()
   const { organization } = useOrganization()
   const ensurePharmacy = useMutation(api.pharmacies.ensureForOrg)
   const orgName = organization?.name ?? "Pharmacie"
+  const convex = useConvex()
+  const mode = options?.mode ?? "all"
+  const page = options?.page ?? 1
+  const pageSize = options?.pageSize ?? 10
+
+  const listFilters = React.useMemo(
+    () => ({
+      names: options?.filters?.names ?? [],
+      cities: options?.filters?.cities ?? [],
+      statuses: (options?.filters?.statuses ?? []).map((status) => statusMap[status]),
+    }),
+    [options?.filters?.cities, options?.filters?.names, options?.filters?.statuses]
+  )
 
   React.useEffect(() => {
     if (!isLoaded || !userId || !orgId) return
     void ensurePharmacy({ clerkOrgId: orgId, name: orgName })
   }, [ensurePharmacy, isLoaded, orgId, orgName, userId])
 
-  const records = useQuery(api.clients.listByOrg, orgId ? { clerkOrgId: orgId } : "skip") as
-    | ClientRecord[]
-    | undefined
+  const pagedResponse = useQuery(
+    api.clients.listByOrgPaginated,
+    orgId && mode === "paged"
+      ? { clerkOrgId: orgId, pagination: { page, pageSize }, filters: listFilters }
+      : "skip"
+  ) as ClientsListResponse | undefined
 
-  const items = React.useMemo(() => (records ? records.map(mapClient) : []), [records])
+  const records = useQuery(
+    api.clients.listByOrg,
+    orgId && mode !== "paged" ? { clerkOrgId: orgId } : "skip"
+  ) as ClientRecord[] | undefined
+
+  const items = React.useMemo(() => {
+    const source = mode === "paged" ? pagedResponse?.items : records
+    if (!source) return []
+
+    const fallbackNumbers =
+      mode === "paged"
+        ? new Map(Object.entries(pagedResponse?.fallbackNumbers ?? {}))
+        : (() => {
+            const usedSequences = new Set<number>()
+            source.forEach((record) => {
+              const sequence = record.clientSequence ?? parseClientNumber(record.clientNumber)
+              if (sequence) {
+                usedSequences.add(sequence)
+              }
+            })
+
+            const generated = new Map<string, string>()
+            const missing = [...source]
+              .filter((record) => !record.clientNumber && !record.clientSequence)
+              .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
+
+            let nextSequence = 1
+            missing.forEach((record) => {
+              while (usedSequences.has(nextSequence)) {
+                nextSequence += 1
+              }
+              generated.set(String(record._id), formatClientNumber(nextSequence))
+              usedSequences.add(nextSequence)
+              nextSequence += 1
+            })
+
+            return generated
+          })()
+
+    return source.map((record) => mapClient(record, fallbackNumbers.get(String(record._id))))
+  }, [mode, pagedResponse?.fallbackNumbers, pagedResponse?.items, records])
+
+  const filterOptions = React.useMemo(() => {
+    if (mode === "paged") {
+      return pagedResponse?.filterOptions ?? { names: [], cities: [] }
+    }
+    if (!records) return { names: [], cities: [] }
+    return {
+      names: Array.from(new Set(records.map((record) => record.name))),
+      cities: Array.from(new Set(records.map((record) => record.city ?? ""))),
+    }
+  }, [mode, pagedResponse?.filterOptions, records])
+
+  const totalCount = mode === "paged" ? (pagedResponse?.totalCount ?? 0) : items.length
 
   const createClientMutation = useMutation(api.clients.create)
   const updateClientMutation = useMutation(api.clients.update)
@@ -119,9 +233,32 @@ export function useClients() {
     })
   }
 
+  const exportClients = React.useCallback(async () => {
+    if (!orgId) return []
+    if (mode !== "paged") {
+      return items
+    }
+    const exportCount = pagedResponse?.totalCount ?? 0
+    if (!exportCount) return []
+
+    const response = (await convex.query(api.clients.listByOrgPaginated, {
+      clerkOrgId: orgId,
+      pagination: { page: 1, pageSize: exportCount },
+      filters: listFilters,
+    })) as ClientsListResponse
+
+    const fallbackNumbers = new Map(Object.entries(response.fallbackNumbers ?? {}))
+    return response.items.map((record) =>
+      mapClient(record, fallbackNumbers.get(String(record._id)))
+    )
+  }, [convex, items, listFilters, mode, orgId, pagedResponse?.totalCount])
+
   return {
     items,
-    isLoading: records === undefined,
+    isLoading: mode === "paged" ? pagedResponse === undefined : records === undefined,
+    totalCount,
+    filterOptions,
+    exportClients,
     createClient,
     updateClient,
     removeClient,

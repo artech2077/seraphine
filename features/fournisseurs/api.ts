@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useAuth, useOrganization } from "@clerk/nextjs"
-import { useMutation, useQuery } from "convex/react"
+import { useConvex, useMutation, useQuery } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
@@ -19,17 +19,62 @@ export type SupplierFormValues = {
 
 type SupplierRecord = {
   _id: Id<"suppliers">
+  supplierNumber?: string
+  supplierSequence?: number
   name: string
   email?: string
   phone?: string
   city?: string
   balance: number
   internalNotes?: string
+  createdAt?: number
 }
 
-function mapSupplier(record: SupplierRecord): Supplier {
+type SupplierListFilters = {
+  names?: string[]
+  cities?: string[]
+  balances?: string[]
+}
+
+type SupplierListOptions = {
+  mode?: "all" | "paged"
+  page?: number
+  pageSize?: number
+  filters?: SupplierListFilters
+}
+
+type SuppliersListResponse = {
+  items: SupplierRecord[]
+  totalCount: number
+  filterOptions: {
+    names: string[]
+    cities: string[]
+  }
+  fallbackNumbers: Record<string, string>
+}
+
+const SUPPLIER_PREFIX = "FOUR-"
+
+function formatSupplierNumber(sequence: number) {
+  return `${SUPPLIER_PREFIX}${String(sequence).padStart(2, "0")}`
+}
+
+function parseSupplierNumber(value?: string | null) {
+  if (!value) return null
+  const match = value.match(/^FOUR-(\d+)$/)
+  if (!match) return null
+  return Number(match[1])
+}
+
+function mapSupplier(record: SupplierRecord, fallbackNumber?: string): Supplier {
+  const supplierNumber =
+    record.supplierNumber ??
+    (record.supplierSequence ? formatSupplierNumber(record.supplierSequence) : undefined) ??
+    fallbackNumber ??
+    formatSupplierNumber(1)
   return {
     id: record._id,
+    supplierNumber,
     name: record.name,
     email: record.email ?? "",
     phone: record.phone ?? "",
@@ -39,22 +84,91 @@ function mapSupplier(record: SupplierRecord): Supplier {
   }
 }
 
-export function useSuppliers() {
+export function useSuppliers(options?: SupplierListOptions) {
   const { isLoaded, orgId, userId } = useAuth()
   const { organization } = useOrganization()
   const ensurePharmacy = useMutation(api.pharmacies.ensureForOrg)
   const orgName = organization?.name ?? "Pharmacie"
+  const convex = useConvex()
+  const mode = options?.mode ?? "all"
+  const page = options?.page ?? 1
+  const pageSize = options?.pageSize ?? 10
+
+  const listFilters = React.useMemo(
+    () => ({
+      names: options?.filters?.names ?? [],
+      cities: options?.filters?.cities ?? [],
+      balances: options?.filters?.balances ?? [],
+    }),
+    [options?.filters?.balances, options?.filters?.cities, options?.filters?.names]
+  )
 
   React.useEffect(() => {
     if (!isLoaded || !userId || !orgId) return
     void ensurePharmacy({ clerkOrgId: orgId, name: orgName })
   }, [ensurePharmacy, isLoaded, orgId, orgName, userId])
 
-  const records = useQuery(api.suppliers.listByOrg, orgId ? { clerkOrgId: orgId } : "skip") as
-    | SupplierRecord[]
-    | undefined
+  const pagedResponse = useQuery(
+    api.suppliers.listByOrgPaginated,
+    orgId && mode === "paged"
+      ? { clerkOrgId: orgId, pagination: { page, pageSize }, filters: listFilters }
+      : "skip"
+  ) as SuppliersListResponse | undefined
 
-  const items = React.useMemo(() => (records ? records.map(mapSupplier) : []), [records])
+  const records = useQuery(
+    api.suppliers.listByOrg,
+    orgId && mode !== "paged" ? { clerkOrgId: orgId } : "skip"
+  ) as SupplierRecord[] | undefined
+
+  const items = React.useMemo(() => {
+    const source = mode === "paged" ? pagedResponse?.items : records
+    if (!source) return []
+
+    const fallbackNumbers =
+      mode === "paged"
+        ? new Map(Object.entries(pagedResponse?.fallbackNumbers ?? {}))
+        : (() => {
+            const usedSequences = new Set<number>()
+            source.forEach((record) => {
+              const sequence = record.supplierSequence ?? parseSupplierNumber(record.supplierNumber)
+              if (sequence) {
+                usedSequences.add(sequence)
+              }
+            })
+
+            const generated = new Map<string, string>()
+            const missing = [...source]
+              .filter((record) => !record.supplierNumber && !record.supplierSequence)
+              .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
+
+            let nextSequence = 1
+            missing.forEach((record) => {
+              while (usedSequences.has(nextSequence)) {
+                nextSequence += 1
+              }
+              generated.set(String(record._id), formatSupplierNumber(nextSequence))
+              usedSequences.add(nextSequence)
+              nextSequence += 1
+            })
+
+            return generated
+          })()
+
+    return source.map((record) => mapSupplier(record, fallbackNumbers.get(String(record._id))))
+  }, [mode, pagedResponse?.fallbackNumbers, pagedResponse?.items, records])
+
+  const filterOptions = React.useMemo(() => {
+    if (mode === "paged") {
+      return pagedResponse?.filterOptions ?? { names: [], cities: [] }
+    }
+    if (!records) return { names: [], cities: [] }
+    return {
+      names: Array.from(new Set(records.map((record) => record.name))),
+      cities: Array.from(new Set(records.map((record) => record.city ?? ""))),
+    }
+  }, [mode, pagedResponse?.filterOptions, records])
+
+  const totalCount = mode === "paged" ? (pagedResponse?.totalCount ?? 0) : items.length
 
   const createSupplierMutation = useMutation(api.suppliers.create)
   const updateSupplierMutation = useMutation(api.suppliers.update)
@@ -95,9 +209,32 @@ export function useSuppliers() {
     })
   }
 
+  const exportSuppliers = React.useCallback(async () => {
+    if (!orgId) return []
+    if (mode !== "paged") {
+      return items
+    }
+    const exportCount = pagedResponse?.totalCount ?? 0
+    if (!exportCount) return []
+
+    const response = (await convex.query(api.suppliers.listByOrgPaginated, {
+      clerkOrgId: orgId,
+      pagination: { page: 1, pageSize: exportCount },
+      filters: listFilters,
+    })) as SuppliersListResponse
+
+    const fallbackNumbers = new Map(Object.entries(response.fallbackNumbers ?? {}))
+    return response.items.map((record) =>
+      mapSupplier(record, fallbackNumbers.get(String(record._id)))
+    )
+  }, [convex, items, listFilters, mode, orgId, pagedResponse?.totalCount])
+
   return {
     items,
-    isLoading: records === undefined,
+    isLoading: mode === "paged" ? pagedResponse === undefined : records === undefined,
+    totalCount,
+    filterOptions,
+    exportSuppliers,
     createSupplier,
     updateSupplier,
     removeSupplier,

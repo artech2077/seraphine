@@ -29,7 +29,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import type { ProcurementFormValues } from "@/features/achats/api"
 import { ProcurementOrderModal } from "@/features/achats/procurement-order-modal"
@@ -105,6 +104,8 @@ export function DeliveryNotesTable({
   const [sortState, setSortState] = React.useState<SortState>("default")
   const [editOpen, setEditOpen] = React.useState(false)
   const [activeNote, setActiveNote] = React.useState<DeliveryNote | null>(null)
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [pendingDelete, setPendingDelete] = React.useState<DeliveryNote | null>(null)
 
   const sortedNotes = React.useMemo(() => {
     const next = [...notes]
@@ -174,6 +175,26 @@ export function DeliveryNotesTable({
     }
   }
 
+  const handleDeleteRequest = React.useCallback((note: DeliveryNote) => {
+    setPendingDelete(note)
+    setDeleteOpen(true)
+  }, [])
+
+  const handleDeleteOpenChange = React.useCallback((open: boolean) => {
+    setDeleteOpen(open)
+    if (!open) {
+      setPendingDelete(null)
+    }
+  }, [])
+
+  const handleDeleteConfirm = React.useCallback(() => {
+    if (!pendingDelete || !onDelete) return
+    void Promise.resolve()
+      .then(() => onDelete(pendingDelete))
+      .then(() => setDeleteOpen(false))
+      .catch(() => null)
+  }, [onDelete, pendingDelete])
+
   function handleUpdate(values: ProcurementFormValues) {
     if (!activeNote) return
     void onUpdate?.(activeNote, values)
@@ -234,7 +255,7 @@ export function DeliveryNotesTable({
         <TableBody>
           {visibleNotes.map((note) => (
             <TableRow key={note.id}>
-              <TableCell className="font-medium">{note.id}</TableCell>
+              <TableCell className="font-medium">{note.orderNumber}</TableCell>
               <TableCell>{note.supplier}</TableCell>
               <TableCell>{formatDate(note.createdAt)}</TableCell>
               <TableCell>{formatDate(note.orderDate)}</TableCell>
@@ -266,39 +287,14 @@ export function DeliveryNotesTable({
                         <Download />
                         Télécharger
                       </DropdownMenuItem>
-                      <AlertDialog>
-                        <AlertDialogTrigger
-                          nativeButton={false}
-                          disabled={!canManagePurchases}
-                          render={
-                            <DropdownMenuItem
-                              variant="destructive"
-                              disabled={!canManagePurchases}
-                            />
-                          }
-                        >
-                          <Trash2 />
-                          Supprimer
-                        </AlertDialogTrigger>
-                        <AlertDialogContent size="sm">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Supprimer ce bon de livraison ?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Cette action est définitive et supprimera le bon de livraison.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction
-                              variant="destructive"
-                              disabled={!canManagePurchases || !onDelete}
-                              onClick={() => onDelete?.(note)}
-                            >
-                              Supprimer
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        disabled={!canManagePurchases}
+                        onClick={() => handleDeleteRequest(note)}
+                      >
+                        <Trash2 />
+                        Supprimer
+                      </DropdownMenuItem>
                     </DropdownMenuGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -307,6 +303,26 @@ export function DeliveryNotesTable({
           ))}
         </TableBody>
       </Table>
+      <AlertDialog open={deleteOpen} onOpenChange={handleDeleteOpenChange}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce bon de livraison ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est définitive et supprimera le bon de livraison.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={!canManagePurchases || !onDelete || !pendingDelete}
+              onClick={handleDeleteConfirm}
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <ProcurementOrderModal
         mode="edit"
         variant="delivery"

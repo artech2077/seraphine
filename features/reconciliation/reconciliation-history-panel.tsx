@@ -8,10 +8,8 @@ import { DataTable } from "@/components/tables/data-table"
 import { DataTableFooter } from "@/components/tables/data-table-footer"
 import { DatePickerField } from "@/components/forms/date-picker-field"
 import { FiltersBar } from "@/components/filters/filters-bar"
-import {
-  ReconciliationHistoryTable,
-  type ReconciliationHistoryItem,
-} from "@/features/reconciliation/reconciliation-history-table"
+import { ReconciliationHistoryTable } from "@/features/reconciliation/reconciliation-history-table"
+import { useReconciliationHistory } from "@/features/reconciliation/api"
 import { Button } from "@/components/ui/button"
 import {
   Pagination,
@@ -33,73 +31,48 @@ import {
 const PAGE_SIZE = 5
 const STATUS_OPTIONS = ["Tous", "Validé", "Écart", "Excédent"]
 
-type ReconciliationStatus = "Validé" | "Écart" | "Excédent"
-
-function getStatus(difference: number): ReconciliationStatus {
-  if (difference === 0) return "Validé"
-  if (difference < 0) return "Écart"
-  return "Excédent"
+function normalizeDateRange(range?: DateRange) {
+  if (!range) return { from: undefined, to: undefined }
+  const from = range.from ? new Date(range.from) : undefined
+  const to = range.to ? new Date(range.to) : undefined
+  if (from) {
+    from.setHours(0, 0, 0, 0)
+  }
+  if (to) {
+    to.setHours(23, 59, 59, 999)
+  }
+  return {
+    from: from ? from.getTime() : undefined,
+    to: to ? to.getTime() : undefined,
+  }
 }
 
-function parseDate(value: string) {
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? null : parsed
-}
-
-export function ReconciliationHistoryPanel({
-  items,
-  isLoading = false,
-}: {
-  items: ReconciliationHistoryItem[]
-  isLoading?: boolean
-}) {
+export function ReconciliationHistoryPanel() {
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
   const [statusFilter, setStatusFilter] = React.useState("Tous")
   const [currentPage, setCurrentPage] = React.useState(1)
 
-  const filteredItems = React.useMemo(() => {
-    return items.filter((item) => {
-      const difference = item.counted - item.expected
-      const status = getStatus(difference)
+  const dateFilters = React.useMemo(() => normalizeDateRange(dateRange), [dateRange])
 
-      if (statusFilter !== "Tous" && status !== statusFilter) {
-        return false
-      }
-
-      if (dateRange?.from) {
-        const itemDate = parseDate(item.date)
-        if (!itemDate || itemDate < dateRange.from) {
-          return false
-        }
-      }
-
-      if (dateRange?.to) {
-        const itemDate = parseDate(item.date)
-        if (!itemDate) {
-          return false
-        }
-        const endOfDay = new Date(dateRange.to)
-        endOfDay.setHours(23, 59, 59, 999)
-        if (itemDate > endOfDay) {
-          return false
-        }
-      }
-
-      return true
-    })
-  }, [dateRange, items, statusFilter])
-
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE))
-  const currentItems = filteredItems.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
-
-  const rangeStart = filteredItems.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
-  const rangeEnd = Math.min(filteredItems.length, currentPage * PAGE_SIZE)
-  const isFirstPage = currentPage === 1
-  const isLastPage = currentPage === totalPages
+  const { items, isLoading, totalCount, exportHistory } = useReconciliationHistory({
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+    filters: {
+      from: dateFilters.from,
+      to: dateFilters.to,
+      status: statusFilter,
+    },
+  })
 
   React.useEffect(() => {
     setCurrentPage(1)
   }, [dateRange, statusFilter])
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
+  const rangeEnd = Math.min(totalCount, currentPage * PAGE_SIZE)
+  const isFirstPage = currentPage === 1
+  const isLastPage = currentPage === totalPages
 
   function handlePageChange(nextPage: number) {
     setCurrentPage(Math.min(Math.max(nextPage, 1), totalPages))
@@ -119,9 +92,44 @@ export function ReconciliationHistoryPanel({
 
   const pageItems = buildPageItems()
 
+  async function handleExport() {
+    const exported = await exportHistory()
+    if (exported.length === 0) return
+    const header = ["ID", "Date", "Ouverture", "Attendu", "Compté"]
+    const rows = exported.map((item) => [
+      item.id,
+      item.date,
+      item.opening,
+      item.expected,
+      item.counted,
+    ])
+
+    const csv = [header, ...rows]
+      .map((row) =>
+        row
+          .map((value) => {
+            const normalized = String(value ?? "")
+            if (normalized.includes('"') || normalized.includes(",") || normalized.includes("\n")) {
+              return `"${normalized.replace(/"/g, '""')}"`
+            }
+            return normalized
+          })
+          .join(",")
+      )
+      .join("\n")
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "reconciliation.csv"
+    link.click()
+    window.URL.revokeObjectURL(url)
+  }
+
   return (
     <DataTable
-      isEmpty={!isLoading && filteredItems.length === 0}
+      isEmpty={!isLoading && totalCount === 0}
       emptyState={{
         title: "Aucune réconciliation enregistrée",
         description: "Les clôtures apparaîtront ici après la première journée enregistrée.",
@@ -150,7 +158,7 @@ export function ReconciliationHistoryPanel({
             <Button variant="outline" size="icon" aria-label="Imprimer">
               <Printer className="size-4" />
             </Button>
-            <Button variant="outline" size="icon" aria-label="Exporter">
+            <Button variant="outline" size="icon" aria-label="Exporter" onClick={handleExport}>
               <Download className="size-4" />
             </Button>
           </div>
@@ -158,7 +166,9 @@ export function ReconciliationHistoryPanel({
       }
       footer={
         <DataTableFooter
-          rangeLabel={`${rangeStart}-${rangeEnd} sur ${filteredItems.length} lignes`}
+          rangeLabel={`${rangeStart}-${rangeEnd} sur ${totalCount} lignes`}
+          itemsPerPageOptions={["5", "10", "20"]}
+          itemsPerPageValue={String(PAGE_SIZE)}
           selectId="reconciliation-items-per-page"
           pagination={
             <Pagination className="mx-0 w-auto justify-end">
@@ -218,7 +228,7 @@ export function ReconciliationHistoryPanel({
         />
       }
     >
-      <ReconciliationHistoryTable items={currentItems} />
+      <ReconciliationHistoryTable items={items} />
     </DataTable>
   )
 }

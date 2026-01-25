@@ -3,6 +3,15 @@ import { v } from "convex/values"
 import { getAuthOrgId } from "./auth"
 
 const MS_DAY = 24 * 60 * 60 * 1000
+const SALE_PREFIX = "FAC-"
+const ORDER_PREFIXES = {
+  PURCHASE_ORDER: "BC-",
+  DELIVERY_NOTE: "BL-",
+} as const
+
+function formatSequence(prefix: string, sequence: number) {
+  return `${prefix}${String(sequence).padStart(2, "0")}`
+}
 
 function toDateKey(value: number) {
   const date = new Date(value)
@@ -19,8 +28,7 @@ function formatTrendLabel(value: number) {
   })
 }
 
-function buildTrendPoints(days: number, salesByDay: Map<string, number>) {
-  const now = Date.now()
+function buildTrendPoints(days: number, salesByDay: Map<string, number>, now: number) {
   const points = []
   for (let offset = days - 1; offset >= 0; offset -= 1) {
     const dateValue = now - offset * MS_DAY
@@ -37,6 +45,7 @@ function buildTrendPoints(days: number, salesByDay: Map<string, number>) {
 export const getSummary = query({
   args: {
     clerkOrgId: v.string(),
+    now: v.number(),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -54,10 +63,24 @@ export const getSummary = query({
       return null
     }
 
-    const sales = await ctx.db
-      .query("sales")
-      .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
-      .collect()
+    const [sales, products, orders, cashDays] = await Promise.all([
+      ctx.db
+        .query("sales")
+        .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+        .collect(),
+      ctx.db
+        .query("products")
+        .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+        .collect(),
+      ctx.db
+        .query("procurementOrders")
+        .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+        .collect(),
+      ctx.db
+        .query("cashReconciliations")
+        .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+        .collect(),
+    ])
 
     const salesByDay = new Map<string, number>()
     const transactionsByDay = new Map<string, number>()
@@ -67,36 +90,21 @@ export const getSummary = query({
       transactionsByDay.set(key, (transactionsByDay.get(key) ?? 0) + 1)
     }
 
-    const todayKey = toDateKey(Date.now())
-    const yesterdayKey = toDateKey(Date.now() - MS_DAY)
+    const todayKey = toDateKey(args.now)
+    const yesterdayKey = toDateKey(args.now - MS_DAY)
     const todayRevenue = salesByDay.get(todayKey) ?? 0
     const yesterdayRevenue = salesByDay.get(yesterdayKey) ?? 0
     const todayTransactions = transactionsByDay.get(todayKey) ?? 0
     const trend =
       yesterdayRevenue === 0 ? 0 : ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100
 
-    const products = await ctx.db
-      .query("products")
-      .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
-      .collect()
-
     const lowStock = products.filter(
       (product) => product.stockQuantity <= product.lowStockThreshold
     )
     const ruptures = products.filter((product) => product.stockQuantity === 0)
 
-    const orders = await ctx.db
-      .query("procurementOrders")
-      .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
-      .collect()
-
     const pendingOrders = orders.filter((order) => order.status !== "DELIVERED").length
     const deliveredOrders = orders.filter((order) => order.status === "DELIVERED").length
-
-    const cashDays = await ctx.db
-      .query("cashReconciliations")
-      .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
-      .collect()
 
     const latestCash = cashDays.sort((a, b) => b.date.localeCompare(a.date))[0]
     const cashStatus = latestCash?.isLocked ? "Fermée" : "Ouverte"
@@ -124,7 +132,9 @@ export const getSummary = query({
                 ? "Cash"
                 : "Carte"
           return {
-            id: sale._id,
+            id:
+              sale.saleNumber ??
+              (sale.saleSequence ? formatSequence(SALE_PREFIX, sale.saleSequence) : sale._id),
             date: toDateKey(sale.saleDate),
             time: new Date(sale.saleDate).toLocaleTimeString("fr-FR", {
               hour: "2-digit",
@@ -143,8 +153,12 @@ export const getSummary = query({
         .slice(0, 5)
         .map(async (order) => {
           const supplier = await ctx.db.get(order.supplierId)
+          const orderPrefix = ORDER_PREFIXES[order.type] ?? "BC-"
+          const orderNumber =
+            order.orderNumber ??
+            (order.orderSequence ? formatSequence(orderPrefix, order.orderSequence) : order._id)
           return {
-            id: order._id,
+            id: orderNumber,
             supplier: supplier?.name ?? "Fournisseur inconnu",
             createdAt: new Date(order.createdAt).toISOString().slice(0, 10),
             date: toDateKey(order.createdAt),
@@ -174,9 +188,9 @@ export const getSummary = query({
         delivered: deliveredOrders,
       },
       trendData: {
-        "7J": buildTrendPoints(7, salesByDay),
-        "30J": buildTrendPoints(30, salesByDay),
-        TRIM: buildTrendPoints(90, salesByDay),
+        "7J": buildTrendPoints(7, salesByDay, args.now),
+        "30J": buildTrendPoints(30, salesByDay, args.now),
+        TRIM: buildTrendPoints(90, salesByDay, args.now),
       },
       stockItems,
       recentSales,

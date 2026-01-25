@@ -5,14 +5,7 @@ import { Plus, Search, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Combobox,
   ComboboxContent,
@@ -144,7 +137,7 @@ function getLinePricing(line: SaleLine, products: Product[]) {
 export function SalesPos() {
   const { items: clients } = useClients()
   const { items: catalogItems } = useProductCatalog()
-  const { createSale } = useSalesHistory()
+  const { createSale } = useSalesHistory({ mode: "mutations" })
   const { canManage } = useRoleAccess()
   const canManageSales = canManage("ventes")
   const [lines, setLines] = React.useState<SaleLine[]>([createEmptyLine()])
@@ -179,6 +172,7 @@ export function SalesPos() {
     : globalDiscountValue
   const totalToCollect = Math.max(0, totalAfterLineDiscounts - globalDiscount)
 
+  const canAddLine = canManageSales && lines.every((line) => line.productName.trim())
   const hasValidLines = lines.some((line) => line.productName && line.quantity > 0)
   const hasErrors = lines.some(
     (line) => (line.productName && line.quantity <= 0) || (!line.productName && line.quantity > 0)
@@ -193,6 +187,7 @@ export function SalesPos() {
   }, [canSave, submitAttempted])
 
   const handleAddLine = () => {
+    if (!canAddLine) return
     setSubmitAttempted(false)
     setLines((current) => [...current, createEmptyLine()])
   }
@@ -206,6 +201,68 @@ export function SalesPos() {
 
   const updateLine = (id: string, updates: Partial<SaleLine>) => {
     setLines((current) => current.map((line) => (line.id === id ? { ...line, ...updates } : line)))
+  }
+
+  const handleProductChange = (id: string, value: string | null) => {
+    const nextValue = value ?? ""
+    const selected = products.find((product) => product.name === nextValue)
+
+    setLines((current) => {
+      const lineIndex = current.findIndex((line) => line.id === id)
+      if (lineIndex === -1) return current
+
+      const line = current[lineIndex]
+      const nextQuantity = nextValue ? (line.quantity > 0 ? line.quantity : 1) : 0
+
+      if (!nextValue) {
+        return current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                productName: "",
+                productId: undefined,
+                quantity: 0,
+              }
+            : item
+        )
+      }
+
+      const duplicateIndex = current.findIndex(
+        (item) =>
+          item.id !== id &&
+          (item.productName === nextValue || (selected?.id && item.productId === selected.id))
+      )
+
+      if (duplicateIndex === -1) {
+        return current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                productName: nextValue,
+                productId: selected?.id,
+                quantity: nextQuantity,
+              }
+            : item
+        )
+      }
+
+      const duplicateLine = current[duplicateIndex]
+      const mergedQuantity = duplicateLine.quantity + nextQuantity
+      const nextLines = current
+        .map((item, index) =>
+          index === duplicateIndex
+            ? {
+                ...item,
+                productName: nextValue,
+                productId: selected?.id ?? item.productId,
+                quantity: mergedQuantity,
+              }
+            : item
+        )
+        .filter((item) => item.id !== id)
+
+      return nextLines.length > 0 ? nextLines : [createEmptyLine()]
+    })
   }
 
   async function handleSaveSale() {
@@ -255,12 +312,6 @@ export function SalesPos() {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Point de vente</CardTitle>
-        <CardAction>
-          <Button onClick={handleAddLine} disabled={!canManageSales}>
-            <Plus className="size-4" />
-            Ajouter une ligne
-          </Button>
-        </CardAction>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-3">
@@ -286,14 +337,7 @@ export function SalesPos() {
                       <Combobox
                         items={productOptions}
                         value={line.productName}
-                        onValueChange={(value) => {
-                          const nextValue = value ?? ""
-                          const selected = products.find((product) => product.name === nextValue)
-                          updateLine(line.id, {
-                            productName: nextValue,
-                            productId: selected?.id,
-                          })
-                        }}
+                        onValueChange={(value) => handleProductChange(line.id, value)}
                       >
                         <ComboboxInput
                           placeholder="Chercher ou scanner le code barre"
@@ -406,11 +450,22 @@ export function SalesPos() {
               })}
             </TableBody>
           </Table>
-          <div className="flex items-center justify-end text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">Total TTC</span>
-            <span className="ml-2 font-semibold text-foreground">
-              {formatCurrency(totalAfterLineDiscounts)}
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+            <Button
+              variant="secondary"
+              onClick={handleAddLine}
+              disabled={!canAddLine}
+              className="shrink-0"
+            >
+              <Plus className="size-4" />
+              Ajouter une ligne
+            </Button>
+            <div className="flex items-center">
+              <span className="font-medium text-foreground">Total TTC</span>
+              <span className="ml-2 font-semibold text-foreground">
+                {formatCurrency(totalAfterLineDiscounts)}
+              </span>
+            </div>
           </div>
         </div>
 

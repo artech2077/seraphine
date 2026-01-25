@@ -29,7 +29,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import type { ProcurementFormValues } from "@/features/achats/api"
 import { ProcurementOrderModal } from "@/features/achats/procurement-order-modal"
@@ -99,6 +98,8 @@ export function PurchaseOrdersTable({
   const [sortState, setSortState] = React.useState<SortState>("default")
   const [editOpen, setEditOpen] = React.useState(false)
   const [activeOrder, setActiveOrder] = React.useState<PurchaseOrder | null>(null)
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [pendingDelete, setPendingDelete] = React.useState<PurchaseOrder | null>(null)
 
   const sortedOrders = React.useMemo(() => {
     const next = [...orders]
@@ -168,6 +169,26 @@ export function PurchaseOrdersTable({
     }
   }
 
+  const handleDeleteRequest = React.useCallback((order: PurchaseOrder) => {
+    setPendingDelete(order)
+    setDeleteOpen(true)
+  }, [])
+
+  const handleDeleteOpenChange = React.useCallback((open: boolean) => {
+    setDeleteOpen(open)
+    if (!open) {
+      setPendingDelete(null)
+    }
+  }, [])
+
+  const handleDeleteConfirm = React.useCallback(() => {
+    if (!pendingDelete || !onDelete) return
+    void Promise.resolve()
+      .then(() => onDelete(pendingDelete))
+      .then(() => setDeleteOpen(false))
+      .catch(() => null)
+  }, [onDelete, pendingDelete])
+
   function handleUpdate(values: ProcurementFormValues) {
     if (!activeOrder) return
     void onUpdate?.(activeOrder, values)
@@ -228,7 +249,7 @@ export function PurchaseOrdersTable({
         <TableBody>
           {visibleOrders.map((order) => (
             <TableRow key={order.id}>
-              <TableCell className="font-medium">{order.id}</TableCell>
+              <TableCell className="font-medium">{order.orderNumber}</TableCell>
               <TableCell>{order.supplier}</TableCell>
               <TableCell>{order.channel}</TableCell>
               <TableCell>{formatDate(order.createdAt)}</TableCell>
@@ -260,39 +281,14 @@ export function PurchaseOrdersTable({
                         <Download />
                         Télécharger
                       </DropdownMenuItem>
-                      <AlertDialog>
-                        <AlertDialogTrigger
-                          nativeButton={false}
-                          disabled={!canManagePurchases}
-                          render={
-                            <DropdownMenuItem
-                              variant="destructive"
-                              disabled={!canManagePurchases}
-                            />
-                          }
-                        >
-                          <Trash2 />
-                          Supprimer
-                        </AlertDialogTrigger>
-                        <AlertDialogContent size="sm">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Supprimer ce bon de commande ?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Cette action est définitive et supprimera la commande.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction
-                              variant="destructive"
-                              disabled={!canManagePurchases || !onDelete}
-                              onClick={() => onDelete?.(order)}
-                            >
-                              Supprimer
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        disabled={!canManagePurchases}
+                        onClick={() => handleDeleteRequest(order)}
+                      >
+                        <Trash2 />
+                        Supprimer
+                      </DropdownMenuItem>
                     </DropdownMenuGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -301,6 +297,26 @@ export function PurchaseOrdersTable({
           ))}
         </TableBody>
       </Table>
+      <AlertDialog open={deleteOpen} onOpenChange={handleDeleteOpenChange}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce bon de commande ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est définitive et supprimera la commande.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={!canManagePurchases || !onDelete || !pendingDelete}
+              onClick={handleDeleteConfirm}
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <ProcurementOrderModal
         mode="edit"
         variant="purchase"

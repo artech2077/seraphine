@@ -35,22 +35,27 @@ describe("convex/dashboard", () => {
   it("returns null when org mismatch", async () => {
     const ctx = buildContext({ orgId: "org-2" })
 
-    const handler = getSummary as unknown as ConvexHandler<{ clerkOrgId: string }, SummaryResult>
+    const handler = getSummary as unknown as ConvexHandler<
+      { clerkOrgId: string; now: number },
+      SummaryResult
+    >
 
-    const result = await handler(ctx, { clerkOrgId: "org-1" })
+    const result = await handler(ctx, { clerkOrgId: "org-1", now: Date.now() })
 
     expect(result).toBeNull()
   })
 
   it("builds dashboard summary from data", async () => {
     const now = new Date("2026-01-03T10:00:00Z").getTime()
-    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(now)
 
     const ctx = buildContext()
 
-    const handler = getSummary as unknown as ConvexHandler<{ clerkOrgId: string }, SummaryResult>
+    const handler = getSummary as unknown as ConvexHandler<
+      { clerkOrgId: string; now: number },
+      SummaryResult
+    >
 
-    const result = await handler(ctx, { clerkOrgId: "org-1" })
+    const result = await handler(ctx, { clerkOrgId: "org-1", now })
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -88,8 +93,6 @@ describe("convex/dashboard", () => {
         status: "En cours",
       })
     )
-
-    nowSpy.mockRestore()
   })
 })
 

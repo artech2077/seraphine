@@ -17,6 +17,7 @@ describe("ClientsTable", () => {
         items={[
           {
             id: "client-2",
+            clientNumber: "CLI-02",
             name: "Beta",
             phone: "",
             city: "",
@@ -27,6 +28,7 @@ describe("ClientsTable", () => {
           },
           {
             id: "client-1",
+            clientNumber: "CLI-01",
             name: "Alpha",
             phone: "",
             city: "",

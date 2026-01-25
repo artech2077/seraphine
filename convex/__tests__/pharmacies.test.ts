@@ -47,6 +47,8 @@ describe("convex/pharmacies", () => {
       expect.objectContaining({
         clerkOrgId: "org-1",
         name: "Pharmacie",
+        pharmacyNumber: "PHARM-01",
+        pharmacySequence: 1,
       })
     )
   })
@@ -57,11 +59,15 @@ type BuildContextOptions = {
 }
 
 function buildContext(options: BuildContextOptions) {
+  const existingPharmacies = options.existing
+    ? [{ _id: "pharmacy-1", pharmacyNumber: "PHARM-01", pharmacySequence: 1 }]
+    : []
   const db = {
     query: vi.fn(() => ({
       withIndex: () => ({
         unique: async () => (options.existing ? { _id: "pharmacy-1" } : null),
       }),
+      collect: async () => existingPharmacies,
     })),
     insert: vi.fn(async () => "pharmacy-1"),
   }

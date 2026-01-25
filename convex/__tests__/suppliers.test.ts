@@ -1,6 +1,6 @@
 import { vi } from "vitest"
 
-import { create, listByOrg, remove, update } from "@/convex/suppliers"
+import { create, listByOrg, listByOrgPaginated, remove, update } from "@/convex/suppliers"
 
 type ConvexHandler<Args, Result = unknown> = (ctx: unknown, args: Args) => Promise<Result>
 
@@ -47,10 +47,35 @@ describe("convex/suppliers", () => {
       "suppliers",
       expect.objectContaining({
         pharmacyId: "pharmacy-1",
+        supplierNumber: "FOUR-02",
+        supplierSequence: 2,
         name: "Fournisseur A",
         balance: 100,
       })
     )
+  })
+
+  it("paginates suppliers for the org", async () => {
+    const ctx = buildContext()
+
+    const handler = listByOrgPaginated as unknown as ConvexHandler<
+      {
+        clerkOrgId: string
+        pagination: { page: number; pageSize: number }
+        filters?: { names?: string[] }
+      },
+      { items: unknown[]; totalCount: number; filterOptions: { names: string[]; cities: string[] } }
+    >
+
+    const result = await handler(ctx, {
+      clerkOrgId: "org-1",
+      pagination: { page: 1, pageSize: 10 },
+      filters: { names: ["Fournisseur A"] },
+    })
+
+    expect(result.totalCount).toBe(1)
+    expect(result.items).toHaveLength(1)
+    expect(result.filterOptions.names).toEqual(["Fournisseur A"])
   })
 
   it("updates suppliers", async () => {
@@ -107,6 +132,8 @@ function buildContext() {
   const supplier = {
     _id: "supplier-1",
     pharmacyId: "pharmacy-1",
+    supplierNumber: "FOUR-01",
+    supplierSequence: 1,
     name: "Fournisseur A",
   }
 

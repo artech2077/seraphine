@@ -13,17 +13,20 @@ vi.mock("@clerk/nextjs", () => ({
 vi.mock("convex/react", () => ({
   useMutation: vi.fn(),
   useQuery: vi.fn(),
+  useConvex: vi.fn(),
 }))
 
 const { useAuth, useOrganization } = await import("@clerk/nextjs")
-const { useMutation, useQuery } = await import("convex/react")
+const { useMutation, useQuery, useConvex } = await import("convex/react")
 
 describe("useClients", () => {
   beforeEach(() => {
     vi.mocked(useMutation).mockReset()
     vi.mocked(useQuery).mockReset()
+    vi.mocked(useConvex).mockReset()
     vi.mocked(useAuth).mockReturnValue(mockClerkAuth({ orgId: "org-1" }))
     vi.mocked(useOrganization).mockReturnValue(mockOrganization({ name: "Pharmacie" }))
+    vi.mocked(useConvex).mockReturnValue({ query: vi.fn() })
   })
 
   it("maps client records into table items", async () => {
@@ -38,9 +41,11 @@ describe("useClients", () => {
       .mockImplementationOnce(() => updateClient)
       .mockImplementationOnce(() => removeClient)
 
-    vi.mocked(useQuery).mockReturnValue([
+    const records = [
       {
         _id: "client-1",
+        clientNumber: "CLI-01",
+        clientSequence: 1,
         name: "Client A",
         phone: "0600000000",
         city: "Rabat",
@@ -50,7 +55,9 @@ describe("useClients", () => {
         lastPurchaseDate: 1700000000000,
         internalNotes: "Note",
       },
-    ])
+    ]
+
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : records))
 
     const { result } = renderHook(() => useClients())
 
@@ -61,6 +68,7 @@ describe("useClients", () => {
     expect(result.current.items[0]).toEqual(
       expect.objectContaining({
         id: "client-1",
+        clientNumber: "CLI-01",
         name: "Client A",
         phone: "0600000000",
         city: "Rabat",
@@ -85,7 +93,7 @@ describe("useClients", () => {
       .mockImplementationOnce(() => updateClient)
       .mockImplementationOnce(() => removeClient)
 
-    vi.mocked(useQuery).mockReturnValue([])
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
 
     const { result } = renderHook(() => useClients())
 
@@ -109,5 +117,48 @@ describe("useClients", () => {
       accountStatus: "OK",
       internalNotes: undefined,
     })
+  })
+
+  it("returns paginated list metadata", async () => {
+    const ensurePharmacy = createMockMutation()
+    const createClient = createMockMutation()
+    const updateClient = createMockMutation()
+    const removeClient = createMockMutation()
+
+    vi.mocked(useMutation)
+      .mockImplementationOnce(() => ensurePharmacy)
+      .mockImplementationOnce(() => createClient)
+      .mockImplementationOnce(() => updateClient)
+      .mockImplementationOnce(() => removeClient)
+
+    vi.mocked(useQuery).mockImplementation((_, args) => {
+      if (args === "skip") return undefined
+      return {
+        items: [
+          {
+            _id: "client-2",
+            clientNumber: "CLI-02",
+            clientSequence: 2,
+            name: "Client B",
+            phone: "",
+            city: "Casablanca",
+            creditLimit: 100,
+            outstandingBalance: 20,
+            accountStatus: "OK",
+          },
+        ],
+        totalCount: 12,
+        filterOptions: { names: ["Client B"], cities: ["Casablanca"] },
+        fallbackNumbers: {},
+      }
+    })
+
+    const { result } = renderHook(() =>
+      useClients({ mode: "paged", page: 1, pageSize: 10, filters: { names: ["Client B"] } })
+    )
+
+    expect(result.current.totalCount).toBe(12)
+    expect(result.current.filterOptions.names).toEqual(["Client B"])
+    expect(result.current.items[0].name).toBe("Client B")
   })
 })

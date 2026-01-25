@@ -11,7 +11,8 @@ vi.mock("@/lib/auth/use-role-access", () => ({
 
 const sales: SaleHistoryItem[] = [
   {
-    id: "V-002",
+    id: "sale-2",
+    saleNumber: "FAC-02",
     date: "01 janv. 2026",
     client: "Client B",
     seller: "Nora",
@@ -31,7 +32,8 @@ const sales: SaleHistoryItem[] = [
     ],
   },
   {
-    id: "V-001",
+    id: "sale-1",
+    saleNumber: "FAC-01",
     date: "02 janv. 2026",
     client: "Client A",
     seller: "Yassine",
@@ -56,7 +58,7 @@ describe("SalesHistoryTable", () => {
   it("sorts by amount when header is clicked", async () => {
     render(<SalesHistoryTable sales={sales} />)
 
-    await screen.findByText("V-001")
+    await screen.findByText("FAC-01")
 
     const user = userEvent.setup()
     const beforeOrder = getSaleRowIds()
@@ -65,15 +67,25 @@ describe("SalesHistoryTable", () => {
     await user.click(sortButton)
     const afterOrder = getSaleRowIds()
 
-    expect(beforeOrder).toEqual(["V-001", "V-002"])
-    expect(afterOrder).toEqual(["V-002", "V-001"])
+    expect(beforeOrder).toEqual(["FAC-01", "FAC-02"])
+    expect(afterOrder).toEqual(["FAC-02", "FAC-01"])
+  })
+
+  it("paginates sales when page size is provided", () => {
+    const { rerender } = render(<SalesHistoryTable sales={sales} page={1} pageSize={1} />)
+
+    expect(getSaleRowIds()).toEqual(["FAC-01"])
+
+    rerender(<SalesHistoryTable sales={sales} page={2} pageSize={1} />)
+
+    expect(getSaleRowIds()).toEqual(["FAC-02"])
   })
 })
 
 function getSaleRowIds() {
   const rows = screen.getAllByRole("row")
   return rows
-    .map((row) => within(row).queryByText(/V-00/))
+    .map((row) => within(row).queryByText(/FAC-\d+/))
     .filter(Boolean)
     .map((node) => node?.textContent)
 }

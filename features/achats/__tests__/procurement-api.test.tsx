@@ -13,17 +13,20 @@ vi.mock("@clerk/nextjs", () => ({
 vi.mock("convex/react", () => ({
   useMutation: vi.fn(),
   useQuery: vi.fn(),
+  useConvex: vi.fn(),
 }))
 
 const { useAuth, useOrganization } = await import("@clerk/nextjs")
-const { useMutation, useQuery } = await import("convex/react")
+const { useMutation, useQuery, useConvex } = await import("convex/react")
 
 describe("usePurchaseOrders", () => {
   beforeEach(() => {
     vi.mocked(useMutation).mockReset()
     vi.mocked(useQuery).mockReset()
+    vi.mocked(useConvex).mockReset()
     vi.mocked(useAuth).mockReturnValue(mockClerkAuth({ orgId: "org-1" }))
     vi.mocked(useOrganization).mockReturnValue(mockOrganization({ name: "Pharmacie" }))
+    vi.mocked(useConvex).mockReturnValue({ query: vi.fn() })
   })
 
   it("maps procurement orders to purchase orders", async () => {
@@ -40,9 +43,11 @@ describe("usePurchaseOrders", () => {
 
     const createdAt = new Date("2026-01-01T00:00:00Z").valueOf()
 
-    vi.mocked(useQuery).mockReturnValue([
+    const orders = [
       {
         id: "order-1",
+        orderNumber: "BC-01",
+        orderSequence: 1,
         supplierName: "Pharma Nord",
         channel: "EMAIL",
         createdAt,
@@ -60,7 +65,9 @@ describe("usePurchaseOrders", () => {
           },
         ],
       },
-    ])
+    ]
+
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : orders))
 
     const { result } = renderHook(() => usePurchaseOrders())
 
@@ -71,6 +78,7 @@ describe("usePurchaseOrders", () => {
     expect(result.current.orders[0]).toEqual(
       expect.objectContaining({
         id: "order-1",
+        orderNumber: "BC-01",
         supplier: "Pharma Nord",
         channel: "Email",
         status: "Commandé",
@@ -91,7 +99,7 @@ describe("usePurchaseOrders", () => {
       .mockImplementationOnce(() => updateOrder)
       .mockImplementationOnce(() => removeOrder)
 
-    vi.mocked(useQuery).mockReturnValue([])
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
 
     const { result } = renderHook(() => usePurchaseOrders())
 
@@ -120,6 +128,50 @@ describe("usePurchaseOrders", () => {
       ],
     })
   })
+
+  it("returns paginated purchase orders metadata", async () => {
+    const ensurePharmacy = createMockMutation()
+    const createOrder = createMockMutation()
+    const updateOrder = createMockMutation()
+    const removeOrder = createMockMutation()
+
+    vi.mocked(useMutation)
+      .mockImplementationOnce(() => ensurePharmacy)
+      .mockImplementationOnce(() => createOrder)
+      .mockImplementationOnce(() => updateOrder)
+      .mockImplementationOnce(() => removeOrder)
+
+    vi.mocked(useQuery).mockImplementation((_, args) => {
+      if (args === "skip") return undefined
+      return {
+        items: [
+          {
+            id: "order-2",
+            orderNumber: "BC-02",
+            orderSequence: 2,
+            supplierName: "Pharma Nord",
+            channel: "EMAIL",
+            createdAt: 1700000000000,
+            orderDate: 1700000000000,
+            totalAmount: 80,
+            status: "DRAFT",
+            type: "PURCHASE_ORDER",
+            externalReference: null,
+            items: [],
+          },
+        ],
+        totalCount: 6,
+        filterOptions: { suppliers: ["Pharma Nord"], references: [] },
+        fallbackNumbers: {},
+      }
+    })
+
+    const { result } = renderHook(() => usePurchaseOrders({ mode: "paged", page: 1, pageSize: 10 }))
+
+    expect(result.current.totalCount).toBe(6)
+    expect(result.current.filterOptions.suppliers).toEqual(["Pharma Nord"])
+    expect(result.current.orders[0].orderNumber).toBe("BC-02")
+  })
 })
 
 describe("useDeliveryNotes", () => {
@@ -142,9 +194,11 @@ describe("useDeliveryNotes", () => {
       .mockImplementationOnce(() => updateNote)
       .mockImplementationOnce(() => removeNote)
 
-    vi.mocked(useQuery).mockReturnValue([
+    const notes = [
       {
         id: "note-1",
+        orderNumber: "BL-01",
+        orderSequence: 1,
         supplierName: "Pharma Sud",
         channel: "PHONE",
         createdAt: 1700000000000,
@@ -155,7 +209,9 @@ describe("useDeliveryNotes", () => {
         externalReference: null,
         items: [],
       },
-    ])
+    ]
+
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : notes))
 
     const { result } = renderHook(() => useDeliveryNotes())
 
@@ -166,6 +222,7 @@ describe("useDeliveryNotes", () => {
     expect(result.current.notes[0]).toEqual(
       expect.objectContaining({
         id: "note-1",
+        orderNumber: "BL-01",
         supplier: "Pharma Sud",
         channel: "Téléphone",
         status: "En cours",
@@ -186,7 +243,7 @@ describe("useDeliveryNotes", () => {
       .mockImplementationOnce(() => updateNote)
       .mockImplementationOnce(() => removeNote)
 
-    vi.mocked(useQuery).mockReturnValue([])
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
 
     const { result } = renderHook(() => useDeliveryNotes())
 
@@ -210,5 +267,49 @@ describe("useDeliveryNotes", () => {
       externalReference: "BL-42",
       items: [{ productId: "prod-3", quantity: 1, unitPrice: 20 }],
     })
+  })
+
+  it("returns paginated delivery notes metadata", async () => {
+    const ensurePharmacy = createMockMutation()
+    const createNote = createMockMutation()
+    const updateNote = createMockMutation()
+    const removeNote = createMockMutation()
+
+    vi.mocked(useMutation)
+      .mockImplementationOnce(() => ensurePharmacy)
+      .mockImplementationOnce(() => createNote)
+      .mockImplementationOnce(() => updateNote)
+      .mockImplementationOnce(() => removeNote)
+
+    vi.mocked(useQuery).mockImplementation((_, args) => {
+      if (args === "skip") return undefined
+      return {
+        items: [
+          {
+            id: "note-2",
+            orderNumber: "BL-02",
+            orderSequence: 2,
+            supplierName: "Pharma Sud",
+            channel: "PHONE",
+            createdAt: 1700000000000,
+            orderDate: 1700000000000,
+            totalAmount: 120,
+            status: "DELIVERED",
+            type: "DELIVERY_NOTE",
+            externalReference: "REF-1",
+            items: [],
+          },
+        ],
+        totalCount: 2,
+        filterOptions: { suppliers: ["Pharma Sud"], references: ["REF-1"] },
+        fallbackNumbers: {},
+      }
+    })
+
+    const { result } = renderHook(() => useDeliveryNotes({ mode: "paged", page: 1, pageSize: 10 }))
+
+    expect(result.current.totalCount).toBe(2)
+    expect(result.current.filterOptions.references).toEqual(["REF-1"])
+    expect(result.current.notes[0].orderNumber).toBe("BL-02")
   })
 })

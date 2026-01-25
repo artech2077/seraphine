@@ -28,7 +28,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import type { SupplierFormValues } from "@/features/fournisseurs/api"
 import { SupplierModal } from "@/features/fournisseurs/supplier-modal"
@@ -37,6 +36,7 @@ import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
 export type Supplier = {
   id: string
+  supplierNumber: string
   name: string
   email: string
   phone: string
@@ -133,6 +133,8 @@ export function SuppliersTable({
   const [sortState, setSortState] = React.useState<SortState>("default")
   const [editOpen, setEditOpen] = React.useState(false)
   const [activeItem, setActiveItem] = React.useState<Supplier | null>(null)
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [pendingDelete, setPendingDelete] = React.useState<Supplier | null>(null)
 
   const sortedItems = React.useMemo(() => {
     const next = [...items]
@@ -201,6 +203,26 @@ export function SuppliersTable({
     }
   }
 
+  const handleDeleteRequest = React.useCallback((item: Supplier) => {
+    setPendingDelete(item)
+    setDeleteOpen(true)
+  }, [])
+
+  const handleDeleteOpenChange = React.useCallback((open: boolean) => {
+    setDeleteOpen(open)
+    if (!open) {
+      setPendingDelete(null)
+    }
+  }, [])
+
+  const handleDeleteConfirm = React.useCallback(() => {
+    if (!pendingDelete || !onDelete) return
+    void Promise.resolve()
+      .then(() => onDelete(pendingDelete))
+      .then(() => setDeleteOpen(false))
+      .catch(() => null)
+  }, [onDelete, pendingDelete])
+
   function handleUpdate(values: SupplierFormValues) {
     if (!activeItem) return
     void onUpdate?.(activeItem, values)
@@ -249,39 +271,14 @@ export function SuppliersTable({
                           <Pencil />
                           Modifier
                         </DropdownMenuItem>
-                        <AlertDialog>
-                          <AlertDialogTrigger
-                            nativeButton={false}
-                            disabled={!canManageSuppliers}
-                            render={
-                              <DropdownMenuItem
-                                variant="destructive"
-                                disabled={!canManageSuppliers}
-                              />
-                            }
-                          >
-                            <Trash2 />
-                            Supprimer
-                          </AlertDialogTrigger>
-                          <AlertDialogContent size="sm">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Supprimer ce fournisseur ?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Cette action est definitive et supprimera la fiche fournisseur.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Annuler</AlertDialogCancel>
-                              <AlertDialogAction
-                                variant="destructive"
-                                disabled={!canManageSuppliers || !onDelete}
-                                onClick={() => onDelete?.(item)}
-                              >
-                                Supprimer
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          disabled={!canManageSuppliers}
+                          onClick={() => handleDeleteRequest(item)}
+                        >
+                          <Trash2 />
+                          Supprimer
+                        </DropdownMenuItem>
                       </DropdownMenuGroup>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -291,6 +288,26 @@ export function SuppliersTable({
           })}
         </TableBody>
       </Table>
+      <AlertDialog open={deleteOpen} onOpenChange={handleDeleteOpenChange}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce fournisseur ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est definitive et supprimera la fiche fournisseur.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={!canManageSuppliers || !onDelete || !pendingDelete}
+              onClick={handleDeleteConfirm}
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <SupplierModal
         mode="edit"
         open={editOpen}

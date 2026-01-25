@@ -17,6 +17,7 @@ describe("SuppliersTable", () => {
         items={[
           {
             id: "sup-2",
+            supplierNumber: "FOUR-02",
             name: "Beta",
             email: "",
             phone: "",
@@ -25,6 +26,7 @@ describe("SuppliersTable", () => {
           },
           {
             id: "sup-1",
+            supplierNumber: "FOUR-01",
             name: "Alpha",
             email: "",
             phone: "",
