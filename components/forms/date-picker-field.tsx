@@ -63,7 +63,7 @@ export function DatePickerField({
         id={id}
         className={cn(
           buttonVariants({ variant: "outline" }),
-          "bg-popover text-muted-foreground h-8 w-fit max-w-56 min-w-0 justify-between gap-2 px-3 text-left font-normal rounded-md border-input",
+          "bg-popover text-muted-foreground h-8 w-fit max-w-56 min-w-0 justify-between gap-2 px-3 text-left font-normal rounded-md border-input hover:bg-popover aria-expanded:bg-popover dark:bg-popover dark:hover:bg-popover dark:aria-expanded:bg-popover",
           hasSelection && "text-foreground",
           className
         )}

@@ -79,7 +79,7 @@ const createEmptyLine = (): SaleLine => ({
   discountValue: 0,
 })
 
-const dropdownTriggerBaseClassName = "bg-background rounded-md min-w-0"
+const dropdownTriggerBaseClassName = "bg-popover rounded-md min-w-0"
 
 const currencyFormatter = new Intl.NumberFormat("fr-MA", {
   minimumFractionDigits: 2,
@@ -401,15 +401,10 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center">
           <CardTitle className="text-base">
             {isEditing ? "Modifier la vente" : "Point de vente"}
           </CardTitle>
-          {isEditing ? (
-            <Button variant="outline" size="sm" onClick={handleCancelEdit}>
-              Annuler la modification
-            </Button>
-          ) : null}
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -442,7 +437,7 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
                           placeholder="Chercher ou scanner le code barre"
                           showClear={Boolean(line.productName)}
                           showTrigger={false}
-                          className="bg-background rounded-md min-w-0"
+                          className="bg-popover rounded-md min-w-0"
                           aria-invalid={showValidation && !line.productName}
                         >
                           <InputGroupAddon align="inline-end" className="text-muted-foreground">
@@ -467,7 +462,7 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
                         type="number"
                         min={0}
                         value={line.quantity}
-                        className="bg-background"
+                        className="bg-popover"
                         aria-invalid={showValidation && line.quantity <= 0}
                         onChange={(event) =>
                           updateLine(line.id, {
@@ -517,7 +512,7 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
                           type="number"
                           min={0}
                           value={line.discountValue}
-                          className="bg-background"
+                          className="bg-popover"
                           onChange={(event) =>
                             updateLine(line.id, {
                               discountValue: parseNumericInput(event.target.value),
@@ -598,7 +593,7 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
                     type="number"
                     min={0}
                     value={globalDiscountValue}
-                    className="bg-background"
+                    className="bg-popover"
                     onChange={(event) =>
                       setGlobalDiscountValue(parseNumericInput(event.target.value))
                     }
@@ -638,7 +633,7 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
                     placeholder="Sélectionner un client"
                     showClear={Boolean(clientName)}
                     showTrigger={false}
-                    className="bg-background rounded-md min-w-0"
+                    className="bg-popover rounded-md min-w-0"
                   >
                     <InputGroupAddon align="inline-end" className="text-muted-foreground">
                       <Search className="size-4" />
@@ -661,7 +656,7 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
                 <Textarea
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
-                  className="bg-background"
+                  className="bg-popover"
                   placeholder="Ajouter une note de livraison ou de préparation."
                 />
               </div>
@@ -693,30 +688,37 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
           </Card>
         </div>
       </CardContent>
-      <CardFooter className="justify-end">
+      <CardFooter className="flex flex-wrap items-center gap-3">
         {showValidation ? (
-          <p className="text-destructive mr-4 text-xs">
+          <p className="text-destructive text-xs">
             Ajoutez un produit et une quantité supérieure à 0 avant d&apos;enregistrer.
           </p>
         ) : null}
-        <div className="relative">
-          {!canSave && canManageSales ? (
-            <span
-              role="button"
-              tabIndex={0}
-              aria-label="Valider la vente"
-              className="absolute inset-0 cursor-not-allowed rounded-lg"
-              onClick={() => setSubmitAttempted(true)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  setSubmitAttempted(true)
-                }
-              }}
-            />
+        <div className="ml-auto flex items-center gap-2">
+          {isEditing ? (
+            <Button variant="outline" onClick={handleCancelEdit}>
+              Annuler la modification
+            </Button>
           ) : null}
-          <Button disabled={!canSave} onClick={handleSaveSale}>
-            {isEditing ? "Mettre à jour la vente" : "Enregistrer la vente"}
-          </Button>
+          <div className="relative">
+            {!canSave && canManageSales ? (
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="Valider la vente"
+                className="absolute inset-0 cursor-not-allowed rounded-lg"
+                onClick={() => setSubmitAttempted(true)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    setSubmitAttempted(true)
+                  }
+                }}
+              />
+            ) : null}
+            <Button disabled={!canSave} onClick={handleSaveSale}>
+              {isEditing ? "Mettre à jour la vente" : "Enregistrer la vente"}
+            </Button>
+          </div>
         </div>
       </CardFooter>
     </Card>

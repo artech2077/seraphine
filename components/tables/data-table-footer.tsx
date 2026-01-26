@@ -53,7 +53,7 @@ export function DataTableFooter({
             {itemsPerPageLabel}
           </Label>
           <Select {...selectProps}>
-            <SelectTrigger id={selectId} className="h-8">
+            <SelectTrigger id={selectId} className="bg-popover h-8">
               <SelectValue />
             </SelectTrigger>
             <SelectContent

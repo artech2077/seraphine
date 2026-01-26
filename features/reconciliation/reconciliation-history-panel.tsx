@@ -147,7 +147,7 @@ export function ReconciliationHistoryPanel() {
               value={statusFilter}
               onValueChange={(value) => setStatusFilter(value ?? "Tous")}
             >
-              <SelectTrigger className="h-8 w-36">
+              <SelectTrigger className="bg-popover h-8 w-36">
                 <SelectValue placeholder="Statut" />
               </SelectTrigger>
               <SelectContent>

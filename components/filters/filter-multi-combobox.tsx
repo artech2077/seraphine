@@ -93,7 +93,7 @@ export function FilterMultiCombobox({
         indicator={indicator}
         className={cn(
           buttonVariants({ variant: "outline" }),
-          "bg-popover text-muted-foreground h-8 w-fit max-w-56 min-w-0 justify-between gap-2 px-3 font-normal rounded-md border-input text-left",
+          "bg-popover text-muted-foreground h-8 w-fit max-w-56 min-w-0 justify-between gap-2 px-3 font-normal rounded-md border-input text-left hover:bg-popover aria-expanded:bg-popover dark:bg-popover dark:hover:bg-popover dark:aria-expanded:bg-popover",
           selectedCount > 0 && "text-foreground",
           className
         )}
@@ -107,7 +107,7 @@ export function FilterMultiCombobox({
           placeholder="Rechercher..."
           showClear={false}
           showTrigger={false}
-          className="rounded-md"
+          className="bg-popover rounded-md"
         />
         <ComboboxEmpty>Aucun résultat.</ComboboxEmpty>
         <ComboboxList>

@@ -19,7 +19,7 @@ export function SiteHeader() {
         className="mx-2 h-5 data-[orientation=vertical]:self-center"
       />
       <div className="text-base font-medium leading-none">{title}</div>
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-3">
         <ThemeToggle />
         <UserMenu />
       </div>

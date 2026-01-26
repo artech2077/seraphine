@@ -2,6 +2,7 @@
 
 import * as React from "react"
 
+import { cn } from "@/lib/utils"
 import {
   Combobox,
   ComboboxContent,
@@ -27,7 +28,11 @@ export function FilterCombobox({
 }: FilterComboboxProps) {
   return (
     <Combobox items={items} {...props}>
-      <ComboboxInput placeholder={placeholder} className={inputClassName} showClear />
+      <ComboboxInput
+        placeholder={placeholder}
+        className={cn("bg-popover rounded-md", inputClassName)}
+        showClear
+      />
       <ComboboxContent>
         <ComboboxEmpty>{emptyText}</ComboboxEmpty>
         <ComboboxList>

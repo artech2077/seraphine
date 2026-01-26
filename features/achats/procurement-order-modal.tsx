@@ -247,7 +247,7 @@ export function ProcurementOrderModal({
                     id={`${id}-supplier`}
                     placeholder="Rechercher un fournisseur"
                     showClear={Boolean(supplier)}
-                    className="bg-background rounded-md min-w-0"
+                    className="bg-popover rounded-md min-w-0"
                   />
                   <ComboboxContent align="start" alignOffset={0}>
                     <ComboboxEmpty>Aucun résultat.</ComboboxEmpty>

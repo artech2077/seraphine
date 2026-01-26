@@ -16,13 +16,19 @@
 # next.js
 /.next/
 /out/
+/.swc
 
 # production
 /build
+/.turbo
 
 # misc
 .DS_Store
 *.pem
+*.log
+.eslintcache
+.vscode/
+.idea/
 
 # debug
 npm-debug.log*
@@ -35,6 +41,10 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# testing artifacts
+/playwright-report
+/test-results
 
 # typescript
 *.tsbuildinfo

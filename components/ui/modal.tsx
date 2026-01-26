@@ -201,7 +201,7 @@ function ModalContent({
       <DialogContent
         showCloseButton={showCloseButton}
         className={cn(
-          "w-full sm:w-2/5 sm:max-w-none p-0 gap-0 flex flex-col bg-primary-foreground rounded-l-xl",
+          "w-full sm:w-2/5 sm:max-w-none p-0 gap-0 flex flex-col bg-popover text-popover-foreground rounded-l-xl",
           baseClasses,
           className
         )}
@@ -218,7 +218,7 @@ function ModalContent({
         side={side}
         showCloseButton={showCloseButton}
         className={cn(
-          "w-full data-[side=left]:w-full data-[side=right]:w-full sm:data-[side=left]:w-2/5 sm:data-[side=right]:w-2/5 data-[side=left]:sm:max-w-none data-[side=right]:sm:max-w-none max-w-none p-0 gap-0 bg-primary-foreground rounded-l-xl",
+          "w-full data-[side=left]:w-full data-[side=right]:w-full sm:data-[side=left]:w-2/5 sm:data-[side=right]:w-2/5 data-[side=left]:sm:max-w-none data-[side=right]:sm:max-w-none max-w-none p-0 gap-0 bg-popover text-popover-foreground rounded-l-xl",
           baseClasses,
           className
         )}
@@ -231,7 +231,11 @@ function ModalContent({
 
   return (
     <DrawerContent
-      className={cn("gap-0 bg-primary-foreground rounded-l-xl", baseClasses, className)}
+      className={cn(
+        "gap-0 bg-popover text-popover-foreground rounded-l-xl",
+        baseClasses,
+        className
+      )}
       {...props}
     >
       {children}
