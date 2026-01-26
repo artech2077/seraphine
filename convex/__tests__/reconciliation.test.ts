@@ -47,6 +47,10 @@ describe("convex/reconciliation", () => {
       isLocked: true,
     })
 
+    expect(ctx.mocks.cashReconciliationsIndex).toHaveBeenCalledWith(
+      "by_pharmacyId_date",
+      expect.any(Function)
+    )
     expect(ctx.db.patch).toHaveBeenCalledWith("day-1", {
       opening: 100,
       openingLocked: true,
@@ -143,6 +147,16 @@ function buildContext(options: BuildContextOptions = { existingDay: true }) {
     actual: 280,
     isLocked: false,
   }
+  const cashReconciliationsIndex = vi.fn((indexName: string) => {
+    if (indexName === "by_pharmacyId_date") {
+      return {
+        unique: async () => (options.existingDay ? day : null),
+      }
+    }
+    return {
+      collect: async () => [day],
+    }
+  })
 
   const db = {
     query: vi.fn((table: string) => {
@@ -155,12 +169,7 @@ function buildContext(options: BuildContextOptions = { existingDay: true }) {
       }
       if (table === "cashReconciliations") {
         return {
-          withIndex: () => ({
-            collect: async () => [day],
-            filter: () => ({
-              unique: async () => (options.existingDay ? day : null),
-            }),
-          }),
+          withIndex: cashReconciliationsIndex,
         }
       }
       return {
@@ -179,5 +188,8 @@ function buildContext(options: BuildContextOptions = { existingDay: true }) {
       getUserIdentity: vi.fn().mockResolvedValue({ orgId: "org-1" }),
     },
     db,
+    mocks: {
+      cashReconciliationsIndex,
+    },
   }
 }

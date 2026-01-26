@@ -1,6 +1,4 @@
-"use client"
-
-import * as React from "react"
+import type { ReactNode } from "react"
 
 import {
   Card,
@@ -16,11 +14,11 @@ import { cn } from "@/lib/utils"
 type ContentCardProps = {
   title?: string
   description?: string
-  actions?: React.ReactNode
-  footer?: React.ReactNode
+  actions?: ReactNode
+  footer?: ReactNode
   className?: string
   contentClassName?: string
-  children?: React.ReactNode
+  children?: ReactNode
 }
 
 export function ContentCard({

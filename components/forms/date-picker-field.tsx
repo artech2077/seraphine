@@ -11,13 +11,20 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 type DatePickerFieldProps = {
+  id?: string
   placeholder: string
   className?: string
   value?: DateRange
   onChange?: (range: DateRange | undefined) => void
 }
 
-export function DatePickerField({ placeholder, className, value, onChange }: DatePickerFieldProps) {
+export function DatePickerField({
+  id,
+  placeholder,
+  className,
+  value,
+  onChange,
+}: DatePickerFieldProps) {
   const [internalRange, setInternalRange] = React.useState<DateRange | undefined>()
   const [isHovered, setIsHovered] = React.useState(false)
 
@@ -53,6 +60,7 @@ export function DatePickerField({ placeholder, className, value, onChange }: Dat
   return (
     <Popover>
       <PopoverTrigger
+        id={id}
         className={cn(
           buttonVariants({ variant: "outline" }),
           "bg-popover text-muted-foreground h-8 w-fit max-w-56 min-w-0 justify-between gap-2 px-3 text-left font-normal rounded-md border-input",

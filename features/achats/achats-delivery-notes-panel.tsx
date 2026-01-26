@@ -202,8 +202,14 @@ export function DeliveryNotesPanel({ suppliers, products }: DeliveryNotesPanelPr
       toolbar={
         <>
           <FiltersBar>
-            <DatePickerField placeholder="Date du bon" value={dateRange} onChange={setDateRange} />
             <DatePickerField
+              id="delivery-notes-date"
+              placeholder="Date du bon"
+              value={dateRange}
+              onChange={setDateRange}
+            />
+            <DatePickerField
+              id="delivery-notes-created-date"
               placeholder="Date de création"
               value={createdRange}
               onChange={setCreatedRange}

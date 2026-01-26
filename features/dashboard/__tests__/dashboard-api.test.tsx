@@ -2,35 +2,26 @@ import { renderHook, waitFor } from "@testing-library/react"
 import { vi } from "vitest"
 
 import { useDashboardData } from "@/features/dashboard/api"
-import { mockClerkAuth, mockOrganization } from "@/tests/mocks/clerk"
-import { createMockMutation } from "@/tests/mocks/convex"
+import { mockClerkAuth } from "@/tests/mocks/clerk"
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: vi.fn(),
-  useOrganization: vi.fn(),
 }))
 
 vi.mock("convex/react", () => ({
-  useMutation: vi.fn(),
   useQuery: vi.fn(),
 }))
 
-const { useAuth, useOrganization } = await import("@clerk/nextjs")
-const { useMutation, useQuery } = await import("convex/react")
+const { useAuth } = await import("@clerk/nextjs")
+const { useQuery } = await import("convex/react")
 
 describe("useDashboardData", () => {
   beforeEach(() => {
-    vi.mocked(useMutation).mockReset()
     vi.mocked(useQuery).mockReset()
     vi.mocked(useAuth).mockReturnValue(mockClerkAuth({ orgId: "org-1" }))
-    vi.mocked(useOrganization).mockReturnValue(mockOrganization({ name: "Pharmacie" }))
   })
 
   it("merges summary data with defaults", async () => {
-    const ensurePharmacy = createMockMutation()
-
-    vi.mocked(useMutation).mockImplementationOnce(() => ensurePharmacy)
-
     vi.mocked(useQuery).mockReturnValue({
       sales: { revenue: 1500, transactions: 12, trend: 10 },
       cash: { status: "Ouverte", floatAmount: 300 },
@@ -42,13 +33,11 @@ describe("useDashboardData", () => {
       recentOrders: [],
     })
 
-    const { result } = renderHook(() => useDashboardData())
+    const { result } = renderHook(() => useDashboardData(123))
 
     await waitFor(() => {
-      expect(ensurePharmacy).toHaveBeenCalledWith({ clerkOrgId: "org-1", name: "Pharmacie" })
+      expect(result.current.data.sales.revenue).toBe(1500)
+      expect(result.current.data.cash.status).toBe("Ouverte")
     })
-
-    expect(result.current.data.sales.revenue).toBe(1500)
-    expect(result.current.data.cash.status).toBe("Ouverte")
   })
 })

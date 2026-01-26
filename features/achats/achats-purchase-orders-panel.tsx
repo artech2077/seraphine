@@ -200,8 +200,14 @@ export function PurchaseOrdersPanel({ suppliers, products }: PurchaseOrdersPanel
       toolbar={
         <>
           <FiltersBar>
-            <DatePickerField placeholder="Date du bon" value={dateRange} onChange={setDateRange} />
             <DatePickerField
+              id="purchase-orders-date"
+              placeholder="Date du bon"
+              value={dateRange}
+              onChange={setDateRange}
+            />
+            <DatePickerField
+              id="purchase-orders-created-date"
               placeholder="Date de création"
               value={createdRange}
               onChange={setCreatedRange}

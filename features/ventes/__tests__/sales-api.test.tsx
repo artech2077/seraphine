@@ -1,13 +1,12 @@
-import { renderHook, waitFor } from "@testing-library/react"
+import { renderHook } from "@testing-library/react"
 import { vi } from "vitest"
 
 import { useSalesHistory } from "@/features/ventes/api"
-import { mockClerkAuth, mockOrganization } from "@/tests/mocks/clerk"
+import { mockClerkAuth } from "@/tests/mocks/clerk"
 import { createMockMutation } from "@/tests/mocks/convex"
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: vi.fn(),
-  useOrganization: vi.fn(),
 }))
 
 vi.mock("convex/react", () => ({
@@ -16,7 +15,7 @@ vi.mock("convex/react", () => ({
   useConvex: vi.fn(),
 }))
 
-const { useAuth, useOrganization } = await import("@clerk/nextjs")
+const { useAuth } = await import("@clerk/nextjs")
 const { useMutation, useQuery, useConvex } = await import("convex/react")
 
 describe("useSalesHistory", () => {
@@ -25,18 +24,17 @@ describe("useSalesHistory", () => {
     vi.mocked(useQuery).mockReset()
     vi.mocked(useConvex).mockReset()
     vi.mocked(useAuth).mockReturnValue(mockClerkAuth({ orgId: "org-1" }))
-    vi.mocked(useOrganization).mockReturnValue(mockOrganization({ name: "Pharma" }))
     vi.mocked(useConvex).mockReturnValue({ query: vi.fn() })
   })
 
   it("maps sales records into history items", async () => {
-    const ensurePharmacy = createMockMutation()
     const createMutation = createMockMutation()
+    const updateMutation = createMockMutation()
     const removeMutation = createMockMutation()
 
     vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => createMutation)
+      .mockImplementationOnce(() => updateMutation)
       .mockImplementationOnce(() => removeMutation)
 
     const saleDate = new Date("2026-01-02T00:00:00Z").valueOf()
@@ -56,6 +54,7 @@ describe("useSalesHistory", () => {
         items: [
           {
             _id: "item-1",
+            productId: "prod-1",
             productNameSnapshot: "Produit A",
             quantity: 2,
             unitPriceHt: 50,
@@ -71,10 +70,6 @@ describe("useSalesHistory", () => {
     vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : records))
 
     const { result } = renderHook(() => useSalesHistory())
-
-    await waitFor(() => {
-      expect(ensurePharmacy).toHaveBeenCalledWith({ clerkOrgId: "org-1", name: "Pharma" })
-    })
 
     expect(result.current.items[0]).toEqual(
       expect.objectContaining({
@@ -97,13 +92,13 @@ describe("useSalesHistory", () => {
   })
 
   it("creates a sale with computed totals", async () => {
-    const ensurePharmacy = createMockMutation()
     const createMutation = createMockMutation()
+    const updateMutation = createMockMutation()
     const removeMutation = createMockMutation()
 
     vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => createMutation)
+      .mockImplementationOnce(() => updateMutation)
       .mockImplementationOnce(() => removeMutation)
 
     vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
@@ -179,13 +174,13 @@ describe("useSalesHistory", () => {
   })
 
   it("removes a sale", async () => {
-    const ensurePharmacy = createMockMutation()
     const createMutation = createMockMutation()
+    const updateMutation = createMockMutation()
     const removeMutation = createMockMutation()
 
     vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => createMutation)
+      .mockImplementationOnce(() => updateMutation)
       .mockImplementationOnce(() => removeMutation)
 
     vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
@@ -211,13 +206,13 @@ describe("useSalesHistory", () => {
   })
 
   it("returns paginated sales metadata", async () => {
-    const ensurePharmacy = createMockMutation()
     const createMutation = createMockMutation()
+    const updateMutation = createMockMutation()
     const removeMutation = createMockMutation()
 
     vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => createMutation)
+      .mockImplementationOnce(() => updateMutation)
       .mockImplementationOnce(() => removeMutation)
 
     vi.mocked(useQuery).mockImplementation((_, args) => {
@@ -245,5 +240,54 @@ describe("useSalesHistory", () => {
     expect(result.current.totalCount).toBe(4)
     expect(result.current.filterOptions.clients).toEqual(["Client B"])
     expect(result.current.items[0].saleNumber).toBe("FAC-02")
+  })
+
+  it("updates a sale with computed totals", async () => {
+    const createMutation = createMockMutation()
+    const updateMutation = createMockMutation()
+    const removeMutation = createMockMutation()
+
+    vi.mocked(useMutation)
+      .mockImplementationOnce(() => createMutation)
+      .mockImplementationOnce(() => updateMutation)
+      .mockImplementationOnce(() => removeMutation)
+
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
+
+    const { result } = renderHook(() => useSalesHistory())
+
+    await result.current.updateSale({
+      id: "sale-1",
+      clientId: "client-1",
+      paymentMethod: "cash",
+      globalDiscountType: "amount",
+      globalDiscountValue: 5,
+      lines: [
+        {
+          productId: "prod-1",
+          productName: "Produit A",
+          quantity: 1,
+          unitPriceHt: 100,
+          vatRate: 10,
+          discountType: "amount",
+          discountValue: 5,
+        },
+      ],
+    })
+
+    expect(updateMutation).toHaveBeenCalled()
+    const args = updateMutation.mock.calls[0][0]
+
+    expect(args).toEqual(
+      expect.objectContaining({
+        clerkOrgId: "org-1",
+        id: "sale-1",
+        paymentMethod: "CASH",
+        globalDiscountType: "AMOUNT",
+        globalDiscountValue: 5,
+        totalAmountHt: 100,
+      })
+    )
+    expect(args.totalAmountTtc).toBeCloseTo(100, 2)
   })
 })

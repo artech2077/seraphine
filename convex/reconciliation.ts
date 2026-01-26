@@ -199,8 +199,9 @@ export const upsertDay = mutation({
 
     const existing = await ctx.db
       .query("cashReconciliations")
-      .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
-      .filter((q) => q.eq(q.field("date"), args.date))
+      .withIndex("by_pharmacyId_date", (q) =>
+        q.eq("pharmacyId", pharmacy._id).eq("date", args.date)
+      )
       .unique()
 
     if (existing) {

@@ -8,7 +8,9 @@ export default defineSchema({
     pharmacyNumber: v.optional(v.string()),
     pharmacySequence: v.optional(v.number()),
     createdAt: v.number(),
-  }).index("by_clerkOrgId", ["clerkOrgId"]),
+  })
+    .index("by_clerkOrgId", ["clerkOrgId"])
+    .index("by_pharmacySequence", ["pharmacySequence"]),
   users: defineTable({
     clerkUserId: v.string(),
     name: v.optional(v.string()),
@@ -101,7 +103,9 @@ export default defineSchema({
     orderDate: v.number(),
     totalAmount: v.number(),
     createdAt: v.number(),
-  }).index("by_pharmacyId", ["pharmacyId"]),
+  })
+    .index("by_pharmacyId", ["pharmacyId"])
+    .index("by_pharmacyId_type", ["pharmacyId", "type"]),
   procurementItems: defineTable({
     pharmacyId: v.optional(v.id("pharmacies")),
     orderId: v.id("procurementOrders"),
@@ -125,5 +129,7 @@ export default defineSchema({
     actual: v.number(),
     isLocked: v.boolean(),
     createdAt: v.number(),
-  }).index("by_pharmacyId", ["pharmacyId"]),
+  })
+    .index("by_pharmacyId", ["pharmacyId"])
+    .index("by_pharmacyId_date", ["pharmacyId", "date"]),
 })

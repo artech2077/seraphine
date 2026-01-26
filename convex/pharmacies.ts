@@ -32,12 +32,23 @@ export const ensureForOrg = mutation({
       return existing._id
     }
 
-    const pharmacies = await ctx.db.query("pharmacies").collect()
-    const maxSequence = pharmacies.reduce((max, pharmacy) => {
-      const sequence =
-        pharmacy.pharmacySequence ?? parsePharmacyNumber(pharmacy.pharmacyNumber) ?? 0
-      return Math.max(max, sequence)
-    }, pharmacies.length)
+    const latest = await ctx.db
+      .query("pharmacies")
+      .withIndex("by_pharmacySequence", (q) => q)
+      .order("desc")
+      .first()
+
+    let maxSequence = latest?.pharmacySequence ?? parsePharmacyNumber(latest?.pharmacyNumber) ?? 0
+
+    if (!latest) {
+      const pharmacies = await ctx.db.query("pharmacies").collect()
+      maxSequence = pharmacies.reduce((max, pharmacy) => {
+        const sequence =
+          pharmacy.pharmacySequence ?? parsePharmacyNumber(pharmacy.pharmacyNumber) ?? 0
+        return Math.max(max, sequence)
+      }, pharmacies.length)
+    }
+
     const pharmacySequence = maxSequence + 1
 
     return ctx.db.insert("pharmacies", {

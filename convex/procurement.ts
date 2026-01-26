@@ -93,8 +93,9 @@ export const listByOrg = query({
 
     const orders = await ctx.db
       .query("procurementOrders")
-      .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
-      .filter((q) => q.eq(q.field("type"), args.type))
+      .withIndex("by_pharmacyId_type", (q) =>
+        q.eq("pharmacyId", pharmacy._id).eq("type", args.type)
+      )
       .collect()
 
     if (orders.length === 0) {
@@ -226,8 +227,9 @@ export const listByOrgPaginated = query({
 
     const orders = (await ctx.db
       .query("procurementOrders")
-      .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
-      .filter((q) => q.eq(q.field("type"), args.type))
+      .withIndex("by_pharmacyId_type", (q) =>
+        q.eq("pharmacyId", pharmacy._id).eq("type", args.type)
+      )
       .collect()) as ProcurementOrderRecord[]
 
     if (orders.length === 0) {
@@ -413,8 +415,9 @@ export const create = mutation({
     const orderPrefix = ORDER_PREFIXES[args.type]
     const existingOrders = await ctx.db
       .query("procurementOrders")
-      .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
-      .filter((q) => q.eq(q.field("type"), args.type))
+      .withIndex("by_pharmacyId_type", (q) =>
+        q.eq("pharmacyId", pharmacy._id).eq("type", args.type)
+      )
       .collect()
 
     const maxSequence = existingOrders.reduce((max, order) => {

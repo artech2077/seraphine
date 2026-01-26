@@ -5,15 +5,10 @@ import * as React from "react"
 import { AppSidebar } from "@/components/layout/app-sidebar"
 import { SiteHeader } from "@/components/layout/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { useEnsurePharmacy } from "@/hooks/use-ensure-pharmacy"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = React.useState(false)
-
-  React.useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) return null
+  useEnsurePharmacy()
 
   return (
     <SidebarProvider defaultOpen className="bg-sidebar">

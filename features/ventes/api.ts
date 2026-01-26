@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useAuth, useOrganization } from "@clerk/nextjs"
+import { useAuth } from "@clerk/nextjs"
 import { useConvex, useMutation, useQuery } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
@@ -10,6 +10,7 @@ import type { SaleHistoryItem } from "@/features/ventes/sales-history-table"
 
 type SaleItemRecord = {
   _id: Id<"saleItems">
+  productId: Id<"products">
   productNameSnapshot: string
   quantity: number
   unitPriceHt: number
@@ -29,6 +30,7 @@ type SaleRecord = {
   totalAmountTtc: number
   globalDiscountType?: "PERCENT" | "AMOUNT"
   globalDiscountValue?: number
+  clientId?: Id<"clients">
   clientName?: string
   sellerName?: string
   items: SaleItemRecord[]
@@ -123,17 +125,24 @@ function mapSaleToHistory(sale: SaleRecord, fallbackNumber?: string): SaleHistor
     id: String(sale._id),
     saleNumber,
     date: formatDate(sale.saleDate),
+    clientId: sale.clientId ? String(sale.clientId) : undefined,
     client: sale.clientName ?? "-",
     seller: sale.sellerName ?? "-",
     paymentMethod: paymentLabels[sale.paymentMethod],
+    paymentMethodValue: mapPaymentMethodToForm(sale.paymentMethod),
+    globalDiscountType: mapDiscountTypeToForm(sale.globalDiscountType),
+    globalDiscountValue: sale.globalDiscountValue ?? 0,
     globalDiscount: formatDiscount(sale.globalDiscountType, sale.globalDiscountValue),
     amountTtc: sale.totalAmountTtc,
     items: sale.items.map((item) => ({
       id: String(item._id),
+      productId: item.productId ? String(item.productId) : undefined,
       product: item.productNameSnapshot,
       quantity: item.quantity,
       unitPriceHt: item.unitPriceHt,
       vatRate: item.vatRate,
+      discountType: mapDiscountTypeToForm(item.lineDiscountType),
+      discountValue: item.lineDiscountValue ?? 0,
       discount: formatDiscount(item.lineDiscountType, item.lineDiscountValue),
       totalTtc: item.totalLineTtc,
     })),
@@ -153,16 +162,31 @@ function mapPaymentMethod(value: SaleFormValues["paymentMethod"]) {
   }
 }
 
+function mapPaymentMethodToForm(value: SaleRecord["paymentMethod"]) {
+  switch (value) {
+    case "CARD":
+      return "card"
+    case "CREDIT":
+      return "credit"
+    case "CHECK":
+      return "check"
+    default:
+      return "cash"
+  }
+}
+
 function mapDiscountType(value?: "percent" | "amount") {
   if (!value) return undefined
   return value === "percent" ? "PERCENT" : "AMOUNT"
 }
 
+function mapDiscountTypeToForm(value?: "PERCENT" | "AMOUNT") {
+  if (!value) return undefined
+  return value === "PERCENT" ? "percent" : "amount"
+}
+
 export function useSalesHistory(options?: SalesListOptions) {
-  const { isLoaded, orgId, userId } = useAuth()
-  const { organization } = useOrganization()
-  const ensurePharmacy = useMutation(api.pharmacies.ensureForOrg)
-  const orgName = organization?.name ?? "Pharmacie"
+  const { orgId } = useAuth()
   const convex = useConvex()
   const mode = options?.mode ?? "all"
   const page = options?.page ?? 1
@@ -189,11 +213,6 @@ export function useSalesHistory(options?: SalesListOptions) {
     ]
   )
 
-  React.useEffect(() => {
-    if (!isLoaded || !userId || !orgId) return
-    void ensurePharmacy({ clerkOrgId: orgId, name: orgName })
-  }, [ensurePharmacy, isLoaded, orgId, orgName, userId])
-
   const pagedResponse = useQuery(
     api.sales.listByOrgPaginated,
     orgId && mode === "paged"
@@ -207,10 +226,10 @@ export function useSalesHistory(options?: SalesListOptions) {
   ) as SaleRecord[] | undefined
 
   const createMutation = useMutation(api.sales.create)
+  const updateMutation = useMutation(api.sales.update)
   const removeMutation = useMutation(api.sales.remove)
 
-  async function createSale(values: SaleFormValues) {
-    if (!orgId) return
+  function buildSalePayload(values: SaleFormValues) {
     const lineTotals = values.lines.map((line) => {
       const lineSubtotalTtc = line.unitPriceHt * (1 + line.vatRate / 100) * line.quantity
       const discount =
@@ -228,6 +247,20 @@ export function useSalesHistory(options?: SalesListOptions) {
         : globalDiscountValue
     const totalAmountTtc = Math.max(0, totalBeforeGlobal - globalDiscount)
 
+    return {
+      lineTotals,
+      totalAmountHt: values.lines.reduce((sum, line) => sum + line.unitPriceHt * line.quantity, 0),
+      totalAmountTtc,
+      globalDiscountType,
+      globalDiscountValue,
+    }
+  }
+
+  async function createSale(values: SaleFormValues) {
+    if (!orgId) return
+    const { lineTotals, totalAmountHt, totalAmountTtc, globalDiscountType, globalDiscountValue } =
+      buildSalePayload(values)
+
     await createMutation({
       clerkOrgId: orgId,
       saleDate: Date.now(),
@@ -235,7 +268,34 @@ export function useSalesHistory(options?: SalesListOptions) {
       paymentMethod: mapPaymentMethod(values.paymentMethod),
       globalDiscountType,
       globalDiscountValue: globalDiscountValue || undefined,
-      totalAmountHt: values.lines.reduce((sum, line) => sum + line.unitPriceHt * line.quantity, 0),
+      totalAmountHt,
+      totalAmountTtc,
+      items: values.lines.map((line, index) => ({
+        productId: line.productId as Id<"products">,
+        productNameSnapshot: line.productName,
+        quantity: line.quantity,
+        unitPriceHt: line.unitPriceHt,
+        vatRate: line.vatRate,
+        lineDiscountType: mapDiscountType(line.discountType),
+        lineDiscountValue: line.discountValue || undefined,
+        totalLineTtc: lineTotals[index],
+      })),
+    })
+  }
+
+  async function updateSale(values: SaleFormValues & { id: string }) {
+    if (!orgId) return
+    const { lineTotals, totalAmountHt, totalAmountTtc, globalDiscountType, globalDiscountValue } =
+      buildSalePayload(values)
+
+    await updateMutation({
+      clerkOrgId: orgId,
+      id: values.id as Id<"sales">,
+      clientId: values.clientId ? (values.clientId as Id<"clients">) : undefined,
+      paymentMethod: mapPaymentMethod(values.paymentMethod),
+      globalDiscountType,
+      globalDiscountValue: globalDiscountValue || undefined,
+      totalAmountHt,
       totalAmountTtc,
       items: values.lines.map((line, index) => ({
         productId: line.productId as Id<"products">,
@@ -347,6 +407,7 @@ export function useSalesHistory(options?: SalesListOptions) {
     filterOptions,
     exportSales,
     createSale,
+    updateSale,
     removeSale,
   }
 }

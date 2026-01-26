@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useAuth, useOrganization } from "@clerk/nextjs"
+import { useAuth } from "@clerk/nextjs"
 import { useConvex, useMutation, useQuery } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
@@ -107,15 +107,7 @@ function mapProductToCatalogItem(product: InventoryProduct): ProductCatalogItem 
 }
 
 function useProducts() {
-  const { isLoaded, orgId, userId } = useAuth()
-  const { organization } = useOrganization()
-  const ensurePharmacy = useMutation(api.pharmacies.ensureForOrg)
-  const orgName = organization?.name ?? "Pharmacie"
-
-  React.useEffect(() => {
-    if (!isLoaded || !userId || !orgId) return
-    void ensurePharmacy({ clerkOrgId: orgId, name: orgName })
-  }, [ensurePharmacy, isLoaded, orgId, orgName, userId])
+  const { orgId } = useAuth()
 
   const products = useQuery(api.products.listByOrg, orgId ? { clerkOrgId: orgId } : "skip") as
     | InventoryProduct[]
@@ -128,10 +120,7 @@ function useProducts() {
 }
 
 export function useInventoryItems(options?: InventoryListOptions) {
-  const { isLoaded, orgId, userId } = useAuth()
-  const { organization } = useOrganization()
-  const ensurePharmacy = useMutation(api.pharmacies.ensureForOrg)
-  const orgName = organization?.name ?? "Pharmacie"
+  const { orgId } = useAuth()
   const convex = useConvex()
   const mode = options?.mode ?? "all"
   const page = options?.page ?? 1
@@ -155,11 +144,6 @@ export function useInventoryItems(options?: InventoryListOptions) {
       options?.filters?.vatRates,
     ]
   )
-
-  React.useEffect(() => {
-    if (!isLoaded || !userId || !orgId) return
-    void ensurePharmacy({ clerkOrgId: orgId, name: orgName })
-  }, [ensurePharmacy, isLoaded, orgId, orgName, userId])
 
   const pagedResponse = useQuery(
     api.products.listByOrgPaginated,

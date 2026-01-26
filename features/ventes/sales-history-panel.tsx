@@ -33,7 +33,7 @@ function normalizeSelections(values: string[]) {
   return values.filter((value) => !value.toLowerCase().startsWith("tous"))
 }
 
-export function SalesHistoryPanel() {
+export function SalesHistoryPanel({ onEdit }: { onEdit?: (sale: SaleHistoryItem) => void }) {
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
   const [clients, setClients] = React.useState<string[]>([])
   const [sellers, setSellers] = React.useState<string[]>([])
@@ -192,7 +192,12 @@ export function SalesHistoryPanel() {
       toolbar={
         <>
           <FiltersBar>
-            <DatePickerField placeholder="Date" value={dateRange} onChange={setDateRange} />
+            <DatePickerField
+              id="sales-date-range"
+              placeholder="Date"
+              value={dateRange}
+              onChange={setDateRange}
+            />
             <FilterMultiCombobox label="Clients" options={clientOptions} onChange={setClients} />
             <FilterMultiSelect label="Vendeurs" options={sellerOptions} onChange={setSellers} />
             <FilterMultiCombobox label="Produits" options={productOptions} onChange={setProducts} />
@@ -279,7 +284,7 @@ export function SalesHistoryPanel() {
         />
       }
     >
-      <SalesHistoryTable sales={sales} onDelete={handleDelete} />
+      <SalesHistoryTable sales={sales} onEdit={onEdit} onDelete={handleDelete} />
     </DataTable>
   )
 }

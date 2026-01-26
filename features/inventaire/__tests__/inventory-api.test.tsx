@@ -1,13 +1,12 @@
-import { renderHook, waitFor } from "@testing-library/react"
+import { renderHook } from "@testing-library/react"
 import { vi } from "vitest"
 
 import { useInventoryItems } from "@/features/inventaire/api"
-import { mockClerkAuth, mockOrganization } from "@/tests/mocks/clerk"
+import { mockClerkAuth } from "@/tests/mocks/clerk"
 import { createMockMutation } from "@/tests/mocks/convex"
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: vi.fn(),
-  useOrganization: vi.fn(),
 }))
 
 vi.mock("convex/react", () => ({
@@ -16,7 +15,7 @@ vi.mock("convex/react", () => ({
   useConvex: vi.fn(),
 }))
 
-const { useAuth, useOrganization } = await import("@clerk/nextjs")
+const { useAuth } = await import("@clerk/nextjs")
 const { useMutation, useQuery, useConvex } = await import("convex/react")
 
 describe("useInventoryItems", () => {
@@ -25,18 +24,15 @@ describe("useInventoryItems", () => {
     vi.mocked(useQuery).mockReset()
     vi.mocked(useConvex).mockReset()
     vi.mocked(useAuth).mockReturnValue(mockClerkAuth({ orgId: "org-1" }))
-    vi.mocked(useOrganization).mockReturnValue(mockOrganization({ name: "Test Org" }))
     vi.mocked(useConvex).mockReturnValue({ query: vi.fn() })
   })
 
   it("maps products into inventory items", async () => {
-    const ensurePharmacy = createMockMutation()
     const createProduct = createMockMutation()
     const updateProduct = createMockMutation()
     const removeProduct = createMockMutation()
 
     vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => createProduct)
       .mockImplementationOnce(() => updateProduct)
       .mockImplementationOnce(() => removeProduct)
@@ -60,13 +56,6 @@ describe("useInventoryItems", () => {
 
     const { result } = renderHook(() => useInventoryItems())
 
-    await waitFor(() => {
-      expect(ensurePharmacy).toHaveBeenCalledWith({
-        clerkOrgId: "org-1",
-        name: "Test Org",
-      })
-    })
-
     expect(result.current.items).toEqual([
       {
         id: "prod-1",
@@ -84,13 +73,11 @@ describe("useInventoryItems", () => {
   })
 
   it("passes mapped values to create mutation", async () => {
-    const ensurePharmacy = createMockMutation()
     const createProduct = createMockMutation()
     const updateProduct = createMockMutation()
     const removeProduct = createMockMutation()
 
     vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => createProduct)
       .mockImplementationOnce(() => updateProduct)
       .mockImplementationOnce(() => removeProduct)
@@ -128,13 +115,11 @@ describe("useInventoryItems", () => {
   })
 
   it("returns paginated inventory metadata", async () => {
-    const ensurePharmacy = createMockMutation()
     const createProduct = createMockMutation()
     const updateProduct = createMockMutation()
     const removeProduct = createMockMutation()
 
     vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => createProduct)
       .mockImplementationOnce(() => updateProduct)
       .mockImplementationOnce(() => removeProduct)

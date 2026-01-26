@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useAuth, useOrganization } from "@clerk/nextjs"
+import { useAuth } from "@clerk/nextjs"
 import { useConvex, useMutation, useQuery } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
@@ -225,10 +225,7 @@ function mapDeliveryNote(order: ProcurementOrder, fallbackNumber?: string): Deli
 }
 
 export function usePurchaseOrders(options?: ProcurementListOptions) {
-  const { isLoaded, orgId, userId } = useAuth()
-  const { organization } = useOrganization()
-  const ensurePharmacy = useMutation(api.pharmacies.ensureForOrg)
-  const orgName = organization?.name ?? "Pharmacie"
+  const { orgId } = useAuth()
   const convex = useConvex()
   const mode = options?.mode ?? "all"
   const page = options?.page ?? 1
@@ -256,11 +253,6 @@ export function usePurchaseOrders(options?: ProcurementListOptions) {
   const createOrderMutation = useMutation(api.procurement.create)
   const updateOrderMutation = useMutation(api.procurement.update)
   const removeOrderMutation = useMutation(api.procurement.remove)
-
-  React.useEffect(() => {
-    if (!isLoaded || !userId || !orgId) return
-    void ensurePharmacy({ clerkOrgId: orgId, name: orgName })
-  }, [ensurePharmacy, isLoaded, orgId, orgName, userId])
 
   const pagedResponse = useQuery(
     api.procurement.listByOrgPaginated,
@@ -375,10 +367,7 @@ export function usePurchaseOrders(options?: ProcurementListOptions) {
 }
 
 export function useDeliveryNotes(options?: ProcurementListOptions) {
-  const { isLoaded, orgId, userId } = useAuth()
-  const { organization } = useOrganization()
-  const ensurePharmacy = useMutation(api.pharmacies.ensureForOrg)
-  const orgName = organization?.name ?? "Pharmacie"
+  const { orgId } = useAuth()
   const convex = useConvex()
   const mode = options?.mode ?? "all"
   const page = options?.page ?? 1
@@ -406,11 +395,6 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
   const createOrderMutation = useMutation(api.procurement.create)
   const updateOrderMutation = useMutation(api.procurement.update)
   const removeOrderMutation = useMutation(api.procurement.remove)
-
-  React.useEffect(() => {
-    if (!isLoaded || !userId || !orgId) return
-    void ensurePharmacy({ clerkOrgId: orgId, name: orgName })
-  }, [ensurePharmacy, isLoaded, orgId, orgName, userId])
 
   const pagedResponse = useQuery(
     api.procurement.listByOrgPaginated,

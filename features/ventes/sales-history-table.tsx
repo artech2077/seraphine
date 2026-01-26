@@ -41,10 +41,13 @@ import { Download, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
 export type SaleLineItem = {
   id: string
+  productId?: string
   product: string
   quantity: number
   unitPriceHt: number
   vatRate: number
+  discountType?: "percent" | "amount"
+  discountValue?: number
   discount: string
   totalTtc: number
 }
@@ -53,9 +56,13 @@ export type SaleHistoryItem = {
   id: string
   saleNumber: string
   date: string
+  clientId?: string
   client: string
   seller: string
   paymentMethod: "Espèce" | "Carte" | "Crédit"
+  paymentMethodValue?: "cash" | "card" | "credit" | "check"
+  globalDiscountType?: "percent" | "amount"
+  globalDiscountValue?: number
   globalDiscount: string
   amountTtc: number
   items: SaleLineItem[]
@@ -89,11 +96,13 @@ export function SalesHistoryTable({
   sales,
   page = 1,
   pageSize,
+  onEdit,
   onDelete,
 }: {
   sales: SaleHistoryItem[]
   page?: number
   pageSize?: number
+  onEdit?: (sale: SaleHistoryItem) => void
   onDelete?: (sale: SaleHistoryItem) => void | Promise<void>
 }) {
   const { canManage } = useRoleAccess()
@@ -389,7 +398,10 @@ export function SalesHistoryTable({
                       <DropdownMenuContent align="end">
                         <DropdownMenuGroup>
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem disabled={!canManageSales}>
+                          <DropdownMenuItem
+                            disabled={!canManageSales || !onEdit}
+                            onClick={() => onEdit?.(sale)}
+                          >
                             <Pencil />
                             Modifier
                           </DropdownMenuItem>

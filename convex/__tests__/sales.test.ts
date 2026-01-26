@@ -1,6 +1,6 @@
 import { vi } from "vitest"
 
-import { create, listByOrg, listByOrgPaginated, remove } from "@/convex/sales"
+import { create, listByOrg, listByOrgPaginated, remove, update } from "@/convex/sales"
 
 type ConvexHandler<Args, Result = unknown> = (ctx: unknown, args: Args) => Promise<Result>
 
@@ -120,6 +120,68 @@ describe("convex/sales", () => {
     expect(ctx.db.delete).toHaveBeenCalledWith("item-1")
     expect(ctx.db.delete).toHaveBeenCalledWith("sale-1")
   })
+
+  it("updates a sale and replaces its items", async () => {
+    const ctx = buildContext()
+
+    const handler = update as unknown as ConvexHandler<{
+      clerkOrgId: string
+      id: string
+      clientId?: string
+      paymentMethod: string
+      globalDiscountType?: string
+      globalDiscountValue?: number
+      totalAmountHt: number
+      totalAmountTtc: number
+      items: Array<{
+        productId: string
+        productNameSnapshot: string
+        quantity: number
+        unitPriceHt: number
+        vatRate: number
+        lineDiscountType?: string
+        lineDiscountValue?: number
+        totalLineTtc: number
+      }>
+    }>
+
+    await handler(ctx, {
+      clerkOrgId: "org-1",
+      id: "sale-1",
+      clientId: "client-1",
+      paymentMethod: "CARD",
+      globalDiscountType: "PERCENT",
+      globalDiscountValue: 5,
+      totalAmountHt: 200,
+      totalAmountTtc: 210,
+      items: [
+        {
+          productId: "product-2",
+          productNameSnapshot: "Produit B",
+          quantity: 2,
+          unitPriceHt: 100,
+          vatRate: 10,
+          lineDiscountType: "AMOUNT",
+          lineDiscountValue: 10,
+          totalLineTtc: 210,
+        },
+      ],
+    })
+
+    expect(ctx.db.patch).toHaveBeenCalledWith(
+      "sale-1",
+      expect.objectContaining({
+        paymentMethod: "CARD",
+        totalAmountHt: 200,
+        totalAmountTtc: 210,
+      })
+    )
+    expect(ctx.db.delete).toHaveBeenCalledWith("item-1")
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "saleItems",
+      expect.objectContaining({ saleId: "sale-1", productId: "product-2" })
+    )
+  })
 })
 
 type BuildContextOptions = {
@@ -226,6 +288,7 @@ function buildContext(options: BuildContextOptions = {}) {
       return "item-1"
     }),
     delete: vi.fn(async () => {}),
+    patch: vi.fn(async () => {}),
   }
 
   return {

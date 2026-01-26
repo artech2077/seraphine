@@ -18,6 +18,10 @@ describe("convex/procurement", () => {
       type: "PURCHASE_ORDER",
     })
 
+    expect(ctx.mocks.procurementOrdersIndex).toHaveBeenCalledWith(
+      "by_pharmacyId_type",
+      expect.any(Function)
+    )
     expect(result).toEqual([
       expect.objectContaining({
         id: "order-1",
@@ -187,6 +191,9 @@ function buildContext() {
     quantity: 2,
     unitPrice: 50,
   }
+  const procurementOrdersIndex = vi.fn(() => ({
+    collect: async () => [order],
+  }))
 
   const db = {
     query: vi.fn((table: string) => {
@@ -199,11 +206,7 @@ function buildContext() {
       }
       if (table === "procurementOrders") {
         return {
-          withIndex: () => ({
-            filter: () => ({
-              collect: async () => [order],
-            }),
-          }),
+          withIndex: procurementOrdersIndex,
         }
       }
       if (table === "suppliers") {
@@ -255,5 +258,8 @@ function buildContext() {
       getUserIdentity: vi.fn().mockResolvedValue({ orgId: "org-1" }),
     },
     db,
+    mocks: {
+      procurementOrdersIndex,
+    },
   }
 }

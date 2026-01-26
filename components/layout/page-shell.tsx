@@ -1,15 +1,14 @@
-"use client"
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/layout/page-header"
+import type { ReactNode } from "react"
 
 type PageShellProps = {
   title: string
   description?: string
-  actions?: React.ReactNode
-  tabs?: React.ReactNode
-  filters?: React.ReactNode
-  children?: React.ReactNode
+  actions?: ReactNode
+  tabs?: ReactNode
+  filters?: ReactNode
+  children?: ReactNode
 }
 
 export function PageShell({

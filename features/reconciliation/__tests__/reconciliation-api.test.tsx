@@ -1,13 +1,12 @@
-import { renderHook, waitFor } from "@testing-library/react"
+import { renderHook } from "@testing-library/react"
 import { vi } from "vitest"
 
 import { useReconciliationData, useReconciliationHistory } from "@/features/reconciliation/api"
-import { mockClerkAuth, mockOrganization } from "@/tests/mocks/clerk"
+import { mockClerkAuth } from "@/tests/mocks/clerk"
 import { createMockMutation } from "@/tests/mocks/convex"
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: vi.fn(),
-  useOrganization: vi.fn(),
 }))
 
 vi.mock("convex/react", () => ({
@@ -16,7 +15,7 @@ vi.mock("convex/react", () => ({
   useConvex: vi.fn(),
 }))
 
-const { useAuth, useOrganization } = await import("@clerk/nextjs")
+const { useAuth } = await import("@clerk/nextjs")
 const { useMutation, useQuery, useConvex } = await import("convex/react")
 
 describe("useReconciliationData", () => {
@@ -25,17 +24,13 @@ describe("useReconciliationData", () => {
     vi.mocked(useQuery).mockReset()
     vi.mocked(useConvex).mockReset()
     vi.mocked(useAuth).mockReturnValue(mockClerkAuth({ orgId: "org-1" }))
-    vi.mocked(useOrganization).mockReturnValue(mockOrganization({ name: "Pharmacie" }))
     vi.mocked(useConvex).mockReturnValue({ query: vi.fn() })
   })
 
   it("maps reconciliation records into days and history", async () => {
-    const ensurePharmacy = createMockMutation()
     const upsertMutation = createMockMutation()
 
-    vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
-      .mockImplementationOnce(() => upsertMutation)
+    vi.mocked(useMutation).mockImplementationOnce(() => upsertMutation)
 
     const records = [
       {
@@ -56,10 +51,6 @@ describe("useReconciliationData", () => {
     vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : records))
 
     const { result } = renderHook(() => useReconciliationData())
-
-    await waitFor(() => {
-      expect(ensurePharmacy).toHaveBeenCalledWith({ clerkOrgId: "org-1", name: "Pharmacie" })
-    })
 
     expect(result.current.days[0]).toEqual(
       expect.objectContaining({
@@ -84,12 +75,9 @@ describe("useReconciliationData", () => {
   })
 
   it("upserts days with default opening values", async () => {
-    const ensurePharmacy = createMockMutation()
     const upsertMutation = createMockMutation()
 
-    vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
-      .mockImplementationOnce(() => upsertMutation)
+    vi.mocked(useMutation).mockImplementationOnce(() => upsertMutation)
 
     vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
 
@@ -121,13 +109,6 @@ describe("useReconciliationData", () => {
   })
 
   it("returns paginated reconciliation history metadata", async () => {
-    const ensurePharmacy = createMockMutation()
-    const upsertMutation = createMockMutation()
-
-    vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
-      .mockImplementationOnce(() => upsertMutation)
-
     vi.mocked(useQuery).mockImplementation((_, args) => {
       if (args === "skip") return undefined
       return {

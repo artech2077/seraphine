@@ -464,6 +464,87 @@ export const create = mutation({
   },
 })
 
+export const update = mutation({
+  args: {
+    clerkOrgId: v.string(),
+    id: v.id("sales"),
+    clientId: v.optional(v.id("clients")),
+    paymentMethod: v.union(
+      v.literal("CASH"),
+      v.literal("CARD"),
+      v.literal("CHECK"),
+      v.literal("CREDIT")
+    ),
+    globalDiscountType: v.optional(v.union(v.literal("PERCENT"), v.literal("AMOUNT"))),
+    globalDiscountValue: v.optional(v.number()),
+    totalAmountHt: v.number(),
+    totalAmountTtc: v.number(),
+    items: v.array(
+      v.object({
+        productId: v.id("products"),
+        productNameSnapshot: v.string(),
+        quantity: v.number(),
+        unitPriceHt: v.number(),
+        vatRate: v.number(),
+        lineDiscountType: v.optional(v.union(v.literal("PERCENT"), v.literal("AMOUNT"))),
+        lineDiscountValue: v.optional(v.number()),
+        totalLineTtc: v.number(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    assertOrgAccess(identity, args.clerkOrgId)
+
+    const sale = await ctx.db.get(args.id)
+    if (!sale) {
+      return
+    }
+
+    const pharmacy = await ctx.db
+      .query("pharmacies")
+      .withIndex("by_clerkOrgId", (q) => q.eq("clerkOrgId", args.clerkOrgId))
+      .unique()
+
+    if (!pharmacy || sale.pharmacyId !== pharmacy._id) {
+      throw new Error("Unauthorized")
+    }
+
+    await ctx.db.patch(args.id, {
+      clientId: args.clientId,
+      paymentMethod: args.paymentMethod,
+      globalDiscountType: args.globalDiscountType,
+      globalDiscountValue: args.globalDiscountValue,
+      totalAmountHt: args.totalAmountHt,
+      totalAmountTtc: args.totalAmountTtc,
+    })
+
+    const existingItems = await ctx.db
+      .query("saleItems")
+      .withIndex("by_saleId", (q) => q.eq("saleId", args.id))
+      .collect()
+
+    await Promise.all(existingItems.map((item) => ctx.db.delete(item._id)))
+
+    await Promise.all(
+      args.items.map((item) =>
+        ctx.db.insert("saleItems", {
+          pharmacyId: pharmacy._id,
+          saleId: args.id,
+          productId: item.productId,
+          productNameSnapshot: item.productNameSnapshot,
+          quantity: item.quantity,
+          unitPriceHt: item.unitPriceHt,
+          vatRate: item.vatRate,
+          lineDiscountType: item.lineDiscountType,
+          lineDiscountValue: item.lineDiscountValue,
+          totalLineTtc: item.totalLineTtc,
+        })
+      )
+    )
+  },
+})
+
 export const remove = mutation({
   args: {
     clerkOrgId: v.string(),

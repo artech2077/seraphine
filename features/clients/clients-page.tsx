@@ -116,20 +116,40 @@ export function ClientsPage() {
   const rangeLabel =
     totalCount === 0 ? "0 sur 0 clients" : `${rangeStart}-${rangeEnd} sur ${totalCount} clients`
 
-  React.useEffect(() => {
-    setCurrentPage(1)
-  }, [clientFilter, cityFilter, balanceFilter, pageSize])
-
   const pageItems = buildPageItems(currentPage, totalPages)
 
   function handlePageChange(nextPage: number) {
     setCurrentPage(Math.min(Math.max(nextPage, 1), totalPages))
   }
 
+  function handleClientFilterChange(values: string[]) {
+    setClientFilter(values)
+    if (currentPage !== 1) {
+      setCurrentPage(1)
+    }
+  }
+
+  function handleCityFilterChange(values: string[]) {
+    setCityFilter(values)
+    if (currentPage !== 1) {
+      setCurrentPage(1)
+    }
+  }
+
+  function handleBalanceFilterChange(values: ClientStatus[]) {
+    setBalanceFilter(values)
+    if (currentPage !== 1) {
+      setCurrentPage(1)
+    }
+  }
+
   function handlePageSizeChange(value: string) {
     const nextSize = Number(value)
     if (!Number.isNaN(nextSize) && nextSize > 0) {
       setPageSize(nextSize)
+      if (currentPage !== 1) {
+        setCurrentPage(1)
+      }
     }
   }
 
@@ -181,13 +201,17 @@ export function ClientsPage() {
               <FilterMultiCombobox
                 options={clientOptions}
                 label="Clients"
-                onChange={setClientFilter}
+                onChange={handleClientFilterChange}
               />
-              <FilterMultiSelect label="Ville" options={cityOptions} onChange={setCityFilter} />
+              <FilterMultiSelect
+                label="Ville"
+                options={cityOptions}
+                onChange={handleCityFilterChange}
+              />
               <FilterMultiSelect
                 label="Balance"
                 options={BALANCE_FILTER_OPTIONS}
-                onChange={setBalanceFilter}
+                onChange={handleBalanceFilterChange}
               />
             </FiltersBar>
             <div className="ml-auto flex items-center gap-2">

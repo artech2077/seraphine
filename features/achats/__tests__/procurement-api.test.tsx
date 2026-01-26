@@ -1,13 +1,12 @@
-import { renderHook, waitFor } from "@testing-library/react"
+import { renderHook } from "@testing-library/react"
 import { vi } from "vitest"
 
 import { useDeliveryNotes, usePurchaseOrders } from "@/features/achats/api"
-import { mockClerkAuth, mockOrganization } from "@/tests/mocks/clerk"
+import { mockClerkAuth } from "@/tests/mocks/clerk"
 import { createMockMutation } from "@/tests/mocks/convex"
 
 vi.mock("@clerk/nextjs", () => ({
   useAuth: vi.fn(),
-  useOrganization: vi.fn(),
 }))
 
 vi.mock("convex/react", () => ({
@@ -16,7 +15,7 @@ vi.mock("convex/react", () => ({
   useConvex: vi.fn(),
 }))
 
-const { useAuth, useOrganization } = await import("@clerk/nextjs")
+const { useAuth } = await import("@clerk/nextjs")
 const { useMutation, useQuery, useConvex } = await import("convex/react")
 
 describe("usePurchaseOrders", () => {
@@ -25,18 +24,15 @@ describe("usePurchaseOrders", () => {
     vi.mocked(useQuery).mockReset()
     vi.mocked(useConvex).mockReset()
     vi.mocked(useAuth).mockReturnValue(mockClerkAuth({ orgId: "org-1" }))
-    vi.mocked(useOrganization).mockReturnValue(mockOrganization({ name: "Pharmacie" }))
     vi.mocked(useConvex).mockReturnValue({ query: vi.fn() })
   })
 
   it("maps procurement orders to purchase orders", async () => {
-    const ensurePharmacy = createMockMutation()
     const createOrder = createMockMutation()
     const updateOrder = createMockMutation()
     const removeOrder = createMockMutation()
 
     vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => createOrder)
       .mockImplementationOnce(() => updateOrder)
       .mockImplementationOnce(() => removeOrder)
@@ -71,10 +67,6 @@ describe("usePurchaseOrders", () => {
 
     const { result } = renderHook(() => usePurchaseOrders())
 
-    await waitFor(() => {
-      expect(ensurePharmacy).toHaveBeenCalledWith({ clerkOrgId: "org-1", name: "Pharmacie" })
-    })
-
     expect(result.current.orders[0]).toEqual(
       expect.objectContaining({
         id: "order-1",
@@ -88,13 +80,11 @@ describe("usePurchaseOrders", () => {
   })
 
   it("creates purchase orders with mapped status and totals", async () => {
-    const ensurePharmacy = createMockMutation()
     const createOrder = createMockMutation()
     const updateOrder = createMockMutation()
     const removeOrder = createMockMutation()
 
     vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => createOrder)
       .mockImplementationOnce(() => updateOrder)
       .mockImplementationOnce(() => removeOrder)
@@ -130,13 +120,11 @@ describe("usePurchaseOrders", () => {
   })
 
   it("returns paginated purchase orders metadata", async () => {
-    const ensurePharmacy = createMockMutation()
     const createOrder = createMockMutation()
     const updateOrder = createMockMutation()
     const removeOrder = createMockMutation()
 
     vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => createOrder)
       .mockImplementationOnce(() => updateOrder)
       .mockImplementationOnce(() => removeOrder)
@@ -179,17 +167,14 @@ describe("useDeliveryNotes", () => {
     vi.mocked(useMutation).mockReset()
     vi.mocked(useQuery).mockReset()
     vi.mocked(useAuth).mockReturnValue(mockClerkAuth({ orgId: "org-1" }))
-    vi.mocked(useOrganization).mockReturnValue(mockOrganization({ name: "Pharmacie" }))
   })
 
   it("maps procurement orders to delivery notes", async () => {
-    const ensurePharmacy = createMockMutation()
     const createNote = createMockMutation()
     const updateNote = createMockMutation()
     const removeNote = createMockMutation()
 
     vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => createNote)
       .mockImplementationOnce(() => updateNote)
       .mockImplementationOnce(() => removeNote)
@@ -215,10 +200,6 @@ describe("useDeliveryNotes", () => {
 
     const { result } = renderHook(() => useDeliveryNotes())
 
-    await waitFor(() => {
-      expect(ensurePharmacy).toHaveBeenCalledWith({ clerkOrgId: "org-1", name: "Pharmacie" })
-    })
-
     expect(result.current.notes[0]).toEqual(
       expect.objectContaining({
         id: "note-1",
@@ -232,13 +213,11 @@ describe("useDeliveryNotes", () => {
   })
 
   it("creates delivery notes with external references", async () => {
-    const ensurePharmacy = createMockMutation()
     const createNote = createMockMutation()
     const updateNote = createMockMutation()
     const removeNote = createMockMutation()
 
     vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => createNote)
       .mockImplementationOnce(() => updateNote)
       .mockImplementationOnce(() => removeNote)
@@ -270,13 +249,11 @@ describe("useDeliveryNotes", () => {
   })
 
   it("returns paginated delivery notes metadata", async () => {
-    const ensurePharmacy = createMockMutation()
     const createNote = createMockMutation()
     const updateNote = createMockMutation()
     const removeNote = createMockMutation()
 
     vi.mocked(useMutation)
-      .mockImplementationOnce(() => ensurePharmacy)
       .mockImplementationOnce(() => createNote)
       .mockImplementationOnce(() => updateNote)
       .mockImplementationOnce(() => removeNote)

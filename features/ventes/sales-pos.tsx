@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Plus, Search, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -38,7 +39,7 @@ import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { useClients } from "@/features/clients/api"
 import { useProductCatalog } from "@/features/inventaire/api"
 import { useSalesHistory } from "@/features/ventes/api"
-import { toast } from "sonner"
+import type { SaleHistoryItem } from "@/features/ventes/sales-history-table"
 
 type DiscountType = "percent" | "amount"
 
@@ -134,10 +135,16 @@ function getLinePricing(line: SaleLine, products: Product[]) {
   }
 }
 
-export function SalesPos() {
+type SalesPosProps = {
+  editingSale?: SaleHistoryItem | null
+  onEditComplete?: () => void
+  onCancelEdit?: () => void
+}
+
+export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: SalesPosProps) {
   const { items: clients } = useClients()
   const { items: catalogItems } = useProductCatalog()
-  const { createSale } = useSalesHistory({ mode: "mutations" })
+  const { createSale, updateSale } = useSalesHistory({ mode: "mutations" })
   const { canManage } = useRoleAccess()
   const canManageSales = canManage("ventes")
   const [lines, setLines] = React.useState<SaleLine[]>([createEmptyLine()])
@@ -148,6 +155,7 @@ export function SalesPos() {
   const [clientId, setClientId] = React.useState<string | undefined>(undefined)
   const [notes, setNotes] = React.useState("")
   const [submitAttempted, setSubmitAttempted] = React.useState(false)
+  const isEditing = Boolean(editingSale)
 
   const products = React.useMemo<Product[]>(
     () =>
@@ -161,6 +169,78 @@ export function SalesPos() {
   )
   const productOptions = React.useMemo(() => products.map((product) => product.name), [products])
   const clientOptions = React.useMemo(() => clients.map((client) => client.name), [clients])
+
+  const resetForm = React.useCallback(() => {
+    setLines([createEmptyLine()])
+    setGlobalDiscountType("percent")
+    setGlobalDiscountValue(0)
+    setPaymentMethod("")
+    setClientName("")
+    setClientId(undefined)
+    setNotes("")
+    setSubmitAttempted(false)
+  }, [])
+
+  const handleCancelEdit = React.useCallback(() => {
+    onCancelEdit?.()
+    if (!onCancelEdit) {
+      resetForm()
+    }
+  }, [onCancelEdit, resetForm])
+
+  const appliedEditId = React.useRef<string | null>(null)
+
+  React.useEffect(() => {
+    if (!editingSale) {
+      resetForm()
+      appliedEditId.current = null
+    }
+  }, [editingSale, resetForm])
+
+  React.useEffect(() => {
+    if (!editingSale) return
+    const hasMissingProductIds = editingSale.items.some((item) => !item.productId)
+    const needsProductMapping = hasMissingProductIds && products.length > 0
+    const needsClientMapping =
+      !editingSale.clientId &&
+      Boolean(editingSale.client) &&
+      editingSale.client !== "-" &&
+      clients.length > 0
+
+    if (appliedEditId.current === editingSale.id && !needsProductMapping && !needsClientMapping) {
+      return
+    }
+
+    appliedEditId.current = editingSale.id
+
+    const nextLines = editingSale.items.map((item) => {
+      const productId =
+        item.productId ?? products.find((product) => product.name === item.product)?.id ?? undefined
+
+      return {
+        id: `line-${editingSale.id}-${item.id}`,
+        productId,
+        productName: item.product,
+        quantity: item.quantity,
+        discountType: item.discountType ?? "percent",
+        discountValue: item.discountValue ?? 0,
+      }
+    })
+
+    const clientLabel = editingSale.client && editingSale.client !== "-" ? editingSale.client : ""
+    const matchedClient = clientLabel
+      ? clients.find((client) => client.name === clientLabel)
+      : undefined
+
+    setLines(nextLines.length > 0 ? nextLines : [createEmptyLine()])
+    setGlobalDiscountType(editingSale.globalDiscountType ?? "percent")
+    setGlobalDiscountValue(editingSale.globalDiscountValue ?? 0)
+    setPaymentMethod(editingSale.paymentMethodValue ?? "")
+    setClientName(clientLabel)
+    setClientId(editingSale.clientId ?? matchedClient?.id)
+    setNotes("")
+    setSubmitAttempted(false)
+  }, [clients, editingSale, products])
 
   const pricing = lines.map((line) => getLinePricing(line, products))
   const subtotalHt = pricing.reduce((sum, item) => sum + item.lineSubtotalHt, 0)
@@ -278,7 +358,7 @@ export function SalesPos() {
     }
 
     try {
-      await createSale({
+      const payload = {
         clientId,
         paymentMethod: paymentMethod as "cash" | "card" | "credit" | "check",
         globalDiscountType,
@@ -294,24 +374,43 @@ export function SalesPos() {
             discountType: line.discountType,
             discountValue: line.discountValue,
           })),
-      })
+      }
+
+      if (isEditing && editingSale) {
+        await updateSale({
+          id: editingSale.id,
+          ...payload,
+        })
+        toast.success("Vente mise à jour.")
+        onEditComplete?.()
+        resetForm()
+        return
+      }
+
+      await createSale(payload)
 
       toast.success("Vente enregistrée.")
-      setLines([createEmptyLine()])
-      setGlobalDiscountValue(0)
-      setPaymentMethod("")
-      setClientName("")
-      setClientId(undefined)
-      setNotes("")
+      resetForm()
     } catch {
-      toast.error("Impossible d'enregistrer la vente.")
+      toast.error(
+        isEditing ? "Impossible de modifier la vente." : "Impossible d'enregistrer la vente."
+      )
     }
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Point de vente</CardTitle>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="text-base">
+            {isEditing ? "Modifier la vente" : "Point de vente"}
+          </CardTitle>
+          {isEditing ? (
+            <Button variant="outline" size="sm" onClick={handleCancelEdit}>
+              Annuler la modification
+            </Button>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-3">
@@ -616,7 +715,7 @@ export function SalesPos() {
             />
           ) : null}
           <Button disabled={!canSave} onClick={handleSaveSale}>
-            Enregistrer la vente
+            {isEditing ? "Mettre à jour la vente" : "Enregistrer la vente"}
           </Button>
         </div>
       </CardFooter>

@@ -218,7 +218,12 @@ export function DashboardPage({
               Nouvelle vente
             </Button>
           </ButtonGroup>
-          <DatePickerField placeholder="Date" value={dateRange} onChange={setDateRange} />
+          <DatePickerField
+            id="dashboard-date-range"
+            placeholder="Date"
+            value={dateRange}
+            onChange={setDateRange}
+          />
         </div>
       }
     >
@@ -421,6 +426,7 @@ export function DashboardPage({
               </Empty>
             ) : (
               <ChartContainer
+                id="dashboard-trend"
                 className="h-full w-full"
                 config={{
                   revenue: {

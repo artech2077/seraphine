@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { useAuth, useOrganization } from "@clerk/nextjs"
-import { useMutation, useQuery } from "convex/react"
+import { useAuth } from "@clerk/nextjs"
+import { useQuery } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
 import type { DashboardData } from "@/features/dashboard/dashboard-page"
@@ -18,26 +18,22 @@ const emptyData: DashboardData = {
   recentOrders: [],
 }
 
-const SESSION_NOW = Date.now()
-
-export function useDashboardData() {
-  const { isLoaded, orgId, userId } = useAuth()
-  const { organization } = useOrganization()
-  const ensurePharmacy = useMutation(api.pharmacies.ensureForOrg)
-  const orgName = organization?.name ?? "Pharmacie"
+export function useDashboardData(now: number | null) {
+  const { orgId } = useAuth()
+  const [hydrated, setHydrated] = React.useState(false)
 
   React.useEffect(() => {
-    if (!isLoaded || !userId || !orgId) return
-    void ensurePharmacy({ clerkOrgId: orgId, name: orgName })
-  }, [ensurePharmacy, isLoaded, orgId, orgName, userId])
+    setHydrated(true)
+  }, [])
 
+  const hasNow = typeof now === "number"
   const summary = useQuery(
     api.dashboard.getSummary,
-    orgId ? { clerkOrgId: orgId, now: SESSION_NOW } : "skip"
+    hydrated && orgId && hasNow ? { clerkOrgId: orgId, now } : "skip"
   ) as Partial<DashboardData> | null | undefined
 
   return {
     data: summary ? { ...emptyData, ...summary } : emptyData,
-    isLoading: summary === undefined,
+    isLoading: !hydrated || !hasNow || summary === undefined,
   }
 }

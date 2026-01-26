@@ -23,9 +23,14 @@ import { useOrganization } from "@clerk/nextjs"
 export function AppSidebar() {
   const pathname = usePathname()
   const [searchOpen, setSearchOpen] = React.useState(false)
+  const [hydrated, setHydrated] = React.useState(false)
   const { canView, canManageSettings } = useRoleAccess()
   const { organization } = useOrganization()
   const orgName = organization?.name ?? "Votre pharmacie"
+
+  React.useEffect(() => {
+    setHydrated(true)
+  }, [])
   const renderLink = React.useCallback((href: string) => {
     const LinkComponent = (props: React.ComponentPropsWithoutRef<"a">) => {
       return <Link href={href} {...props} />
@@ -35,6 +40,9 @@ export function AppSidebar() {
   }, [])
 
   const visibleMainItems = React.useMemo(() => {
+    if (!hydrated) {
+      return []
+    }
     return mainNavItems.filter((item) => {
       if (item.href === "/app") return canView("dashboard")
       if (item.href.startsWith("/app/ventes")) return canView("ventes")
@@ -47,9 +55,12 @@ export function AppSidebar() {
       if (item.href.startsWith("/app/analytique")) return canView("analytique")
       return true
     })
-  }, [canView])
+  }, [canView, hydrated])
 
   const visibleUtilityItems = React.useMemo(() => {
+    if (!hydrated) {
+      return []
+    }
     return utilityNavItems.filter((item) => {
       if (item.href.startsWith("/app/parametres")) {
         return canView("parametres") || canManageSettings
@@ -59,7 +70,7 @@ export function AppSidebar() {
       }
       return true
     })
-  }, [canManageSettings, canView])
+  }, [canManageSettings, canView, hydrated])
 
   return (
     <>

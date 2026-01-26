@@ -80,6 +80,26 @@ describe("SalesHistoryTable", () => {
 
     expect(getSaleRowIds()).toEqual(["FAC-02"])
   })
+
+  it("triggers edit callback when modifier is clicked", async () => {
+    const user = userEvent.setup()
+    const onEdit = vi.fn()
+
+    render(<SalesHistoryTable sales={sales} onEdit={onEdit} />)
+
+    const saleRow = screen.getByText("FAC-01").closest("tr")
+    expect(saleRow).not.toBeNull()
+
+    const menuButton = within(saleRow as HTMLElement).getByRole("button", {
+      name: "Ouvrir le menu",
+    })
+    await user.click(menuButton)
+
+    const editItem = await screen.findByRole("menuitem", { name: "Modifier" })
+    await user.click(editItem)
+
+    expect(onEdit).toHaveBeenCalledWith(sales[1])
+  })
 })
 
 function getSaleRowIds() {

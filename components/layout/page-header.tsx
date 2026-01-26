@@ -1,12 +1,10 @@
-"use client"
-
-import * as React from "react"
+import type { ReactNode } from "react"
 
 type PageHeaderProps = {
   title: string
   description?: string
-  actions?: React.ReactNode
-  tabs?: React.ReactNode
+  actions?: ReactNode
+  tabs?: ReactNode
 }
 
 export function PageHeader({ title, description, actions, tabs }: PageHeaderProps) {

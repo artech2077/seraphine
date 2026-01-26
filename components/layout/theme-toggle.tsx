@@ -14,11 +14,7 @@ export function ThemeToggle() {
     setMounted(true)
   }, [])
 
-  if (!mounted) {
-    return null
-  }
-
-  const isDark = resolvedTheme === "dark"
+  const isDark = mounted && resolvedTheme === "dark"
 
   return (
     <div className="flex items-center gap-2">
@@ -29,6 +25,7 @@ export function ThemeToggle() {
         id="theme-toggle"
         size="sm"
         checked={isDark}
+        disabled={!mounted}
         onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
         aria-label="Toggle dark mode"
       />

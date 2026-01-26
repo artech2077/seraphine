@@ -137,7 +137,12 @@ export function ReconciliationHistoryPanel() {
       toolbar={
         <>
           <FiltersBar>
-            <DatePickerField placeholder="Date" value={dateRange} onChange={setDateRange} />
+            <DatePickerField
+              id="reconciliation-date-range"
+              placeholder="Date"
+              value={dateRange}
+              onChange={setDateRange}
+            />
             <Select
               value={statusFilter}
               onValueChange={(value) => setStatusFilter(value ?? "Tous")}
