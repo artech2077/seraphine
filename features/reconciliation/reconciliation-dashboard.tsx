@@ -9,7 +9,6 @@ import { ContentCard } from "@/components/layout/content-card"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -61,33 +60,48 @@ export function ReconciliationDashboard({
   const { canManage } = useRoleAccess()
   const canManageReconciliation = canManage("reconciliation")
   const [records, setRecords] = React.useState(days)
-  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(() => {
-    if (!days.length) return undefined
-    return new Date(days[0].date)
-  })
+  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(() => new Date())
   const [openingInput, setOpeningInput] = React.useState("")
   const [closingInput, setClosingInput] = React.useState("")
 
   React.useEffect(() => {
-    setRecords(days)
-  }, [days])
-
-  const availableDays = React.useMemo(() => new Set(records.map((day) => day.date)), [records])
+    if (days.length > 0) {
+      setRecords(days)
+      return
+    }
+    if (!isLoading) {
+      setRecords([])
+    }
+  }, [days, isLoading])
 
   const selectedDay = React.useMemo(() => {
-    if (!records.length) return null
-    if (!selectedDate) return records[0]
+    if (!selectedDate) {
+      return records[0] ?? null
+    }
     const dayKey = formatDayKey(selectedDate)
-    return records.find((day) => day.date === dayKey) ?? records[0]
+    const existing = records.find((day) => day.date === dayKey)
+    if (existing) return existing
+    return {
+      id: dayKey,
+      date: dayKey,
+      opening: null,
+      openingLocked: false,
+      sales: 0,
+      withdrawals: 0,
+      adjustments: 0,
+      actual: null,
+      isLocked: false,
+    }
   }, [records, selectedDate])
 
-  React.useEffect(() => {
-    if (!records.length) return
-    const dayKey = selectedDate ? formatDayKey(selectedDate) : null
-    if (!dayKey || !availableDays.has(dayKey)) {
-      setSelectedDate(new Date(records[0].date))
-    }
-  }, [availableDays, records, selectedDate])
+  const minDate = React.useMemo(() => {
+    if (!records.length) return new Date()
+    const earliest = records
+      .map((day) => new Date(day.date))
+      .reduce((min, value) => (value < min ? value : min))
+    return earliest
+  }, [records])
+  const maxDate = new Date()
 
   React.useEffect(() => {
     if (!selectedDay) return
@@ -134,31 +148,29 @@ export function ReconciliationDashboard({
 
   const result = resultConfig[resultState]
 
-  if (!isLoading && records.length === 0) {
-    return (
-      <ContentCard contentClassName="py-6">
-        <Empty className="border border-dashed">
-          <EmptyHeader>
-            <EmptyTitle>Aucune journée de caisse</EmptyTitle>
-            <EmptyDescription>
-              Les journées apparaîtront après la première ouverture ou activité en caisse.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      </ContentCard>
-    )
-  }
+  const hasClosing = Boolean(selectedDay?.isLocked)
 
   function handleConfirmOpening() {
     if (!selectedDay) return
     const parsed = parseAmount(openingInput)
     if (parsed === null) return
 
-    setRecords((previous) =>
-      previous.map((day) =>
-        day.id === selectedDay.id ? { ...day, opening: parsed, openingLocked: true } : day
+    setRecords((previous) => {
+      const hasDay = previous.some((day) => day.date === selectedDay.date)
+      if (!hasDay) {
+        return [
+          ...previous,
+          {
+            ...selectedDay,
+            opening: parsed,
+            openingLocked: true,
+          },
+        ]
+      }
+      return previous.map((day) =>
+        day.date === selectedDay.date ? { ...day, opening: parsed, openingLocked: true } : day
       )
-    )
+    })
     void Promise.resolve(onUpdateDay?.({ ...selectedDay, opening: parsed, openingLocked: true }))
       .then(() => toast.success("Ouverture enregistrée."))
       .catch(() => toast.error("Impossible d'enregistrer l'ouverture."))
@@ -169,11 +181,22 @@ export function ReconciliationDashboard({
     const parsed = parseAmount(closingInput)
     if (parsed === null) return
 
-    setRecords((previous) =>
-      previous.map((day) =>
-        day.id === selectedDay.id ? { ...day, actual: parsed, isLocked: true } : day
+    setRecords((previous) => {
+      const hasDay = previous.some((day) => day.date === selectedDay.date)
+      if (!hasDay) {
+        return [
+          ...previous,
+          {
+            ...selectedDay,
+            actual: parsed,
+            isLocked: true,
+          },
+        ]
+      }
+      return previous.map((day) =>
+        day.date === selectedDay.date ? { ...day, actual: parsed, isLocked: true } : day
       )
-    )
+    })
     void Promise.resolve(onUpdateDay?.({ ...selectedDay, actual: parsed, isLocked: true }))
       .then(() => toast.success("Fermeture enregistrée."))
       .catch(() => toast.error("Impossible d'enregistrer la fermeture."))
@@ -206,7 +229,7 @@ export function ReconciliationDashboard({
               mode="single"
               selected={selectedDate}
               onSelect={setSelectedDate}
-              disabled={(date) => !availableDays.has(formatDayKey(date))}
+              disabled={(date) => date < minDate || date > maxDate}
             />
           </PopoverContent>
         </Popover>
@@ -282,19 +305,34 @@ export function ReconciliationDashboard({
           </CardContent>
         </Card>
 
-        <Card className={cn("border", result.className)}>
-          <CardHeader className="pb-2">
-            <CardTitle className={cn("text-base", result.textClassName)}>{result.label}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className={cn("text-2xl font-semibold", result.textClassName)}>
-                {formatCurrency(roundedDifference)}
+        {hasClosing ? (
+          <Card className={cn("border", result.className)}>
+            <CardHeader className="pb-2">
+              <CardTitle className={cn("text-base", result.textClassName)}>
+                {result.label}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className={cn("text-2xl font-semibold", result.textClassName)}>
+                  {formatCurrency(roundedDifference)}
+                </div>
+                <p className={cn("text-sm", result.textClassName)}>{result.message}</p>
               </div>
-              <p className={cn("text-sm", result.textClassName)}>{result.message}</p>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-border bg-muted/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base text-muted-foreground">Clôture en attente</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                La clôture n&apos;est pas encore enregistrée pour cette journée.
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </ContentCard>
   )
