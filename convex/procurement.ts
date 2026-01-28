@@ -17,6 +17,9 @@ type ProcurementOrderRecord = {
   externalReference?: string | null
   channel?: "EMAIL" | "PHONE" | null
   orderDate: number
+  dueDate?: number | null
+  globalDiscountType?: "PERCENT" | "AMOUNT" | null
+  globalDiscountValue?: number | null
   totalAmount: number
   createdAt: number
   type: "PURCHASE_ORDER" | "DELIVERY_NOTE"
@@ -28,6 +31,9 @@ type ProcurementItemRecord = {
   productId: Id<"products">
   quantity: number
   unitPrice: number
+  lineDiscountType?: "PERCENT" | "AMOUNT" | null
+  lineDiscountValue?: number | null
+  lineTotal?: number | null
 }
 
 function formatOrderNumber(prefix: string, sequence: number) {
@@ -68,6 +74,40 @@ function buildFallbackNumbers(orders: ProcurementOrderRecord[], prefix: string) 
   })
 
   return fallbackNumbers
+}
+
+function getDiscountAmount(subtotal: number, type?: "PERCENT" | "AMOUNT" | null, value?: number) {
+  const discountValue = value ?? 0
+  if (type === "AMOUNT") {
+    return discountValue
+  }
+  return (subtotal * discountValue) / 100
+}
+
+function calculateLineTotal(item: {
+  quantity: number
+  unitPrice: number
+  lineDiscountType?: "PERCENT" | "AMOUNT" | null
+  lineDiscountValue?: number | null
+}) {
+  const subtotal = item.quantity * item.unitPrice
+  const discount = getDiscountAmount(subtotal, item.lineDiscountType, item.lineDiscountValue ?? 0)
+  return Math.max(0, subtotal - discount)
+}
+
+function calculateOrderTotal(
+  items: Array<{
+    quantity: number
+    unitPrice: number
+    lineDiscountType?: "PERCENT" | "AMOUNT" | null
+    lineDiscountValue?: number | null
+  }>,
+  globalDiscountType?: "PERCENT" | "AMOUNT" | null,
+  globalDiscountValue?: number | null
+) {
+  const subtotal = items.reduce((sum, item) => sum + calculateLineTotal(item), 0)
+  const globalDiscount = getDiscountAmount(subtotal, globalDiscountType, globalDiscountValue ?? 0)
+  return Math.max(0, subtotal - globalDiscount)
 }
 
 export const listByOrg = query({
@@ -156,6 +196,9 @@ export const listByOrg = query({
           productName: product?.name ?? "Produit inconnu",
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          lineDiscountType: item.lineDiscountType ?? null,
+          lineDiscountValue: item.lineDiscountValue ?? null,
+          lineTotal: item.lineTotal ?? null,
         }
       })
 
@@ -167,10 +210,13 @@ export const listByOrg = query({
         channel: order.channel ?? null,
         createdAt: order.createdAt,
         orderDate: order.orderDate,
+        dueDate: order.dueDate ?? null,
         totalAmount: order.totalAmount,
         status: order.status,
         type: order.type,
         externalReference: order.externalReference ?? null,
+        globalDiscountType: order.globalDiscountType ?? null,
+        globalDiscountValue: order.globalDiscountValue ?? null,
         items: mappedItems,
       }
     })
@@ -194,6 +240,8 @@ export const listByOrgPaginated = query({
         references: v.optional(v.array(v.string())),
         orderFrom: v.optional(v.number()),
         orderTo: v.optional(v.number()),
+        dueFrom: v.optional(v.number()),
+        dueTo: v.optional(v.number()),
         createdFrom: v.optional(v.number()),
         createdTo: v.optional(v.number()),
       })
@@ -295,6 +343,9 @@ export const listByOrgPaginated = query({
           productName: product?.name ?? "Produit inconnu",
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          lineDiscountType: item.lineDiscountType ?? null,
+          lineDiscountValue: item.lineDiscountValue ?? null,
+          lineTotal: item.lineTotal ?? null,
         }
       })
 
@@ -306,10 +357,13 @@ export const listByOrgPaginated = query({
         channel: order.channel ?? null,
         createdAt: order.createdAt,
         orderDate: order.orderDate,
+        dueDate: order.dueDate ?? null,
         totalAmount: order.totalAmount,
         status: order.status,
         type: order.type,
         externalReference: order.externalReference ?? null,
+        globalDiscountType: order.globalDiscountType ?? null,
+        globalDiscountValue: order.globalDiscountValue ?? null,
         items: mappedItems,
       }
     })
@@ -324,6 +378,8 @@ export const listByOrgPaginated = query({
     const referenceFilter = new Set(args.filters?.references ?? [])
     const orderFrom = args.filters?.orderFrom
     const orderTo = args.filters?.orderTo
+    const dueFrom = args.filters?.dueFrom
+    const dueTo = args.filters?.dueTo
     const createdFrom = args.filters?.createdFrom
     const createdTo = args.filters?.createdTo
 
@@ -343,6 +399,16 @@ export const listByOrgPaginated = query({
       }
       if (typeof orderTo === "number" && order.orderDate > orderTo) {
         return false
+      }
+      if (typeof dueFrom === "number") {
+        if (!order.dueDate || order.dueDate < dueFrom) {
+          return false
+        }
+      }
+      if (typeof dueTo === "number") {
+        if (!order.dueDate || order.dueDate > dueTo) {
+          return false
+        }
       }
       if (typeof createdFrom === "number" && order.createdAt < createdFrom) {
         return false
@@ -384,6 +450,9 @@ export const create = mutation({
     status: v.union(v.literal("DRAFT"), v.literal("ORDERED"), v.literal("DELIVERED")),
     channel: v.optional(v.union(v.literal("EMAIL"), v.literal("PHONE"))),
     orderDate: v.number(),
+    dueDate: v.optional(v.number()),
+    globalDiscountType: v.optional(v.union(v.literal("PERCENT"), v.literal("AMOUNT"))),
+    globalDiscountValue: v.optional(v.number()),
     totalAmount: v.number(),
     externalReference: v.optional(v.string()),
     items: v.array(
@@ -391,6 +460,8 @@ export const create = mutation({
         productId: v.id("products"),
         quantity: v.number(),
         unitPrice: v.number(),
+        lineDiscountType: v.optional(v.union(v.literal("PERCENT"), v.literal("AMOUNT"))),
+        lineDiscountValue: v.optional(v.number()),
       })
     ),
   },
@@ -427,6 +498,12 @@ export const create = mutation({
     const orderSequence = maxSequence + 1
     const orderNumber = formatOrderNumber(orderPrefix, orderSequence)
 
+    const totalAmount = calculateOrderTotal(
+      args.items,
+      args.globalDiscountType,
+      args.globalDiscountValue
+    )
+
     const orderId = await ctx.db.insert("procurementOrders", {
       pharmacyId: pharmacy._id,
       orderNumber,
@@ -437,7 +514,10 @@ export const create = mutation({
       externalReference: args.externalReference,
       channel: args.channel,
       orderDate: args.orderDate,
-      totalAmount: args.totalAmount,
+      dueDate: args.dueDate,
+      globalDiscountType: args.globalDiscountType,
+      globalDiscountValue: args.globalDiscountValue,
+      totalAmount,
       createdAt: Date.now(),
     })
 
@@ -449,7 +529,9 @@ export const create = mutation({
           productId: item.productId,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          lineTotal: item.quantity * item.unitPrice,
+          lineDiscountType: item.lineDiscountType,
+          lineDiscountValue: item.lineDiscountValue,
+          lineTotal: calculateLineTotal(item),
         })
       )
     )
@@ -466,6 +548,9 @@ export const update = mutation({
     status: v.union(v.literal("DRAFT"), v.literal("ORDERED"), v.literal("DELIVERED")),
     channel: v.optional(v.union(v.literal("EMAIL"), v.literal("PHONE"))),
     orderDate: v.number(),
+    dueDate: v.optional(v.number()),
+    globalDiscountType: v.optional(v.union(v.literal("PERCENT"), v.literal("AMOUNT"))),
+    globalDiscountValue: v.optional(v.number()),
     totalAmount: v.number(),
     externalReference: v.optional(v.string()),
     items: v.array(
@@ -473,6 +558,8 @@ export const update = mutation({
         productId: v.id("products"),
         quantity: v.number(),
         unitPrice: v.number(),
+        lineDiscountType: v.optional(v.union(v.literal("PERCENT"), v.literal("AMOUNT"))),
+        lineDiscountValue: v.optional(v.number()),
       })
     ),
   },
@@ -499,13 +586,22 @@ export const update = mutation({
       throw new Error("Unauthorized")
     }
 
+    const totalAmount = calculateOrderTotal(
+      args.items,
+      args.globalDiscountType,
+      args.globalDiscountValue
+    )
+
     await ctx.db.patch(args.id, {
       supplierId: args.supplierId,
       status: args.status,
       externalReference: args.externalReference,
       channel: args.channel,
       orderDate: args.orderDate,
-      totalAmount: args.totalAmount,
+      dueDate: args.dueDate,
+      globalDiscountType: args.globalDiscountType,
+      globalDiscountValue: args.globalDiscountValue,
+      totalAmount,
     })
 
     const existingItems = await ctx.db
@@ -523,7 +619,9 @@ export const update = mutation({
           productId: item.productId,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          lineTotal: item.quantity * item.unitPrice,
+          lineDiscountType: item.lineDiscountType,
+          lineDiscountValue: item.lineDiscountValue,
+          lineTotal: calculateLineTotal(item),
         })
       )
     )

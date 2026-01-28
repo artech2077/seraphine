@@ -83,6 +83,7 @@ type DeliveryNotesSortKey =
   | "supplier"
   | "createdAt"
   | "orderDate"
+  | "dueDate"
   | "externalReference"
   | "total"
   | "status"
@@ -123,6 +124,9 @@ export function DeliveryNotesTable({
           break
         case "orderDate":
           result = Date.parse(a.orderDate) - Date.parse(b.orderDate)
+          break
+        case "dueDate":
+          result = (a.dueDate ? Date.parse(a.dueDate) : 0) - (b.dueDate ? Date.parse(b.dueDate) : 0)
           break
         case "externalReference":
           result = a.externalReference.localeCompare(b.externalReference, "fr")
@@ -228,6 +232,13 @@ export function DeliveryNotesTable({
               onSort={() => handleSort("orderDate")}
             />
             <SortableTableHead
+              label="Date d'échéance"
+              sortKey="dueDate"
+              activeSortKey={sortKey ?? undefined}
+              sortState={sortState}
+              onSort={() => handleSort("dueDate")}
+            />
+            <SortableTableHead
               label="Réf livraison"
               sortKey="externalReference"
               activeSortKey={sortKey ?? undefined}
@@ -259,6 +270,7 @@ export function DeliveryNotesTable({
               <TableCell>{note.supplier}</TableCell>
               <TableCell>{formatDate(note.createdAt)}</TableCell>
               <TableCell>{formatDate(note.orderDate)}</TableCell>
+              <TableCell>{note.dueDate ? formatDate(note.dueDate) : "-"}</TableCell>
               <TableCell>{note.externalReference}</TableCell>
               <TableCell className="text-right tabular-nums">
                 {formatCurrency(note.total)}

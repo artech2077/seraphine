@@ -16,6 +16,25 @@ type BackfillOptions<T> = {
   getSortValue: (record: T) => number
 }
 
+type ProcurementItemRecord = {
+  _id: Id<"procurementItems">
+  orderId: Id<"procurementOrders">
+  pharmacyId?: Id<"pharmacies">
+  quantity: number
+  unitPrice: number
+  lineDiscountType?: "PERCENT" | "AMOUNT"
+  lineDiscountValue?: number
+  lineTotal?: number
+}
+
+type ProcurementOrderRecord = {
+  _id: Id<"procurementOrders">
+  pharmacyId: Id<"pharmacies">
+  globalDiscountType?: "PERCENT" | "AMOUNT"
+  globalDiscountValue?: number
+  totalAmount: number
+}
+
 function formatSequence(prefix: string, sequence: number) {
   return `${prefix}${String(sequence).padStart(2, "0")}`
 }
@@ -26,6 +45,30 @@ function parseSequence(prefix: string, value?: string | null) {
   const match = value.match(new RegExp(`^${escaped}(\\d+)$`))
   if (!match) return null
   return Number(match[1])
+}
+
+function getDiscountAmount(subtotal: number, type?: "PERCENT" | "AMOUNT", value?: number) {
+  const discountValue = value ?? 0
+  if (type === "AMOUNT") {
+    return discountValue
+  }
+  return (subtotal * discountValue) / 100
+}
+
+function calculateLineTotal(item: ProcurementItemRecord) {
+  const subtotal = item.quantity * item.unitPrice
+  const discount = getDiscountAmount(subtotal, item.lineDiscountType, item.lineDiscountValue)
+  return Math.max(0, subtotal - discount)
+}
+
+function calculateOrderTotal(
+  items: ProcurementItemRecord[],
+  globalDiscountType?: "PERCENT" | "AMOUNT",
+  globalDiscountValue?: number
+) {
+  const subtotal = items.reduce((sum, item) => sum + calculateLineTotal(item), 0)
+  const discount = getDiscountAmount(subtotal, globalDiscountType, globalDiscountValue)
+  return Math.max(0, subtotal - discount)
 }
 
 async function backfillSequences<T extends SequenceRecord>(
@@ -284,6 +327,122 @@ export const backfillProcurementItemPharmacy = mutation({
     await Promise.all(patches)
 
     return updated
+  },
+})
+
+export const backfillProcurementDiscounts = mutation({
+  args: {
+    clerkOrgId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    assertOrgAccess(identity, args.clerkOrgId)
+
+    const pharmacy = await ctx.db
+      .query("pharmacies")
+      .withIndex("by_clerkOrgId", (q) => q.eq("clerkOrgId", args.clerkOrgId))
+      .unique()
+
+    if (!pharmacy) {
+      return {
+        orders: 0,
+        items: 0,
+      }
+    }
+
+    const orders = (await ctx.db
+      .query("procurementOrders")
+      .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+      .collect()) as ProcurementOrderRecord[]
+
+    if (orders.length === 0) {
+      return {
+        orders: 0,
+        items: 0,
+      }
+    }
+
+    const items = (await ctx.db
+      .query("procurementItems")
+      .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+      .collect()) as ProcurementItemRecord[]
+
+    const itemsByOrder = new Map<string, ProcurementItemRecord[]>()
+    items.forEach((item) => {
+      const orderItems = itemsByOrder.get(String(item.orderId)) ?? []
+      orderItems.push(item)
+      itemsByOrder.set(String(item.orderId), orderItems)
+    })
+
+    let updatedOrders = 0
+    let updatedItems = 0
+
+    for (const order of orders) {
+      let orderItems = itemsByOrder.get(String(order._id)) ?? []
+      if (orderItems.length === 0) {
+        orderItems = (await ctx.db
+          .query("procurementItems")
+          .withIndex("by_orderId", (q) => q.eq("orderId", order._id))
+          .collect()) as ProcurementItemRecord[]
+      }
+
+      const normalizedItems = [] as ProcurementItemRecord[]
+      for (const item of orderItems) {
+        const nextType = item.lineDiscountType ?? "PERCENT"
+        const nextValue = item.lineDiscountValue ?? 0
+        const nextLineTotal = calculateLineTotal({
+          ...item,
+          lineDiscountType: nextType,
+          lineDiscountValue: nextValue,
+        })
+
+        if (
+          item.lineDiscountType !== nextType ||
+          item.lineDiscountValue !== nextValue ||
+          item.lineTotal !== nextLineTotal
+        ) {
+          await ctx.db.patch(item._id, {
+            lineDiscountType: nextType,
+            lineDiscountValue: nextValue,
+            lineTotal: nextLineTotal,
+          })
+          updatedItems += 1
+        }
+
+        normalizedItems.push({
+          ...item,
+          lineDiscountType: nextType,
+          lineDiscountValue: nextValue,
+          lineTotal: nextLineTotal,
+        })
+      }
+
+      const normalizedGlobalType = order.globalDiscountType ?? "PERCENT"
+      const normalizedGlobalValue = order.globalDiscountValue ?? 0
+      const nextTotal = calculateOrderTotal(
+        normalizedItems,
+        normalizedGlobalType,
+        normalizedGlobalValue
+      )
+      const needsOrderPatch =
+        order.globalDiscountType !== normalizedGlobalType ||
+        order.globalDiscountValue !== normalizedGlobalValue ||
+        order.totalAmount !== nextTotal
+
+      if (needsOrderPatch) {
+        await ctx.db.patch(order._id, {
+          globalDiscountType: normalizedGlobalType,
+          globalDiscountValue: normalizedGlobalValue,
+          totalAmount: nextTotal,
+        })
+        updatedOrders += 1
+      }
+    }
+
+    return {
+      orders: updatedOrders,
+      items: updatedItems,
+    }
   },
 })
 

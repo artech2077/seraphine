@@ -194,14 +194,14 @@ function ModalContent({
   ...props
 }: ModalContentProps) {
   const { variant } = useModalContext()
-  const baseClasses = "flex max-h-screen flex-col overflow-hidden"
+  const baseClasses = "flex max-h-[100dvh] min-h-0 flex-col overflow-hidden"
 
   if (variant === "dialog") {
     return (
       <DialogContent
         showCloseButton={showCloseButton}
         className={cn(
-          "w-full sm:w-2/5 sm:max-w-none p-0 gap-0 flex flex-col bg-popover text-popover-foreground rounded-l-xl",
+          "w-full sm:w-3/5 sm:max-w-none p-0 gap-0 flex flex-col bg-popover text-popover-foreground rounded-l-xl",
           baseClasses,
           className
         )}
@@ -218,7 +218,7 @@ function ModalContent({
         side={side}
         showCloseButton={showCloseButton}
         className={cn(
-          "w-full data-[side=left]:w-full data-[side=right]:w-full sm:data-[side=left]:w-2/5 sm:data-[side=right]:w-2/5 data-[side=left]:sm:max-w-none data-[side=right]:sm:max-w-none max-w-none p-0 gap-0 bg-popover text-popover-foreground rounded-l-xl",
+          "w-full data-[side=left]:w-full data-[side=right]:w-full sm:data-[side=left]:w-3/5 sm:data-[side=right]:w-3/5 data-[side=left]:sm:max-w-none data-[side=right]:sm:max-w-none max-w-none p-0 gap-0 bg-popover text-popover-foreground rounded-l-xl",
           baseClasses,
           className
         )}
@@ -336,7 +336,7 @@ function ModalFooter({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function ModalForm({ className, ...props }: React.ComponentProps<"form">) {
-  return <form className={cn("flex flex-1 flex-col", className)} {...props} />
+  return <form className={cn("flex flex-1 min-h-0 flex-col", className)} {...props} />
 }
 
 function ModalGrid({ className, ...props }: React.ComponentProps<"div">) {

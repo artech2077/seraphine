@@ -101,6 +101,9 @@ export default defineSchema({
     externalReference: v.optional(v.string()),
     channel: v.optional(v.union(v.literal("EMAIL"), v.literal("PHONE"))),
     orderDate: v.number(),
+    dueDate: v.optional(v.number()),
+    globalDiscountType: v.optional(v.union(v.literal("PERCENT"), v.literal("AMOUNT"))),
+    globalDiscountValue: v.optional(v.number()),
     totalAmount: v.number(),
     createdAt: v.number(),
   })
@@ -112,6 +115,8 @@ export default defineSchema({
     productId: v.id("products"),
     quantity: v.number(),
     unitPrice: v.number(),
+    lineDiscountType: v.optional(v.union(v.literal("PERCENT"), v.literal("AMOUNT"))),
+    lineDiscountValue: v.optional(v.number()),
     lineTotal: v.number(),
   })
     .index("by_orderId", ["orderId"])

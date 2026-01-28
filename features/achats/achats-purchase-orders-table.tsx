@@ -57,6 +57,18 @@ function formatDate(value: string) {
   return dateFormatter.format(new Date(parsed))
 }
 
+type PurchaseOrdersTableProps = {
+  orders: PurchaseOrder[]
+  page?: number
+  pageSize?: number
+  suppliers: Array<{ id: string; name: string }>
+  products: Array<{ id: string; name: string; unitPrice: number }>
+  onUpdate?: (order: PurchaseOrder, values: ProcurementFormValues) => void | Promise<void>
+  onDelete?: (order: PurchaseOrder) => void | Promise<void>
+}
+
+type PurchaseOrdersSortKey = "supplier" | "createdAt" | "orderDate" | "total" | "status"
+
 function getStatusVariant(status: PurchaseOrderStatus) {
   switch (status) {
     case "Brouillon":
@@ -68,18 +80,6 @@ function getStatusVariant(status: PurchaseOrderStatus) {
       return "default"
   }
 }
-
-type PurchaseOrdersTableProps = {
-  orders: PurchaseOrder[]
-  page?: number
-  pageSize?: number
-  suppliers: Array<{ id: string; name: string }>
-  products: Array<{ id: string; name: string; unitPrice: number }>
-  onUpdate?: (order: PurchaseOrder, values: ProcurementFormValues) => void | Promise<void>
-  onDelete?: (order: PurchaseOrder) => void | Promise<void>
-}
-
-type PurchaseOrdersSortKey = "supplier" | "channel" | "createdAt" | "orderDate" | "total" | "status"
 
 export function PurchaseOrdersTable({
   orders,
@@ -112,9 +112,6 @@ export function PurchaseOrdersTable({
         case "supplier":
           result = a.supplier.localeCompare(b.supplier, "fr")
           break
-        case "channel":
-          result = a.channel.localeCompare(b.channel, "fr")
-          break
         case "createdAt":
           result = Date.parse(a.createdAt) - Date.parse(b.createdAt)
           break
@@ -125,8 +122,10 @@ export function PurchaseOrdersTable({
           result = a.total - b.total
           break
         case "status":
-        default:
           result = a.status.localeCompare(b.status, "fr")
+          break
+        default:
+          result = 0
       }
       return sortState === "asc" ? result : -result
     })
@@ -208,13 +207,6 @@ export function PurchaseOrdersTable({
               onSort={() => handleSort("supplier")}
             />
             <SortableTableHead
-              label="Canal"
-              sortKey="channel"
-              activeSortKey={sortKey ?? undefined}
-              sortState={sortState}
-              onSort={() => handleSort("channel")}
-            />
-            <SortableTableHead
               label="Date de création"
               sortKey="createdAt"
               activeSortKey={sortKey ?? undefined}
@@ -251,7 +243,6 @@ export function PurchaseOrdersTable({
             <TableRow key={order.id}>
               <TableCell className="font-medium">{order.orderNumber}</TableCell>
               <TableCell>{order.supplier}</TableCell>
-              <TableCell>{order.channel}</TableCell>
               <TableCell>{formatDate(order.createdAt)}</TableCell>
               <TableCell>{formatDate(order.orderDate)}</TableCell>
               <TableCell className="text-right tabular-nums">

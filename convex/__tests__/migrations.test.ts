@@ -1,5 +1,6 @@
 import {
   backfillIdentifiers,
+  backfillProcurementDiscounts,
   backfillProcurementItemPharmacy,
   backfillSaleItemPharmacy,
 } from "@/convex/migrations"
@@ -88,6 +89,28 @@ describe("convex/migrations", () => {
 
     expect(result).toBe(1)
     expect(ctx.db.patch).toHaveBeenCalledWith("sale-item-1", { pharmacyId: "pharmacy-1" })
+  })
+
+  it("backfills procurement discounts and totals", async () => {
+    const ctx = buildProcurementDiscountContext()
+    const handler = backfillProcurementDiscounts as unknown as ConvexHandler<
+      { clerkOrgId: string },
+      { orders: number; items: number }
+    >
+
+    const result = await handler(ctx, { clerkOrgId: "org-1" })
+
+    expect(result).toEqual({ orders: 1, items: 1 })
+    expect(ctx.db.patch).toHaveBeenCalledWith("item-1", {
+      lineDiscountType: "PERCENT",
+      lineDiscountValue: 0,
+      lineTotal: 100,
+    })
+    expect(ctx.db.patch).toHaveBeenCalledWith("order-1", {
+      globalDiscountType: "PERCENT",
+      globalDiscountValue: 10,
+      totalAmount: 90,
+    })
   })
 })
 
@@ -327,6 +350,78 @@ function buildSaleItemContext() {
           withIndex: () => ({
             collect: async () => items,
           }),
+        }
+      }
+      return {
+        withIndex: () => ({
+          collect: async () => [],
+          unique: async () => null,
+        }),
+      }
+    }),
+    patch: vi.fn(async () => {}),
+  }
+
+  return {
+    auth: {
+      getUserIdentity: vi.fn().mockResolvedValue({ orgId: "org-1" }),
+    },
+    db,
+  }
+}
+
+function buildProcurementDiscountContext() {
+  const pharmacy = {
+    _id: "pharmacy-1",
+    clerkOrgId: "org-1",
+  }
+  const procurementOrders = [
+    {
+      _id: "order-1",
+      pharmacyId: "pharmacy-1",
+      totalAmount: 100,
+      globalDiscountValue: 10,
+    },
+  ]
+  const procurementItems = [
+    {
+      _id: "item-1",
+      orderId: "order-1",
+      pharmacyId: "pharmacy-1",
+      quantity: 2,
+      unitPrice: 50,
+      lineTotal: 100,
+    },
+  ]
+
+  const db = {
+    query: vi.fn((table: string) => {
+      if (table === "pharmacies") {
+        return {
+          withIndex: () => ({
+            unique: async () => pharmacy,
+          }),
+        }
+      }
+      if (table === "procurementOrders") {
+        return {
+          withIndex: () => ({
+            collect: async () => procurementOrders,
+          }),
+        }
+      }
+      if (table === "procurementItems") {
+        return {
+          withIndex: (indexName: string) => {
+            if (indexName === "by_orderId") {
+              return {
+                collect: async () => procurementItems,
+              }
+            }
+            return {
+              collect: async () => procurementItems,
+            }
+          },
         }
       }
       return {

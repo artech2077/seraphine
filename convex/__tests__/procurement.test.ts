@@ -42,8 +42,17 @@ describe("convex/procurement", () => {
       status: string
       channel: string
       orderDate: number
+      dueDate?: number
+      globalDiscountType?: string
+      globalDiscountValue?: number
       totalAmount: number
-      items: Array<{ productId: string; quantity: number; unitPrice: number }>
+      items: Array<{
+        productId: string
+        quantity: number
+        unitPrice: number
+        lineDiscountType?: string
+        lineDiscountValue?: number
+      }>
     }>
 
     await handler(ctx, {
@@ -53,8 +62,19 @@ describe("convex/procurement", () => {
       status: "ORDERED",
       channel: "EMAIL",
       orderDate: 123,
+      dueDate: 150,
+      globalDiscountType: "PERCENT",
+      globalDiscountValue: 10,
       totalAmount: 100,
-      items: [{ productId: "product-1", quantity: 2, unitPrice: 50 }],
+      items: [
+        {
+          productId: "product-1",
+          quantity: 2,
+          unitPrice: 50,
+          lineDiscountType: "AMOUNT",
+          lineDiscountValue: 10,
+        },
+      ],
     })
 
     expect(ctx.db.insert).toHaveBeenCalledWith(
@@ -65,6 +85,10 @@ describe("convex/procurement", () => {
         orderSequence: 2,
         supplierId: "supplier-1",
         status: "ORDERED",
+        dueDate: 150,
+        globalDiscountType: "PERCENT",
+        globalDiscountValue: 10,
+        totalAmount: 81,
       })
     )
     expect(ctx.db.insert).toHaveBeenCalledWith(
@@ -73,7 +97,9 @@ describe("convex/procurement", () => {
         pharmacyId: "pharmacy-1",
         orderId: "order-1",
         productId: "product-1",
-        lineTotal: 100,
+        lineDiscountType: "AMOUNT",
+        lineDiscountValue: 10,
+        lineTotal: 90,
       })
     )
   })
@@ -88,8 +114,17 @@ describe("convex/procurement", () => {
       status: string
       channel: string
       orderDate: number
+      dueDate?: number
+      globalDiscountType?: string
+      globalDiscountValue?: number
       totalAmount: number
-      items: Array<{ productId: string; quantity: number; unitPrice: number }>
+      items: Array<{
+        productId: string
+        quantity: number
+        unitPrice: number
+        lineDiscountType?: string
+        lineDiscountValue?: number
+      }>
     }>
 
     await handler(ctx, {
@@ -99,22 +134,46 @@ describe("convex/procurement", () => {
       status: "DELIVERED",
       channel: "PHONE",
       orderDate: 456,
+      dueDate: 500,
+      globalDiscountType: "AMOUNT",
+      globalDiscountValue: 5,
       totalAmount: 50,
-      items: [{ productId: "product-1", quantity: 1, unitPrice: 50 }],
+      items: [
+        {
+          productId: "product-1",
+          quantity: 1,
+          unitPrice: 50,
+          lineDiscountType: "PERCENT",
+          lineDiscountValue: 10,
+        },
+      ],
     })
 
-    expect(ctx.db.patch).toHaveBeenCalledWith("order-1", {
-      supplierId: "supplier-1",
-      status: "DELIVERED",
-      externalReference: undefined,
-      channel: "PHONE",
-      orderDate: 456,
-      totalAmount: 50,
-    })
+    expect(ctx.db.patch).toHaveBeenCalledWith(
+      "order-1",
+      expect.objectContaining({
+        supplierId: "supplier-1",
+        status: "DELIVERED",
+        externalReference: undefined,
+        channel: "PHONE",
+        orderDate: 456,
+        dueDate: 500,
+        globalDiscountType: "AMOUNT",
+        globalDiscountValue: 5,
+        totalAmount: 40,
+      })
+    )
     expect(ctx.db.delete).toHaveBeenCalledWith("item-1")
     expect(ctx.db.insert).toHaveBeenCalledWith(
       "procurementItems",
-      expect.objectContaining({ pharmacyId: "pharmacy-1", orderId: "order-1", quantity: 1 })
+      expect.objectContaining({
+        pharmacyId: "pharmacy-1",
+        orderId: "order-1",
+        quantity: 1,
+        lineDiscountType: "PERCENT",
+        lineDiscountValue: 10,
+        lineTotal: 45,
+      })
     )
   })
 

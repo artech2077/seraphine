@@ -48,16 +48,21 @@ describe("usePurchaseOrders", () => {
         channel: "EMAIL",
         createdAt,
         orderDate: createdAt,
+        dueDate: createdAt,
         totalAmount: 150,
         status: "ORDERED",
         type: "PURCHASE_ORDER",
         externalReference: null,
+        globalDiscountType: "PERCENT",
+        globalDiscountValue: 5,
         items: [
           {
             id: "item-1",
             productName: "Produit A",
             quantity: 2,
             unitPrice: 50,
+            lineDiscountType: "AMOUNT",
+            lineDiscountValue: 10,
           },
         ],
       },
@@ -75,6 +80,15 @@ describe("usePurchaseOrders", () => {
         channel: "Email",
         status: "Commandé",
         total: 150,
+        dueDate: "2026-01-01",
+        globalDiscountType: "percent",
+        globalDiscountValue: 5,
+      })
+    )
+    expect(result.current.orders[0]?.items[0]).toEqual(
+      expect.objectContaining({
+        lineDiscountType: "amount",
+        lineDiscountValue: 10,
       })
     )
   })
@@ -98,9 +112,24 @@ describe("usePurchaseOrders", () => {
       channel: "Email",
       status: "Commandé",
       orderDate: "2026-01-02",
+      dueDate: "2026-01-10",
+      globalDiscountType: "percent",
+      globalDiscountValue: 10,
       items: [
-        { productId: "prod-1", quantity: 2, unitPrice: 50 },
-        { productId: "prod-2", quantity: 1, unitPrice: 30 },
+        {
+          productId: "prod-1",
+          quantity: 2,
+          unitPrice: 50,
+          lineDiscountType: "amount",
+          lineDiscountValue: 10,
+        },
+        {
+          productId: "prod-2",
+          quantity: 1,
+          unitPrice: 30,
+          lineDiscountType: "percent",
+          lineDiscountValue: 5,
+        },
       ],
     })
 
@@ -111,10 +140,25 @@ describe("usePurchaseOrders", () => {
       status: "ORDERED",
       channel: "EMAIL",
       orderDate: Date.parse("2026-01-02"),
-      totalAmount: 130,
+      dueDate: Date.parse("2026-01-10"),
+      globalDiscountType: "PERCENT",
+      globalDiscountValue: 10,
+      totalAmount: 106.65,
       items: [
-        { productId: "prod-1", quantity: 2, unitPrice: 50 },
-        { productId: "prod-2", quantity: 1, unitPrice: 30 },
+        {
+          productId: "prod-1",
+          quantity: 2,
+          unitPrice: 50,
+          lineDiscountType: "AMOUNT",
+          lineDiscountValue: 10,
+        },
+        {
+          productId: "prod-2",
+          quantity: 1,
+          unitPrice: 30,
+          lineDiscountType: "PERCENT",
+          lineDiscountValue: 5,
+        },
       ],
     })
   })
@@ -188,10 +232,13 @@ describe("useDeliveryNotes", () => {
         channel: "PHONE",
         createdAt: 1700000000000,
         orderDate: 1700000000000,
+        dueDate: 1700000000000,
         totalAmount: 99,
         status: "ORDERED",
         type: "DELIVERY_NOTE",
         externalReference: null,
+        globalDiscountType: "AMOUNT",
+        globalDiscountValue: 12,
         items: [],
       },
     ]
@@ -208,6 +255,9 @@ describe("useDeliveryNotes", () => {
         channel: "Téléphone",
         status: "En cours",
         externalReference: "-",
+        dueDate: "2023-11-14",
+        globalDiscountType: "amount",
+        globalDiscountValue: 12,
       })
     )
   })
@@ -231,8 +281,11 @@ describe("useDeliveryNotes", () => {
       channel: "Téléphone",
       status: "En cours",
       orderDate: "2026-02-01",
+      dueDate: "2026-02-15",
+      globalDiscountType: "amount",
+      globalDiscountValue: 5,
       externalReference: "BL-42",
-      items: [{ productId: "prod-3", quantity: 1, unitPrice: 20 }],
+      items: [{ productId: "prod-3", quantity: 1, unitPrice: 20, lineDiscountValue: 0 }],
     })
 
     expect(createNote).toHaveBeenCalledWith({
@@ -242,9 +295,20 @@ describe("useDeliveryNotes", () => {
       status: "ORDERED",
       channel: "PHONE",
       orderDate: Date.parse("2026-02-01"),
-      totalAmount: 20,
+      dueDate: Date.parse("2026-02-15"),
+      globalDiscountType: "AMOUNT",
+      globalDiscountValue: 5,
+      totalAmount: 15,
       externalReference: "BL-42",
-      items: [{ productId: "prod-3", quantity: 1, unitPrice: 20 }],
+      items: [
+        {
+          productId: "prod-3",
+          quantity: 1,
+          unitPrice: 20,
+          lineDiscountType: "PERCENT",
+          lineDiscountValue: 0,
+        },
+      ],
     })
   })
 

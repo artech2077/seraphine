@@ -3,6 +3,8 @@ export type ProcurementLineItem = {
   product: string
   quantity: number
   unitPrice: number
+  lineDiscountType?: "percent" | "amount"
+  lineDiscountValue?: number
 }
 
 export type PurchaseOrderStatus = "Brouillon" | "Commandé" | "Livré"
@@ -15,8 +17,11 @@ export type PurchaseOrder = {
   channel: string
   createdAt: string
   orderDate: string
+  dueDate?: string
   total: number
   status: PurchaseOrderStatus
+  globalDiscountType?: "percent" | "amount"
+  globalDiscountValue?: number
   items: ProcurementLineItem[]
 }
 
@@ -27,9 +32,12 @@ export type DeliveryNote = {
   channel: string
   createdAt: string
   orderDate: string
+  dueDate?: string
   externalReference: string
   total: number
   status: DeliveryNoteStatus
+  globalDiscountType?: "percent" | "amount"
+  globalDiscountValue?: number
   items: ProcurementLineItem[]
 }
 

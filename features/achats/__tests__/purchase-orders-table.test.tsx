@@ -19,7 +19,6 @@ describe("PurchaseOrdersTable", () => {
             id: "order-2",
             orderNumber: "BC-02",
             supplier: "Beta",
-            channel: "Email",
             createdAt: "2026-01-02",
             orderDate: "2026-01-02",
             total: 400,
@@ -30,7 +29,6 @@ describe("PurchaseOrdersTable", () => {
             id: "order-1",
             orderNumber: "BC-01",
             supplier: "Alpha",
-            channel: "Email",
             createdAt: "2026-01-01",
             orderDate: "2026-01-01",
             total: 100,
@@ -42,6 +40,11 @@ describe("PurchaseOrdersTable", () => {
         products={[]}
       />
     )
+
+    expect(screen.getByText("Date du bon")).toBeInTheDocument()
+    expect(screen.queryByText("Date d'échéance")).not.toBeInTheDocument()
+    expect(screen.queryByText("Canal")).not.toBeInTheDocument()
+    expect(screen.getByText("Statut")).toBeInTheDocument()
 
     const sortButton = screen.getByRole("button", { name: "Trier par Total" })
     await user.click(sortButton)

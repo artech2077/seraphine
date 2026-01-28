@@ -22,6 +22,7 @@ describe("DeliveryNotesTable", () => {
             channel: "Portail",
             createdAt: "2026-01-02",
             orderDate: "2026-01-02",
+            dueDate: "2026-01-06",
             externalReference: "REF-2",
             total: 300,
             status: "En cours",
@@ -34,6 +35,7 @@ describe("DeliveryNotesTable", () => {
             channel: "Portail",
             createdAt: "2026-01-01",
             orderDate: "2026-01-01",
+            dueDate: "2026-01-04",
             externalReference: "REF-1",
             total: 100,
             status: "Brouillon",
@@ -44,6 +46,9 @@ describe("DeliveryNotesTable", () => {
         products={[]}
       />
     )
+
+    expect(screen.getByText("Date d'échéance")).toBeInTheDocument()
+    expect(screen.getByText("06/01/2026")).toBeInTheDocument()
 
     const sortButton = screen.getByRole("button", { name: "Trier par Réf livraison" })
     await user.click(sortButton)
