@@ -12,6 +12,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
+import { useHydrated } from "@/hooks/use-hydrated"
 import { usePrefetchRouteData } from "@/hooks/use-prefetch-route-data"
 import { mainNavItems, utilityNavItems } from "@/lib/constants/navigation"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
@@ -23,6 +24,7 @@ type SearchCommandProps = {
 
 export function SearchCommand({ open, onOpenChange }: SearchCommandProps) {
   const router = useRouter()
+  const hydrated = useHydrated()
   const { canView, canManageSettings } = useRoleAccess()
   const prefetchRoute = usePrefetchRouteData()
 
@@ -44,6 +46,10 @@ export function SearchCommand({ open, onOpenChange }: SearchCommandProps) {
       return true
     })
   }, [canManageSettings, canView])
+
+  if (!hydrated) {
+    return null
+  }
 
   return (
     <CommandDialog
