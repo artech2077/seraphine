@@ -9,7 +9,11 @@ import { FilterMultiSelect } from "@/components/filters/filter-multi-select"
 import { FiltersBar } from "@/components/filters/filters-bar"
 import { useInventoryItems } from "@/features/inventaire/api"
 import { InventoryProductModal } from "@/features/inventaire/inventory-product-modal"
-import { InventoryTable, type InventoryItem } from "@/features/inventaire/inventory-table"
+import {
+  InventoryTable,
+  InventoryTableSkeleton,
+  type InventoryItem,
+} from "@/features/inventaire/inventory-table"
 import { PageShell } from "@/components/layout/page-shell"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -182,6 +186,7 @@ export function InventoryPage() {
 
   const isFirstPage = currentPage <= 1
   const isLastPage = currentPage >= totalPages
+  const showSkeleton = isLoading && items.length === 0
 
   return (
     <PageShell
@@ -324,25 +329,29 @@ export function InventoryPage() {
           />
         }
       >
-        <InventoryTable
-          items={items}
-          onUpdate={async (item, values) => {
-            try {
-              await updateProduct(item, values)
-              toast.success("Produit mis à jour.")
-            } catch {
-              toast.error("Impossible de mettre à jour le produit.")
-            }
-          }}
-          onDelete={async (item) => {
-            try {
-              await removeProduct(item)
-              toast.success("Produit supprimé.")
-            } catch {
-              toast.error("Impossible de supprimer le produit.")
-            }
-          }}
-        />
+        {showSkeleton ? (
+          <InventoryTableSkeleton rows={pageSize} />
+        ) : (
+          <InventoryTable
+            items={items}
+            onUpdate={async (item, values) => {
+              try {
+                await updateProduct(item, values)
+                toast.success("Produit mis à jour.")
+              } catch {
+                toast.error("Impossible de mettre à jour le produit.")
+              }
+            }}
+            onDelete={async (item) => {
+              try {
+                await removeProduct(item)
+                toast.success("Produit supprimé.")
+              } catch {
+                toast.error("Impossible de supprimer le produit.")
+              }
+            }}
+          />
+        )}
       </DataTable>
     </PageShell>
   )

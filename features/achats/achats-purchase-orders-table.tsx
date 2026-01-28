@@ -20,6 +20,7 @@ import {
   TableRow,
   SortableTableHead,
 } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,6 +80,63 @@ function getStatusVariant(status: PurchaseOrderStatus) {
     default:
       return "default"
   }
+}
+
+type PurchaseOrdersTableHeaderProps = {
+  activeSortKey?: PurchaseOrdersSortKey
+  sortState?: "default" | "asc" | "desc"
+  onSort?: (key: PurchaseOrdersSortKey) => void
+}
+
+function PurchaseOrdersTableHeader({
+  activeSortKey,
+  sortState = "default",
+  onSort,
+}: PurchaseOrdersTableHeaderProps) {
+  return (
+    <TableHeader>
+      <TableRow>
+        <SortableTableHead label="ID" sortable={false} />
+        <SortableTableHead
+          label="Fournisseur"
+          sortKey="supplier"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("supplier")}
+        />
+        <SortableTableHead
+          label="Date de création"
+          sortKey="createdAt"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("createdAt")}
+        />
+        <SortableTableHead
+          label="Date du bon"
+          sortKey="orderDate"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("orderDate")}
+        />
+        <SortableTableHead
+          label="Total"
+          align="right"
+          sortKey="total"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("total")}
+        />
+        <SortableTableHead
+          label="Statut"
+          sortKey="status"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("status")}
+        />
+        <SortableTableHead label="Actions" align="right" sortable={false} hideLabel />
+      </TableRow>
+    </TableHeader>
+  )
 }
 
 export function PurchaseOrdersTable({
@@ -196,48 +254,11 @@ export function PurchaseOrdersTable({
   return (
     <>
       <Table>
-        <TableHeader>
-          <TableRow>
-            <SortableTableHead label="ID" sortable={false} />
-            <SortableTableHead
-              label="Fournisseur"
-              sortKey="supplier"
-              activeSortKey={sortKey ?? undefined}
-              sortState={sortState}
-              onSort={() => handleSort("supplier")}
-            />
-            <SortableTableHead
-              label="Date de création"
-              sortKey="createdAt"
-              activeSortKey={sortKey ?? undefined}
-              sortState={sortState}
-              onSort={() => handleSort("createdAt")}
-            />
-            <SortableTableHead
-              label="Date du bon"
-              sortKey="orderDate"
-              activeSortKey={sortKey ?? undefined}
-              sortState={sortState}
-              onSort={() => handleSort("orderDate")}
-            />
-            <SortableTableHead
-              label="Total"
-              align="right"
-              sortKey="total"
-              activeSortKey={sortKey ?? undefined}
-              sortState={sortState}
-              onSort={() => handleSort("total")}
-            />
-            <SortableTableHead
-              label="Statut"
-              sortKey="status"
-              activeSortKey={sortKey ?? undefined}
-              sortState={sortState}
-              onSort={() => handleSort("status")}
-            />
-            <SortableTableHead label="Actions" align="right" sortable={false} hideLabel />
-          </TableRow>
-        </TableHeader>
+        <PurchaseOrdersTableHeader
+          activeSortKey={sortKey ?? undefined}
+          sortState={sortState}
+          onSort={handleSort}
+        />
         <TableBody>
           {visibleOrders.map((order) => (
             <TableRow key={order.id}>
@@ -319,5 +340,40 @@ export function PurchaseOrdersTable({
         onSubmit={handleUpdate}
       />
     </>
+  )
+}
+
+export function PurchaseOrdersTableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <Table>
+      <PurchaseOrdersTableHeader />
+      <TableBody>
+        {Array.from({ length: rows }).map((_, index) => (
+          <TableRow key={`purchase-orders-skeleton-${index}`}>
+            <TableCell>
+              <Skeleton className="h-4 w-16" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-32" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-24" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-24" />
+            </TableCell>
+            <TableCell className="text-right">
+              <Skeleton className="ml-auto h-4 w-16" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-20" />
+            </TableCell>
+            <TableCell className="text-right">
+              <Skeleton className="ml-auto h-8 w-8" />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   )
 }

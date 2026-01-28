@@ -8,7 +8,10 @@ import { DataTable } from "@/components/tables/data-table"
 import { DataTableFooter } from "@/components/tables/data-table-footer"
 import { DatePickerField } from "@/components/forms/date-picker-field"
 import { FiltersBar } from "@/components/filters/filters-bar"
-import { ReconciliationHistoryTable } from "@/features/reconciliation/reconciliation-history-table"
+import {
+  ReconciliationHistoryTable,
+  ReconciliationHistoryTableSkeleton,
+} from "@/features/reconciliation/reconciliation-history-table"
 import { useReconciliationHistory } from "@/features/reconciliation/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -93,6 +96,7 @@ export function ReconciliationHistoryPanel() {
   }
 
   const pageItems = buildPageItems()
+  const showSkeleton = isLoading && items.length === 0
 
   async function handleExport() {
     const exported = await exportHistory()
@@ -241,7 +245,11 @@ export function ReconciliationHistoryPanel() {
         />
       }
     >
-      <ReconciliationHistoryTable items={items} />
+      {showSkeleton ? (
+        <ReconciliationHistoryTableSkeleton rows={PAGE_SIZE} />
+      ) : (
+        <ReconciliationHistoryTable items={items} />
+      )}
     </DataTable>
   )
 }

@@ -11,7 +11,12 @@ import { PageShell } from "@/components/layout/page-shell"
 import { useClients } from "@/features/clients/api"
 import { ClientModal } from "@/features/clients/client-modal"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
-import { ClientsTable, type Client, type ClientStatus } from "@/features/clients/clients-table"
+import {
+  ClientsTable,
+  ClientsTableSkeleton,
+  type Client,
+  type ClientStatus,
+} from "@/features/clients/clients-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -174,6 +179,7 @@ export function ClientsPage() {
 
   const isFirstPage = currentPage <= 1
   const isLastPage = currentPage >= totalPages
+  const showSkeleton = isLoading && items.length === 0
 
   return (
     <PageShell
@@ -298,7 +304,11 @@ export function ClientsPage() {
           />
         }
       >
-        <ClientsTable items={items} onUpdate={updateClient} onDelete={removeClient} />
+        {showSkeleton ? (
+          <ClientsTableSkeleton rows={pageSize} />
+        ) : (
+          <ClientsTable items={items} onUpdate={updateClient} onDelete={removeClient} />
+        )}
       </DataTable>
     </PageShell>
   )

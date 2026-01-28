@@ -13,7 +13,10 @@ import { FilterMultiSelect } from "@/components/filters/filter-multi-select"
 import { FiltersBar } from "@/components/filters/filters-bar"
 import type { ProcurementFormValues } from "@/features/achats/api"
 import { useDeliveryNotes } from "@/features/achats/api"
-import { DeliveryNotesTable } from "@/features/achats/achats-delivery-notes-table"
+import {
+  DeliveryNotesTable,
+  DeliveryNotesTableSkeleton,
+} from "@/features/achats/achats-delivery-notes-table"
 import { DELIVERY_STATUS_OPTIONS, type DeliveryNote } from "@/features/achats/procurement-data"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -173,6 +176,7 @@ export function DeliveryNotesPanel({ suppliers, products }: DeliveryNotesPanelPr
   const pageItems = buildPageItems(currentPage, totalPages)
   const isFirstPage = currentPage <= 1
   const isLastPage = currentPage >= totalPages
+  const showSkeleton = isLoading && notes.length === 0
 
   function handlePageChange(nextPage: number) {
     setCurrentPage(Math.min(Math.max(nextPage, 1), totalPages))
@@ -336,13 +340,17 @@ export function DeliveryNotesPanel({ suppliers, products }: DeliveryNotesPanelPr
         />
       }
     >
-      <DeliveryNotesTable
-        notes={notes}
-        suppliers={suppliers}
-        products={products}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
-      />
+      {showSkeleton ? (
+        <DeliveryNotesTableSkeleton rows={PAGE_SIZE} />
+      ) : (
+        <DeliveryNotesTable
+          notes={notes}
+          suppliers={suppliers}
+          products={products}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+        />
+      )}
     </DataTable>
   )
 }

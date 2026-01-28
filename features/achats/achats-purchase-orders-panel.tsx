@@ -13,7 +13,10 @@ import { FilterMultiSelect } from "@/components/filters/filter-multi-select"
 import { FiltersBar } from "@/components/filters/filters-bar"
 import type { ProcurementFormValues } from "@/features/achats/api"
 import { usePurchaseOrders } from "@/features/achats/api"
-import { PurchaseOrdersTable } from "@/features/achats/achats-purchase-orders-table"
+import {
+  PurchaseOrdersTable,
+  PurchaseOrdersTableSkeleton,
+} from "@/features/achats/achats-purchase-orders-table"
 import { PURCHASE_STATUS_OPTIONS, type PurchaseOrder } from "@/features/achats/procurement-data"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -152,6 +155,7 @@ export function PurchaseOrdersPanel({ suppliers, products }: PurchaseOrdersPanel
   const pageItems = buildPageItems(currentPage, totalPages)
   const isFirstPage = currentPage <= 1
   const isLastPage = currentPage >= totalPages
+  const showSkeleton = isLoading && orders.length === 0
 
   function handlePageChange(nextPage: number) {
     setCurrentPage(Math.min(Math.max(nextPage, 1), totalPages))
@@ -304,13 +308,17 @@ export function PurchaseOrdersPanel({ suppliers, products }: PurchaseOrdersPanel
         />
       }
     >
-      <PurchaseOrdersTable
-        orders={orders}
-        suppliers={suppliers}
-        products={products}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
-      />
+      {showSkeleton ? (
+        <PurchaseOrdersTableSkeleton rows={PAGE_SIZE} />
+      ) : (
+        <PurchaseOrdersTable
+          orders={orders}
+          suppliers={suppliers}
+          products={products}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+        />
+      )}
     </DataTable>
   )
 }

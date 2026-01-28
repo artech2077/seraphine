@@ -13,7 +13,11 @@ import { FilterMultiSelect } from "@/components/filters/filter-multi-select"
 import { FilterToggle } from "@/components/filters/filter-toggle"
 import { FiltersBar } from "@/components/filters/filters-bar"
 import { useSalesHistory } from "@/features/ventes/api"
-import { SalesHistoryTable, type SaleHistoryItem } from "@/features/ventes/sales-history-table"
+import {
+  SalesHistoryTable,
+  SalesHistoryTableSkeleton,
+  type SaleHistoryItem,
+} from "@/features/ventes/sales-history-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -113,6 +117,7 @@ export function SalesHistoryPanel({ onEdit }: { onEdit?: (sale: SaleHistoryItem)
 
   const isFirstPage = currentPage <= 1
   const isLastPage = currentPage >= totalPages
+  const showSkeleton = isLoading && sales.length === 0
 
   function handlePageChange(nextPage: number) {
     setCurrentPage(Math.min(Math.max(nextPage, 1), totalPages))
@@ -293,7 +298,11 @@ export function SalesHistoryPanel({ onEdit }: { onEdit?: (sale: SaleHistoryItem)
         />
       }
     >
-      <SalesHistoryTable sales={sales} onEdit={onEdit} onDelete={handleDelete} />
+      {showSkeleton ? (
+        <SalesHistoryTableSkeleton rows={pageSize} />
+      ) : (
+        <SalesHistoryTable sales={sales} onEdit={onEdit} onDelete={handleDelete} />
+      )}
     </DataTable>
   )
 }

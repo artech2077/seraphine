@@ -36,6 +36,7 @@ import {
   TableRow,
   SortableTableHead,
 } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { Download, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
@@ -82,6 +83,97 @@ const paymentVariants = {
   React.ComponentProps<typeof Badge>["variant"]
 >
 
+type SalesSortKey =
+  | "id"
+  | "date"
+  | "client"
+  | "seller"
+  | "itemsCount"
+  | "globalDiscount"
+  | "amountTtc"
+  | "paymentMethod"
+
+type LineItemSortKey = "product" | "quantity" | "unitPriceHt" | "vatRate" | "discount" | "totalTtc"
+
+type SalesHistoryTableHeaderProps = {
+  activeSortKey?: SalesSortKey
+  sortState?: "default" | "asc" | "desc"
+  onSort?: (key: SalesSortKey) => void
+}
+
+function SalesHistoryTableHeader({
+  activeSortKey,
+  sortState = "default",
+  onSort,
+}: SalesHistoryTableHeaderProps) {
+  return (
+    <TableHeader>
+      <TableRow>
+        <SortableTableHead label="Details" hideLabel className="w-10" sortable={false} />
+        <SortableTableHead
+          label="ID vente"
+          sortKey="id"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("id")}
+        />
+        <SortableTableHead
+          label="Date"
+          sortKey="date"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("date")}
+        />
+        <SortableTableHead
+          label="Client"
+          sortKey="client"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("client")}
+        />
+        <SortableTableHead
+          label="Vendeur"
+          sortKey="seller"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("seller")}
+        />
+        <SortableTableHead
+          label="Produits"
+          align="right"
+          sortKey="itemsCount"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("itemsCount")}
+        />
+        <SortableTableHead
+          label="Remise"
+          sortKey="globalDiscount"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("globalDiscount")}
+        />
+        <SortableTableHead
+          label="Montant"
+          align="right"
+          sortKey="amountTtc"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("amountTtc")}
+        />
+        <SortableTableHead
+          label="Paiement"
+          sortKey="paymentMethod"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("paymentMethod")}
+        />
+        <SortableTableHead label="Actions" align="right" sortable={false} hideLabel />
+      </TableRow>
+    </TableHeader>
+  )
+}
+
 function formatCurrency(value: number) {
   return currencyFormatter.format(value)
 }
@@ -108,22 +200,6 @@ export function SalesHistoryTable({
   const { canManage } = useRoleAccess()
   const canManageSales = canManage("ventes")
   type SortState = "default" | "asc" | "desc"
-  type SalesSortKey =
-    | "id"
-    | "date"
-    | "client"
-    | "seller"
-    | "itemsCount"
-    | "globalDiscount"
-    | "amountTtc"
-    | "paymentMethod"
-  type LineItemSortKey =
-    | "product"
-    | "quantity"
-    | "unitPriceHt"
-    | "vatRate"
-    | "discount"
-    | "totalTtc"
 
   const [sortKey, setSortKey] = React.useState<SalesSortKey | null>(null)
   const [sortState, setSortState] = React.useState<SortState>("default")
@@ -297,70 +373,11 @@ export function SalesHistoryTable({
   return (
     <>
       <ExpandableTable>
-        <TableHeader>
-          <TableRow>
-            <SortableTableHead label="Details" hideLabel className="w-10" sortable={false} />
-            <SortableTableHead
-              label="ID vente"
-              sortKey="id"
-              activeSortKey={sortKey ?? undefined}
-              sortState={sortState}
-              onSort={() => handleSort("id")}
-            />
-            <SortableTableHead
-              label="Date"
-              sortKey="date"
-              activeSortKey={sortKey ?? undefined}
-              sortState={sortState}
-              onSort={() => handleSort("date")}
-            />
-            <SortableTableHead
-              label="Client"
-              sortKey="client"
-              activeSortKey={sortKey ?? undefined}
-              sortState={sortState}
-              onSort={() => handleSort("client")}
-            />
-            <SortableTableHead
-              label="Vendeur"
-              sortKey="seller"
-              activeSortKey={sortKey ?? undefined}
-              sortState={sortState}
-              onSort={() => handleSort("seller")}
-            />
-            <SortableTableHead
-              label="Produits"
-              align="right"
-              sortKey="itemsCount"
-              activeSortKey={sortKey ?? undefined}
-              sortState={sortState}
-              onSort={() => handleSort("itemsCount")}
-            />
-            <SortableTableHead
-              label="Remise"
-              sortKey="globalDiscount"
-              activeSortKey={sortKey ?? undefined}
-              sortState={sortState}
-              onSort={() => handleSort("globalDiscount")}
-            />
-            <SortableTableHead
-              label="Montant"
-              align="right"
-              sortKey="amountTtc"
-              activeSortKey={sortKey ?? undefined}
-              sortState={sortState}
-              onSort={() => handleSort("amountTtc")}
-            />
-            <SortableTableHead
-              label="Paiement"
-              sortKey="paymentMethod"
-              activeSortKey={sortKey ?? undefined}
-              sortState={sortState}
-              onSort={() => handleSort("paymentMethod")}
-            />
-            <SortableTableHead label="Actions" align="right" sortable={false} hideLabel />
-          </TableRow>
-        </TableHeader>
+        <SalesHistoryTableHeader
+          activeSortKey={sortKey ?? undefined}
+          sortState={sortState}
+          onSort={handleSort}
+        />
         {paginatedSales.map((sale, index) => {
           const itemsCount = getItemsCount(sale)
           return (
@@ -519,5 +536,49 @@ export function SalesHistoryTable({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  )
+}
+
+export function SalesHistoryTableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <ExpandableTable>
+      <SalesHistoryTableHeader />
+      <TableBody>
+        {Array.from({ length: rows }).map((_, index) => (
+          <TableRow key={`sales-history-skeleton-${index}`}>
+            <TableCell>
+              <Skeleton className="h-4 w-6" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-20" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-20" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-28" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-24" />
+            </TableCell>
+            <TableCell className="text-right">
+              <Skeleton className="ml-auto h-4 w-8" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-16" />
+            </TableCell>
+            <TableCell className="text-right">
+              <Skeleton className="ml-auto h-4 w-16" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-20" />
+            </TableCell>
+            <TableCell className="text-right">
+              <Skeleton className="ml-auto h-8 w-8" />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </ExpandableTable>
   )
 }

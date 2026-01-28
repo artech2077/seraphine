@@ -11,7 +11,11 @@ import { PageShell } from "@/components/layout/page-shell"
 import { useSuppliers } from "@/features/fournisseurs/api"
 import { SupplierModal } from "@/features/fournisseurs/supplier-modal"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
-import { SuppliersTable, type Supplier } from "@/features/fournisseurs/suppliers-table"
+import {
+  SuppliersTable,
+  SuppliersTableSkeleton,
+  type Supplier,
+} from "@/features/fournisseurs/suppliers-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -144,6 +148,7 @@ export function SuppliersPage() {
 
   const isFirstPage = currentPage <= 1
   const isLastPage = currentPage >= totalPages
+  const showSkeleton = isLoading && items.length === 0
 
   return (
     <PageShell
@@ -264,7 +269,11 @@ export function SuppliersPage() {
           />
         }
       >
-        <SuppliersTable items={items} onUpdate={updateSupplier} onDelete={removeSupplier} />
+        {showSkeleton ? (
+          <SuppliersTableSkeleton rows={pageSize} />
+        ) : (
+          <SuppliersTable items={items} onUpdate={updateSupplier} onDelete={removeSupplier} />
+        )}
       </DataTable>
     </PageShell>
   )

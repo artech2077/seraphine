@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
 
 export type ReconciliationHistoryItem = {
@@ -80,6 +81,72 @@ function getStatusVariant(status: ReconciliationStatus) {
     default:
       return "secondary"
   }
+}
+
+type ReconciliationHistoryTableHeaderProps = {
+  activeSortKey?: ReconciliationSortKey
+  sortState?: "default" | "asc" | "desc"
+  onSort?: (key: ReconciliationSortKey) => void
+}
+
+function ReconciliationHistoryTableHeader({
+  activeSortKey,
+  sortState = "default",
+  onSort,
+}: ReconciliationHistoryTableHeaderProps) {
+  return (
+    <TableHeader>
+      <TableRow>
+        <SortableTableHead
+          label="Date"
+          sortKey="date"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("date")}
+        />
+        <SortableTableHead
+          label="Ouverture"
+          align="right"
+          sortKey="opening"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("opening")}
+        />
+        <SortableTableHead
+          label="Attendu"
+          align="right"
+          sortKey="expected"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("expected")}
+        />
+        <SortableTableHead
+          label="Compté"
+          align="right"
+          sortKey="counted"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("counted")}
+        />
+        <SortableTableHead
+          label="Écart"
+          align="right"
+          sortKey="difference"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("difference")}
+        />
+        <SortableTableHead
+          label="Statut"
+          sortKey="status"
+          activeSortKey={activeSortKey}
+          sortState={sortState}
+          onSort={() => onSort?.("status")}
+        />
+        <SortableTableHead label="Actions" sortable={false} hideLabel align="right" />
+      </TableRow>
+    </TableHeader>
+  )
 }
 
 export function ReconciliationHistoryTable({ items }: { items: ReconciliationHistoryItem[] }) {
@@ -142,57 +209,11 @@ export function ReconciliationHistoryTable({ items }: { items: ReconciliationHis
 
   return (
     <Table>
-      <TableHeader>
-        <TableRow>
-          <SortableTableHead
-            label="Date"
-            sortKey="date"
-            activeSortKey={sortKey ?? undefined}
-            sortState={sortState}
-            onSort={() => handleSort("date")}
-          />
-          <SortableTableHead
-            label="Ouverture"
-            align="right"
-            sortKey="opening"
-            activeSortKey={sortKey ?? undefined}
-            sortState={sortState}
-            onSort={() => handleSort("opening")}
-          />
-          <SortableTableHead
-            label="Attendu"
-            align="right"
-            sortKey="expected"
-            activeSortKey={sortKey ?? undefined}
-            sortState={sortState}
-            onSort={() => handleSort("expected")}
-          />
-          <SortableTableHead
-            label="Compté"
-            align="right"
-            sortKey="counted"
-            activeSortKey={sortKey ?? undefined}
-            sortState={sortState}
-            onSort={() => handleSort("counted")}
-          />
-          <SortableTableHead
-            label="Écart"
-            align="right"
-            sortKey="difference"
-            activeSortKey={sortKey ?? undefined}
-            sortState={sortState}
-            onSort={() => handleSort("difference")}
-          />
-          <SortableTableHead
-            label="Statut"
-            sortKey="status"
-            activeSortKey={sortKey ?? undefined}
-            sortState={sortState}
-            onSort={() => handleSort("status")}
-          />
-          <SortableTableHead label="Actions" sortable={false} hideLabel align="right" />
-        </TableRow>
-      </TableHeader>
+      <ReconciliationHistoryTableHeader
+        activeSortKey={sortKey ?? undefined}
+        sortState={sortState}
+        onSort={handleSort}
+      />
       <TableBody>
         {sortedItems.map((item) => {
           const difference = item.counted - item.expected
@@ -237,6 +258,41 @@ export function ReconciliationHistoryTable({ items }: { items: ReconciliationHis
             </TableRow>
           )
         })}
+      </TableBody>
+    </Table>
+  )
+}
+
+export function ReconciliationHistoryTableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <Table>
+      <ReconciliationHistoryTableHeader />
+      <TableBody>
+        {Array.from({ length: rows }).map((_, index) => (
+          <TableRow key={`reconciliation-history-skeleton-${index}`}>
+            <TableCell>
+              <Skeleton className="h-4 w-20" />
+            </TableCell>
+            <TableCell className="text-right">
+              <Skeleton className="ml-auto h-4 w-16" />
+            </TableCell>
+            <TableCell className="text-right">
+              <Skeleton className="ml-auto h-4 w-16" />
+            </TableCell>
+            <TableCell className="text-right">
+              <Skeleton className="ml-auto h-4 w-16" />
+            </TableCell>
+            <TableCell className="text-right">
+              <Skeleton className="ml-auto h-4 w-16" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-20" />
+            </TableCell>
+            <TableCell className="text-right">
+              <Skeleton className="ml-auto h-8 w-8" />
+            </TableCell>
+          </TableRow>
+        ))}
       </TableBody>
     </Table>
   )
