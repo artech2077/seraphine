@@ -2,11 +2,12 @@
 
 import * as React from "react"
 import { useAuth } from "@clerk/nextjs"
-import { useConvex, useMutation, useQuery } from "convex/react"
+import { useConvex, useMutation } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import type { Supplier } from "@/features/fournisseurs/suppliers-table"
+import { useStableQuery } from "@/hooks/use-stable-query"
 
 export type SupplierFormValues = {
   name: string
@@ -100,17 +101,19 @@ export function useSuppliers(options?: SupplierListOptions) {
     [options?.filters?.balances, options?.filters?.cities, options?.filters?.names]
   )
 
-  const pagedResponse = useQuery(
+  const pagedResponseQuery = useStableQuery(
     api.suppliers.listByOrgPaginated,
     orgId && mode === "paged"
       ? { clerkOrgId: orgId, pagination: { page, pageSize }, filters: listFilters }
       : "skip"
-  ) as SuppliersListResponse | undefined
+  ) as { data: SuppliersListResponse | undefined; isLoading: boolean; isFetching: boolean }
+  const pagedResponse = pagedResponseQuery.data
 
-  const records = useQuery(
+  const recordsQuery = useStableQuery(
     api.suppliers.listByOrg,
     orgId && mode !== "paged" ? { clerkOrgId: orgId } : "skip"
-  ) as SupplierRecord[] | undefined
+  ) as { data: SupplierRecord[] | undefined; isLoading: boolean; isFetching: boolean }
+  const records = recordsQuery.data
 
   const items = React.useMemo(() => {
     const source = mode === "paged" ? pagedResponse?.items : records
@@ -223,7 +226,8 @@ export function useSuppliers(options?: SupplierListOptions) {
 
   return {
     items,
-    isLoading: mode === "paged" ? pagedResponse === undefined : records === undefined,
+    isLoading: mode === "paged" ? pagedResponseQuery.isLoading : recordsQuery.isLoading,
+    isFetching: mode === "paged" ? pagedResponseQuery.isFetching : recordsQuery.isFetching,
     totalCount,
     filterOptions,
     exportSuppliers,

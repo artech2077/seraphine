@@ -14,7 +14,9 @@ import { FilterToggle } from "@/components/filters/filter-toggle"
 import { FiltersBar } from "@/components/filters/filters-bar"
 import { useSalesHistory } from "@/features/ventes/api"
 import { SalesHistoryTable, type SaleHistoryItem } from "@/features/ventes/sales-history-table"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Pagination,
   PaginationContent,
@@ -66,6 +68,7 @@ export function SalesHistoryPanel({ onEdit }: { onEdit?: (sale: SaleHistoryItem)
   const {
     items: sales,
     isLoading,
+    isFetching,
     totalCount,
     filterOptions,
     removeSale,
@@ -210,6 +213,12 @@ export function SalesHistoryPanel({ onEdit }: { onEdit?: (sale: SaleHistoryItem)
             />
           </FiltersBar>
           <div className="ml-auto flex items-center gap-2">
+            {isFetching ? (
+              <Badge variant="secondary">
+                <Spinner className="size-3" />
+                Mise a jour
+              </Badge>
+            ) : null}
             <Button variant="outline" size="icon" aria-label="Imprimer">
               <Printer className="size-4" />
             </Button>

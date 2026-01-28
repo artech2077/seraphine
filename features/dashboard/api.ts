@@ -2,10 +2,10 @@
 
 import * as React from "react"
 import { useAuth } from "@clerk/nextjs"
-import { useQuery } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
 import type { DashboardData } from "@/features/dashboard/dashboard-page"
+import { useStableQuery } from "@/hooks/use-stable-query"
 
 const emptyData: DashboardData = {
   sales: { revenue: 0, transactions: 0, trend: 0 },
@@ -27,13 +27,19 @@ export function useDashboardData(now: number | null) {
   }, [])
 
   const hasNow = typeof now === "number"
-  const summary = useQuery(
+  const summaryQuery = useStableQuery(
     api.dashboard.getSummary,
     hydrated && orgId && hasNow ? { clerkOrgId: orgId, now } : "skip"
-  ) as Partial<DashboardData> | null | undefined
+  ) as {
+    data: Partial<DashboardData> | null | undefined
+    isLoading: boolean
+    isFetching: boolean
+  }
+  const summary = summaryQuery.data
 
   return {
     data: summary ? { ...emptyData, ...summary } : emptyData,
-    isLoading: !hydrated || !hasNow || summary === undefined,
+    isLoading: !hydrated || !hasNow || summaryQuery.isLoading,
+    isFetching: summaryQuery.isFetching,
   }
 }

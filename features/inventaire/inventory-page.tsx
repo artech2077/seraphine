@@ -12,6 +12,8 @@ import { InventoryProductModal } from "@/features/inventaire/inventory-product-m
 import { InventoryTable, type InventoryItem } from "@/features/inventaire/inventory-table"
 import { PageShell } from "@/components/layout/page-shell"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Spinner } from "@/components/ui/spinner"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
 import {
   Pagination,
@@ -105,6 +107,7 @@ export function InventoryPage() {
   const {
     items,
     isLoading,
+    isFetching,
     createProduct,
     updateProduct,
     removeProduct,
@@ -241,6 +244,12 @@ export function InventoryPage() {
               />
             </FiltersBar>
             <div className="ml-auto flex items-center gap-2">
+              {isFetching ? (
+                <Badge variant="secondary">
+                  <Spinner className="size-3" />
+                  Mise a jour
+                </Badge>
+              ) : null}
               <Button variant="outline" size="icon" onClick={handlePrint} aria-label="Imprimer">
                 <Printer className="size-4" />
               </Button>

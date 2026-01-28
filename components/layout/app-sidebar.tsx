@@ -3,8 +3,11 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { SearchIcon } from "lucide-react"
+import { useOrganization } from "@clerk/nextjs"
 
+import { SearchCommand } from "@/components/layout/search-command"
 import {
   Sidebar,
   SidebarContent,
@@ -14,11 +17,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { SearchCommand } from "@/components/layout/search-command"
-import { mainNavItems, utilityNavItems } from "@/lib/constants/navigation"
+import { usePrefetchRouteData } from "@/hooks/use-prefetch-route-data"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
-import { usePathname } from "next/navigation"
-import { useOrganization } from "@clerk/nextjs"
+import { mainNavItems, utilityNavItems } from "@/lib/constants/navigation"
 
 export function AppSidebar() {
   const pathname = usePathname()
@@ -26,6 +27,7 @@ export function AppSidebar() {
   const [hydrated, setHydrated] = React.useState(false)
   const { canView, canManageSettings } = useRoleAccess()
   const { organization } = useOrganization()
+  const prefetchRoute = usePrefetchRouteData()
   const orgName = organization?.name ?? "Votre pharmacie"
 
   React.useEffect(() => {
@@ -113,6 +115,8 @@ export function AppSidebar() {
                     tooltip={item.title}
                     className="pr-0"
                     render={renderLink(item.href)}
+                    onMouseEnter={() => prefetchRoute(item.href)}
+                    onFocus={() => prefetchRoute(item.href)}
                   >
                     <item.icon />
                     <span className="min-w-0 w-full whitespace-nowrap transition-all duration-300 ease-in-out group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden">
@@ -136,6 +140,8 @@ export function AppSidebar() {
                     tooltip={item.title}
                     className="pr-0"
                     render={renderLink(item.href)}
+                    onMouseEnter={() => prefetchRoute(item.href)}
+                    onFocus={() => prefetchRoute(item.href)}
                   >
                     <item.icon />
                     <span className="min-w-0 w-full whitespace-nowrap transition-all duration-300 ease-in-out group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:overflow-hidden">

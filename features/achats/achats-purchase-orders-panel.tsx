@@ -15,7 +15,9 @@ import type { ProcurementFormValues } from "@/features/achats/api"
 import { usePurchaseOrders } from "@/features/achats/api"
 import { PurchaseOrdersTable } from "@/features/achats/achats-purchase-orders-table"
 import { PURCHASE_STATUS_OPTIONS, type PurchaseOrder } from "@/features/achats/procurement-data"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Pagination,
   PaginationContent,
@@ -41,19 +43,10 @@ function buildPageItems(currentPage: number, totalPages: number) {
 }
 
 function toCsv(items: PurchaseOrder[]) {
-  const header = [
-    "ID",
-    "Fournisseur",
-    "Canal",
-    "Date de création",
-    "Date du bon",
-    "Total",
-    "Statut",
-  ]
+  const header = ["ID", "Fournisseur", "Date de création", "Date du bon", "Total", "Statut"]
   const rows = items.map((order) => [
     order.orderNumber,
     order.supplier,
-    order.channel,
     order.createdAt,
     order.orderDate,
     order.total,
@@ -121,20 +114,28 @@ export function PurchaseOrdersPanel({ suppliers, products }: PurchaseOrdersPanel
     [statusFilter]
   )
 
-  const { orders, isLoading, totalCount, filterOptions, exportOrders, updateOrder, removeOrder } =
-    usePurchaseOrders({
-      mode: "paged",
-      page: currentPage,
-      pageSize: PAGE_SIZE,
-      filters: {
-        supplierNames: supplierFilter,
-        statuses: statusValues,
-        orderFrom: orderDates.from,
-        orderTo: orderDates.to,
-        createdFrom: createdDates.from,
-        createdTo: createdDates.to,
-      },
-    })
+  const {
+    orders,
+    isLoading,
+    isFetching,
+    totalCount,
+    filterOptions,
+    exportOrders,
+    updateOrder,
+    removeOrder,
+  } = usePurchaseOrders({
+    mode: "paged",
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+    filters: {
+      supplierNames: supplierFilter,
+      statuses: statusValues,
+      orderFrom: orderDates.from,
+      orderTo: orderDates.to,
+      createdFrom: createdDates.from,
+      createdTo: createdDates.to,
+    },
+  })
 
   React.useEffect(() => {
     setCurrentPage(1)
@@ -224,6 +225,12 @@ export function PurchaseOrdersPanel({ suppliers, products }: PurchaseOrdersPanel
             />
           </FiltersBar>
           <div className="ml-auto flex items-center gap-2">
+            {isFetching ? (
+              <Badge variant="secondary">
+                <Spinner className="size-3" />
+                Mise a jour
+              </Badge>
+            ) : null}
             <Button variant="outline" size="icon" onClick={handlePrint} aria-label="Imprimer">
               <Printer className="size-4" />
             </Button>

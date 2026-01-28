@@ -12,7 +12,9 @@ import { useSuppliers } from "@/features/fournisseurs/api"
 import { SupplierModal } from "@/features/fournisseurs/supplier-modal"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { SuppliersTable, type Supplier } from "@/features/fournisseurs/suppliers-table"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Pagination,
   PaginationContent,
@@ -78,6 +80,7 @@ export function SuppliersPage() {
   const {
     items,
     isLoading,
+    isFetching,
     createSupplier,
     updateSupplier,
     removeSupplier,
@@ -181,6 +184,12 @@ export function SuppliersPage() {
               />
             </FiltersBar>
             <div className="ml-auto flex items-center gap-2">
+              {isFetching ? (
+                <Badge variant="secondary">
+                  <Spinner className="size-3" />
+                  Mise a jour
+                </Badge>
+              ) : null}
               <Button variant="outline" size="icon" onClick={handlePrint} aria-label="Imprimer">
                 <Printer className="size-4" />
               </Button>

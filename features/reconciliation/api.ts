@@ -2,11 +2,12 @@
 
 import * as React from "react"
 import { useAuth } from "@clerk/nextjs"
-import { useConvex, useMutation, useQuery } from "convex/react"
+import { useConvex, useMutation } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
 import type { ReconciliationDay } from "@/features/reconciliation/reconciliation-dashboard"
 import type { ReconciliationHistoryItem } from "@/features/reconciliation/reconciliation-history-table"
+import { useStableQuery } from "@/hooks/use-stable-query"
 
 type CashReconciliationRecord = {
   _id: string
@@ -95,9 +96,11 @@ function mapHistory(
 export function useReconciliationData() {
   const { orgId } = useAuth()
 
-  const records = useQuery(api.reconciliation.listByOrg, orgId ? { clerkOrgId: orgId } : "skip") as
-    | CashReconciliationRecord[]
-    | undefined
+  const recordsQuery = useStableQuery(
+    api.reconciliation.listByOrg,
+    orgId ? { clerkOrgId: orgId } : "skip"
+  ) as { data: CashReconciliationRecord[] | undefined; isLoading: boolean; isFetching: boolean }
+  const records = recordsQuery.data
 
   const upsertMutation = useMutation(api.reconciliation.upsertDay)
 
@@ -157,7 +160,8 @@ export function useReconciliationData() {
   return {
     days,
     history,
-    isLoading: records === undefined,
+    isLoading: recordsQuery.isLoading,
+    isFetching: recordsQuery.isFetching,
     upsertDay,
   }
 }
@@ -177,10 +181,11 @@ export function useReconciliationHistory(options?: ReconciliationListOptions) {
     [options?.filters?.from, options?.filters?.status, options?.filters?.to]
   )
 
-  const pagedResponse = useQuery(
+  const pagedResponseQuery = useStableQuery(
     api.reconciliation.listByOrgPaginated,
     orgId ? { clerkOrgId: orgId, pagination: { page, pageSize }, filters: listFilters } : "skip"
-  ) as ReconciliationListResponse | undefined
+  ) as { data: ReconciliationListResponse | undefined; isLoading: boolean; isFetching: boolean }
+  const pagedResponse = pagedResponseQuery.data
 
   const pagedItems = pagedResponse?.items
   const pagedFallbackNumbers = pagedResponse?.fallbackNumbers
@@ -206,7 +211,8 @@ export function useReconciliationHistory(options?: ReconciliationListOptions) {
 
   return {
     items,
-    isLoading: pagedResponse === undefined,
+    isLoading: pagedResponseQuery.isLoading,
+    isFetching: pagedResponseQuery.isFetching,
     totalCount: pagedResponse?.totalCount ?? 0,
     exportHistory,
   }

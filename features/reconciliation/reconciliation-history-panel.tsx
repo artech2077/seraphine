@@ -10,7 +10,9 @@ import { DatePickerField } from "@/components/forms/date-picker-field"
 import { FiltersBar } from "@/components/filters/filters-bar"
 import { ReconciliationHistoryTable } from "@/features/reconciliation/reconciliation-history-table"
 import { useReconciliationHistory } from "@/features/reconciliation/api"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Pagination,
   PaginationContent,
@@ -54,7 +56,7 @@ export function ReconciliationHistoryPanel() {
 
   const dateFilters = React.useMemo(() => normalizeDateRange(dateRange), [dateRange])
 
-  const { items, isLoading, totalCount, exportHistory } = useReconciliationHistory({
+  const { items, isLoading, isFetching, totalCount, exportHistory } = useReconciliationHistory({
     page: currentPage,
     pageSize: PAGE_SIZE,
     filters: {
@@ -160,6 +162,12 @@ export function ReconciliationHistoryPanel() {
             </Select>
           </FiltersBar>
           <div className="ml-auto flex items-center gap-2">
+            {isFetching ? (
+              <Badge variant="secondary">
+                <Spinner className="size-3" />
+                Mise a jour
+              </Badge>
+            ) : null}
             <Button variant="outline" size="icon" aria-label="Imprimer">
               <Printer className="size-4" />
             </Button>

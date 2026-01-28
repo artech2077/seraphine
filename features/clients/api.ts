@@ -2,11 +2,12 @@
 
 import * as React from "react"
 import { useAuth } from "@clerk/nextjs"
-import { useConvex, useMutation, useQuery } from "convex/react"
+import { useConvex, useMutation } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import type { Client, ClientStatus } from "@/features/clients/clients-table"
+import { useStableQuery } from "@/hooks/use-stable-query"
 
 export type ClientFormValues = {
   name: string
@@ -122,17 +123,19 @@ export function useClients(options?: ClientListOptions) {
     [options?.filters?.cities, options?.filters?.names, options?.filters?.statuses]
   )
 
-  const pagedResponse = useQuery(
+  const pagedResponseQuery = useStableQuery(
     api.clients.listByOrgPaginated,
     orgId && mode === "paged"
       ? { clerkOrgId: orgId, pagination: { page, pageSize }, filters: listFilters }
       : "skip"
-  ) as ClientsListResponse | undefined
+  ) as { data: ClientsListResponse | undefined; isLoading: boolean; isFetching: boolean }
+  const pagedResponse = pagedResponseQuery.data
 
-  const records = useQuery(
+  const recordsQuery = useStableQuery(
     api.clients.listByOrg,
     orgId && mode !== "paged" ? { clerkOrgId: orgId } : "skip"
-  ) as ClientRecord[] | undefined
+  ) as { data: ClientRecord[] | undefined; isLoading: boolean; isFetching: boolean }
+  const records = recordsQuery.data
 
   const items = React.useMemo(() => {
     const source = mode === "paged" ? pagedResponse?.items : records
@@ -247,7 +250,8 @@ export function useClients(options?: ClientListOptions) {
 
   return {
     items,
-    isLoading: mode === "paged" ? pagedResponse === undefined : records === undefined,
+    isLoading: mode === "paged" ? pagedResponseQuery.isLoading : recordsQuery.isLoading,
+    isFetching: mode === "paged" ? pagedResponseQuery.isFetching : recordsQuery.isFetching,
     totalCount,
     filterOptions,
     exportClients,

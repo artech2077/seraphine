@@ -2,11 +2,12 @@
 
 import * as React from "react"
 import { useAuth } from "@clerk/nextjs"
-import { useConvex, useMutation, useQuery } from "convex/react"
+import { useConvex, useMutation } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import type { SaleHistoryItem } from "@/features/ventes/sales-history-table"
+import { useStableQuery } from "@/hooks/use-stable-query"
 
 type SaleItemRecord = {
   _id: Id<"saleItems">
@@ -213,17 +214,19 @@ export function useSalesHistory(options?: SalesListOptions) {
     ]
   )
 
-  const pagedResponse = useQuery(
+  const pagedResponseQuery = useStableQuery(
     api.sales.listByOrgPaginated,
     orgId && mode === "paged"
       ? { clerkOrgId: orgId, pagination: { page, pageSize }, filters: listFilters }
       : "skip"
-  ) as SalesListResponse | undefined
+  ) as { data: SalesListResponse | undefined; isLoading: boolean; isFetching: boolean }
+  const pagedResponse = pagedResponseQuery.data
 
-  const records = useQuery(
+  const recordsQuery = useStableQuery(
     api.sales.listByOrg,
     orgId && mode === "all" ? { clerkOrgId: orgId } : "skip"
-  ) as SaleRecord[] | undefined
+  ) as { data: SaleRecord[] | undefined; isLoading: boolean; isFetching: boolean }
+  const records = recordsQuery.data
 
   const createMutation = useMutation(api.sales.create)
   const updateMutation = useMutation(api.sales.update)
@@ -399,9 +402,15 @@ export function useSalesHistory(options?: SalesListOptions) {
     items,
     isLoading:
       mode === "paged"
-        ? pagedResponse === undefined
+        ? pagedResponseQuery.isLoading
         : mode === "all"
-          ? records === undefined
+          ? recordsQuery.isLoading
+          : false,
+    isFetching:
+      mode === "paged"
+        ? pagedResponseQuery.isFetching
+        : mode === "all"
+          ? recordsQuery.isFetching
           : false,
     totalCount,
     filterOptions,

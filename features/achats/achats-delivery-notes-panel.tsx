@@ -15,7 +15,9 @@ import type { ProcurementFormValues } from "@/features/achats/api"
 import { useDeliveryNotes } from "@/features/achats/api"
 import { DeliveryNotesTable } from "@/features/achats/achats-delivery-notes-table"
 import { DELIVERY_STATUS_OPTIONS, type DeliveryNote } from "@/features/achats/procurement-data"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Pagination,
   PaginationContent,
@@ -46,7 +48,10 @@ function toCsv(items: DeliveryNote[]) {
     "Fournisseur",
     "Date de création",
     "Date du bon",
+    "Date d'échéance",
     "Réf livraison",
+    "Type remise",
+    "Valeur remise",
     "Total",
     "Statut",
   ]
@@ -55,7 +60,10 @@ function toCsv(items: DeliveryNote[]) {
     note.supplier,
     note.createdAt,
     note.orderDate,
+    note.dueDate ?? "",
     note.externalReference,
+    note.globalDiscountType === "amount" ? "Montant" : "%",
+    note.globalDiscountValue ?? 0,
     note.total,
     note.status,
   ])
@@ -109,6 +117,7 @@ function mapDeliveryStatusFilter(value: string) {
 
 export function DeliveryNotesPanel({ suppliers, products }: DeliveryNotesPanelProps) {
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
+  const [dueRange, setDueRange] = React.useState<DateRange | undefined>()
   const [createdRange, setCreatedRange] = React.useState<DateRange | undefined>()
   const [supplierFilter, setSupplierFilter] = React.useState<string[]>([])
   const [statusFilter, setStatusFilter] = React.useState<string[]>([])
@@ -116,31 +125,42 @@ export function DeliveryNotesPanel({ suppliers, products }: DeliveryNotesPanelPr
   const [currentPage, setCurrentPage] = React.useState(1)
 
   const orderDates = React.useMemo(() => normalizeDateRange(dateRange), [dateRange])
+  const dueDates = React.useMemo(() => normalizeDateRange(dueRange), [dueRange])
   const createdDates = React.useMemo(() => normalizeDateRange(createdRange), [createdRange])
   const statusValues = React.useMemo(
     () => statusFilter.map((status) => mapDeliveryStatusFilter(status)),
     [statusFilter]
   )
 
-  const { notes, isLoading, totalCount, filterOptions, exportNotes, updateNote, removeNote } =
-    useDeliveryNotes({
-      mode: "paged",
-      page: currentPage,
-      pageSize: PAGE_SIZE,
-      filters: {
-        supplierNames: supplierFilter,
-        statuses: statusValues,
-        references: referenceFilter,
-        orderFrom: orderDates.from,
-        orderTo: orderDates.to,
-        createdFrom: createdDates.from,
-        createdTo: createdDates.to,
-      },
-    })
+  const {
+    notes,
+    isLoading,
+    isFetching,
+    totalCount,
+    filterOptions,
+    exportNotes,
+    updateNote,
+    removeNote,
+  } = useDeliveryNotes({
+    mode: "paged",
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+    filters: {
+      supplierNames: supplierFilter,
+      statuses: statusValues,
+      references: referenceFilter,
+      orderFrom: orderDates.from,
+      orderTo: orderDates.to,
+      dueFrom: dueDates.from,
+      dueTo: dueDates.to,
+      createdFrom: createdDates.from,
+      createdTo: createdDates.to,
+    },
+  })
 
   React.useEffect(() => {
     setCurrentPage(1)
-  }, [supplierFilter, statusFilter, referenceFilter, dateRange, createdRange])
+  }, [supplierFilter, statusFilter, referenceFilter, dateRange, dueRange, createdRange])
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
   const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
@@ -209,6 +229,12 @@ export function DeliveryNotesPanel({ suppliers, products }: DeliveryNotesPanelPr
               onChange={setDateRange}
             />
             <DatePickerField
+              id="delivery-notes-due-date"
+              placeholder="Date d'échéance"
+              value={dueRange}
+              onChange={setDueRange}
+            />
+            <DatePickerField
               id="delivery-notes-created-date"
               placeholder="Date de création"
               value={createdRange}
@@ -231,6 +257,12 @@ export function DeliveryNotesPanel({ suppliers, products }: DeliveryNotesPanelPr
             />
           </FiltersBar>
           <div className="ml-auto flex items-center gap-2">
+            {isFetching ? (
+              <Badge variant="secondary">
+                <Spinner className="size-3" />
+                Mise a jour
+              </Badge>
+            ) : null}
             <Button variant="outline" size="icon" onClick={handlePrint} aria-label="Imprimer">
               <Printer className="size-4" />
             </Button>

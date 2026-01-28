@@ -2,11 +2,12 @@
 
 import * as React from "react"
 import { useAuth } from "@clerk/nextjs"
-import { useConvex, useMutation, useQuery } from "convex/react"
+import { useConvex, useMutation } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import type { InventoryItem } from "@/features/inventaire/inventory-table"
+import { useStableQuery } from "@/hooks/use-stable-query"
 
 export type InventoryFormValues = {
   name: string
@@ -109,13 +110,15 @@ function mapProductToCatalogItem(product: InventoryProduct): ProductCatalogItem 
 function useProducts() {
   const { orgId } = useAuth()
 
-  const products = useQuery(api.products.listByOrg, orgId ? { clerkOrgId: orgId } : "skip") as
-    | InventoryProduct[]
-    | undefined
+  const productsQuery = useStableQuery(
+    api.products.listByOrg,
+    orgId ? { clerkOrgId: orgId } : "skip"
+  ) as { data: InventoryProduct[] | undefined; isLoading: boolean; isFetching: boolean }
+  const products = productsQuery.data
 
   return {
     products,
-    isLoading: products === undefined,
+    isLoading: productsQuery.isLoading,
   }
 }
 
@@ -145,19 +148,22 @@ export function useInventoryItems(options?: InventoryListOptions) {
     ]
   )
 
-  const pagedResponse = useQuery(
+  const pagedResponseQuery = useStableQuery(
     api.products.listByOrgPaginated,
     orgId && mode === "paged"
       ? { clerkOrgId: orgId, pagination: { page, pageSize }, filters: listFilters }
       : "skip"
-  ) as InventoryListResponse | undefined
+  ) as { data: InventoryListResponse | undefined; isLoading: boolean; isFetching: boolean }
+  const pagedResponse = pagedResponseQuery.data
 
-  const products = useQuery(
+  const productsQuery = useStableQuery(
     api.products.listByOrg,
     orgId && mode !== "paged" ? { clerkOrgId: orgId } : "skip"
-  ) as InventoryProduct[] | undefined
+  ) as { data: InventoryProduct[] | undefined; isLoading: boolean; isFetching: boolean }
+  const products = productsQuery.data
 
-  const isLoading = mode === "paged" ? pagedResponse === undefined : products === undefined
+  const isLoading = mode === "paged" ? pagedResponseQuery.isLoading : productsQuery.isLoading
+  const isFetching = mode === "paged" ? pagedResponseQuery.isFetching : productsQuery.isFetching
   const createProductMutation = useMutation(api.products.create)
   const updateProductMutation = useMutation(api.products.update)
   const removeProductMutation = useMutation(api.products.remove)
@@ -202,6 +208,7 @@ export function useInventoryItems(options?: InventoryListOptions) {
   return {
     items,
     isLoading,
+    isFetching,
     hasOrg: Boolean(orgId),
     totalCount,
     filterOptions,

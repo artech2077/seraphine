@@ -2,16 +2,21 @@
 
 import * as React from "react"
 import { useAuth } from "@clerk/nextjs"
-import { useConvex, useMutation, useQuery } from "convex/react"
+import { useConvex, useMutation } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import type { DeliveryNote, PurchaseOrder } from "@/features/achats/procurement-data"
+import { useStableQuery } from "@/hooks/use-stable-query"
+
+type DiscountType = "percent" | "amount"
 
 export type ProcurementLineInput = {
   productId: string
   quantity: number
   unitPrice: number
+  lineDiscountType?: DiscountType
+  lineDiscountValue?: number
 }
 
 export type ProcurementFormValues = {
@@ -19,7 +24,10 @@ export type ProcurementFormValues = {
   channel: string
   status: string
   orderDate: string
+  dueDate?: string
   externalReference?: string
+  globalDiscountType?: DiscountType
+  globalDiscountValue?: number
   items: ProcurementLineInput[]
 }
 
@@ -28,6 +36,9 @@ type ProcurementItem = {
   productName: string
   quantity: number
   unitPrice: number
+  lineDiscountType?: "PERCENT" | "AMOUNT" | null
+  lineDiscountValue?: number | null
+  lineTotal?: number | null
 }
 
 type ProcurementOrder = {
@@ -38,10 +49,13 @@ type ProcurementOrder = {
   channel: "EMAIL" | "PHONE" | null
   createdAt: number
   orderDate: number
+  dueDate?: number | null
   totalAmount: number
   status: "DRAFT" | "ORDERED" | "DELIVERED"
   type: "PURCHASE_ORDER" | "DELIVERY_NOTE"
   externalReference: string | null
+  globalDiscountType?: "PERCENT" | "AMOUNT" | null
+  globalDiscountValue?: number | null
   items: ProcurementItem[]
 }
 
@@ -51,6 +65,8 @@ type ProcurementListFilters = {
   references?: string[]
   orderFrom?: number
   orderTo?: number
+  dueFrom?: number
+  dueTo?: number
   createdFrom?: number
   createdTo?: number
 }
@@ -103,6 +119,12 @@ function parseDate(value: string) {
   return Number.isNaN(parsed) ? Date.now() : parsed
 }
 
+function parseOptionalDate(value?: string) {
+  if (!value) return undefined
+  const parsed = Date.parse(value)
+  return Number.isNaN(parsed) ? undefined : parsed
+}
+
 function mapChannel(value: string) {
   if (value === "Email") return "EMAIL"
   if (value === "Téléphone") return "PHONE"
@@ -118,6 +140,38 @@ function mapPurchaseStatus(value: string) {
     default:
       return "DRAFT"
   }
+}
+
+function mapDiscountType(value?: DiscountType) {
+  if (value === "amount") return "AMOUNT"
+  return "PERCENT"
+}
+
+function mapDiscountTypeFromApi(value?: "PERCENT" | "AMOUNT" | null) {
+  if (value === "AMOUNT") return "amount"
+  if (value === "PERCENT") return "percent"
+  return undefined
+}
+
+function calculateLineTotal(item: ProcurementLineInput) {
+  const subtotal = item.quantity * item.unitPrice
+  const discountValue = item.lineDiscountValue ?? 0
+  const discount =
+    mapDiscountType(item.lineDiscountType) === "PERCENT"
+      ? (subtotal * discountValue) / 100
+      : discountValue
+  return Math.max(0, subtotal - discount)
+}
+
+function calculateTotals(values: ProcurementFormValues) {
+  const lineTotals = values.items.map((item) => calculateLineTotal(item))
+  const subtotal = lineTotals.reduce((sum, total) => sum + total, 0)
+  const globalDiscountValue = values.globalDiscountValue ?? 0
+  const globalDiscount =
+    mapDiscountType(values.globalDiscountType) === "PERCENT"
+      ? (subtotal * globalDiscountValue) / 100
+      : globalDiscountValue
+  return Math.max(0, subtotal - globalDiscount)
 }
 
 function mapDeliveryStatus(value: string) {
@@ -186,13 +240,18 @@ function mapPurchaseOrder(order: ProcurementOrder, fallbackNumber?: string): Pur
     channel: channelLabels[order.channel ?? ""] ?? "Portail",
     createdAt: formatDate(order.createdAt),
     orderDate: formatDate(order.orderDate),
+    dueDate: order.dueDate ? formatDate(order.dueDate) : undefined,
     total: order.totalAmount,
     status: purchaseStatusLabels[order.status] ?? "Brouillon",
+    globalDiscountType: mapDiscountTypeFromApi(order.globalDiscountType),
+    globalDiscountValue: order.globalDiscountValue ?? undefined,
     items: order.items.map((item) => ({
       id: String(item.id),
       product: item.productName,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
+      lineDiscountType: mapDiscountTypeFromApi(item.lineDiscountType),
+      lineDiscountValue: item.lineDiscountValue ?? undefined,
     })),
   }
 }
@@ -212,14 +271,19 @@ function mapDeliveryNote(order: ProcurementOrder, fallbackNumber?: string): Deli
     channel: channelLabels[order.channel ?? ""] ?? "Portail",
     createdAt: formatDate(order.createdAt),
     orderDate: formatDate(order.orderDate),
+    dueDate: order.dueDate ? formatDate(order.dueDate) : undefined,
     externalReference: order.externalReference ?? "-",
     total: order.totalAmount,
     status: deliveryStatusLabels[order.status] ?? "Brouillon",
+    globalDiscountType: mapDiscountTypeFromApi(order.globalDiscountType),
+    globalDiscountValue: order.globalDiscountValue ?? undefined,
     items: order.items.map((item) => ({
       id: String(item.id),
       product: item.productName,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
+      lineDiscountType: mapDiscountTypeFromApi(item.lineDiscountType),
+      lineDiscountValue: item.lineDiscountValue ?? undefined,
     })),
   }
 }
@@ -237,12 +301,16 @@ export function usePurchaseOrders(options?: ProcurementListOptions) {
       references: options?.filters?.references ?? [],
       orderFrom: options?.filters?.orderFrom,
       orderTo: options?.filters?.orderTo,
+      dueFrom: options?.filters?.dueFrom,
+      dueTo: options?.filters?.dueTo,
       createdFrom: options?.filters?.createdFrom,
       createdTo: options?.filters?.createdTo,
     }),
     [
       options?.filters?.createdFrom,
       options?.filters?.createdTo,
+      options?.filters?.dueFrom,
+      options?.filters?.dueTo,
       options?.filters?.orderFrom,
       options?.filters?.orderTo,
       options?.filters?.references,
@@ -254,7 +322,7 @@ export function usePurchaseOrders(options?: ProcurementListOptions) {
   const updateOrderMutation = useMutation(api.procurement.update)
   const removeOrderMutation = useMutation(api.procurement.remove)
 
-  const pagedResponse = useQuery(
+  const pagedResponseQuery = useStableQuery(
     api.procurement.listByOrgPaginated,
     orgId && mode === "paged"
       ? {
@@ -264,12 +332,14 @@ export function usePurchaseOrders(options?: ProcurementListOptions) {
           filters: listFilters,
         }
       : "skip"
-  ) as ProcurementListResponse | undefined
+  ) as { data: ProcurementListResponse | undefined; isLoading: boolean; isFetching: boolean }
+  const pagedResponse = pagedResponseQuery.data
 
-  const orders = useQuery(
+  const ordersQuery = useStableQuery(
     api.procurement.listByOrg,
     orgId && mode === "all" ? { clerkOrgId: orgId, type: "PURCHASE_ORDER" } : "skip"
-  ) as ProcurementOrder[] | undefined
+  ) as { data: ProcurementOrder[] | undefined; isLoading: boolean; isFetching: boolean }
+  const orders = ordersQuery.data
 
   const mappedOrders = React.useMemo(() => {
     const source = mode === "paged" ? pagedResponse?.items : orders
@@ -315,9 +385,15 @@ export function usePurchaseOrders(options?: ProcurementListOptions) {
     orders: mappedOrders,
     isLoading:
       mode === "paged"
-        ? pagedResponse === undefined
+        ? pagedResponseQuery.isLoading
         : mode === "all"
-          ? orders === undefined
+          ? ordersQuery.isLoading
+          : false,
+    isFetching:
+      mode === "paged"
+        ? pagedResponseQuery.isFetching
+        : mode === "all"
+          ? ordersQuery.isFetching
           : false,
     totalCount,
     filterOptions,
@@ -331,11 +407,16 @@ export function usePurchaseOrders(options?: ProcurementListOptions) {
         status: mapPurchaseStatus(values.status),
         channel: mapChannel(values.channel),
         orderDate: parseDate(values.orderDate),
-        totalAmount: values.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+        dueDate: parseOptionalDate(values.dueDate),
+        globalDiscountType: mapDiscountType(values.globalDiscountType),
+        globalDiscountValue: values.globalDiscountValue ?? 0,
+        totalAmount: calculateTotals(values),
         items: values.items.map((item) => ({
           productId: item.productId as Id<"products">,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          lineDiscountType: mapDiscountType(item.lineDiscountType),
+          lineDiscountValue: item.lineDiscountValue ?? 0,
         })),
       })
     },
@@ -348,11 +429,16 @@ export function usePurchaseOrders(options?: ProcurementListOptions) {
         status: mapPurchaseStatus(values.status),
         channel: mapChannel(values.channel),
         orderDate: parseDate(values.orderDate),
-        totalAmount: values.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+        dueDate: parseOptionalDate(values.dueDate),
+        globalDiscountType: mapDiscountType(values.globalDiscountType),
+        globalDiscountValue: values.globalDiscountValue ?? 0,
+        totalAmount: calculateTotals(values),
         items: values.items.map((item) => ({
           productId: item.productId as Id<"products">,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          lineDiscountType: mapDiscountType(item.lineDiscountType),
+          lineDiscountValue: item.lineDiscountValue ?? 0,
         })),
       })
     },
@@ -379,12 +465,16 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
       references: options?.filters?.references ?? [],
       orderFrom: options?.filters?.orderFrom,
       orderTo: options?.filters?.orderTo,
+      dueFrom: options?.filters?.dueFrom,
+      dueTo: options?.filters?.dueTo,
       createdFrom: options?.filters?.createdFrom,
       createdTo: options?.filters?.createdTo,
     }),
     [
       options?.filters?.createdFrom,
       options?.filters?.createdTo,
+      options?.filters?.dueFrom,
+      options?.filters?.dueTo,
       options?.filters?.orderFrom,
       options?.filters?.orderTo,
       options?.filters?.references,
@@ -396,7 +486,7 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
   const updateOrderMutation = useMutation(api.procurement.update)
   const removeOrderMutation = useMutation(api.procurement.remove)
 
-  const pagedResponse = useQuery(
+  const pagedResponseQuery = useStableQuery(
     api.procurement.listByOrgPaginated,
     orgId && mode === "paged"
       ? {
@@ -406,12 +496,14 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
           filters: listFilters,
         }
       : "skip"
-  ) as ProcurementListResponse | undefined
+  ) as { data: ProcurementListResponse | undefined; isLoading: boolean; isFetching: boolean }
+  const pagedResponse = pagedResponseQuery.data
 
-  const notes = useQuery(
+  const notesQuery = useStableQuery(
     api.procurement.listByOrg,
     orgId && mode === "all" ? { clerkOrgId: orgId, type: "DELIVERY_NOTE" } : "skip"
-  ) as ProcurementOrder[] | undefined
+  ) as { data: ProcurementOrder[] | undefined; isLoading: boolean; isFetching: boolean }
+  const notes = notesQuery.data
 
   const mappedNotes = React.useMemo(() => {
     const source = mode === "paged" ? pagedResponse?.items : notes
@@ -456,7 +548,17 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
   return {
     notes: mappedNotes,
     isLoading:
-      mode === "paged" ? pagedResponse === undefined : mode === "all" ? notes === undefined : false,
+      mode === "paged"
+        ? pagedResponseQuery.isLoading
+        : mode === "all"
+          ? notesQuery.isLoading
+          : false,
+    isFetching:
+      mode === "paged"
+        ? pagedResponseQuery.isFetching
+        : mode === "all"
+          ? notesQuery.isFetching
+          : false,
     totalCount,
     filterOptions,
     exportNotes,
@@ -469,12 +571,17 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
         status: mapDeliveryStatus(values.status),
         channel: mapChannel(values.channel),
         orderDate: parseDate(values.orderDate),
-        totalAmount: values.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+        dueDate: parseOptionalDate(values.dueDate),
+        globalDiscountType: mapDiscountType(values.globalDiscountType),
+        globalDiscountValue: values.globalDiscountValue ?? 0,
+        totalAmount: calculateTotals(values),
         externalReference: values.externalReference || undefined,
         items: values.items.map((item) => ({
           productId: item.productId as Id<"products">,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          lineDiscountType: mapDiscountType(item.lineDiscountType),
+          lineDiscountValue: item.lineDiscountValue ?? 0,
         })),
       })
     },
@@ -487,12 +594,17 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
         status: mapDeliveryStatus(values.status),
         channel: mapChannel(values.channel),
         orderDate: parseDate(values.orderDate),
-        totalAmount: values.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
+        dueDate: parseOptionalDate(values.dueDate),
+        globalDiscountType: mapDiscountType(values.globalDiscountType),
+        globalDiscountValue: values.globalDiscountValue ?? 0,
+        totalAmount: calculateTotals(values),
         externalReference: values.externalReference || undefined,
         items: values.items.map((item) => ({
           productId: item.productId as Id<"products">,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          lineDiscountType: mapDiscountType(item.lineDiscountType),
+          lineDiscountValue: item.lineDiscountValue ?? 0,
         })),
       })
     },

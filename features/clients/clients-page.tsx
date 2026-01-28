@@ -12,7 +12,9 @@ import { useClients } from "@/features/clients/api"
 import { ClientModal } from "@/features/clients/client-modal"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { ClientsTable, type Client, type ClientStatus } from "@/features/clients/clients-table"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Pagination,
   PaginationContent,
@@ -90,6 +92,7 @@ export function ClientsPage() {
   const {
     items,
     isLoading,
+    isFetching,
     createClient,
     updateClient,
     removeClient,
@@ -215,6 +218,12 @@ export function ClientsPage() {
               />
             </FiltersBar>
             <div className="ml-auto flex items-center gap-2">
+              {isFetching ? (
+                <Badge variant="secondary">
+                  <Spinner className="size-3" />
+                  Mise a jour
+                </Badge>
+              ) : null}
               <Button variant="outline" size="icon" onClick={handlePrint} aria-label="Imprimer">
                 <Printer className="size-4" />
               </Button>
