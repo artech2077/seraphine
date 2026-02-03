@@ -11,6 +11,7 @@ import { PageShell } from "@/components/layout/page-shell"
 import { useClients } from "@/features/clients/api"
 import { ClientModal } from "@/features/clients/client-modal"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
+import { PAGE_SIZE_OPTIONS } from "@/lib/constants/pagination"
 import {
   ClientsTable,
   ClientsTableSkeleton,
@@ -32,7 +33,6 @@ import {
 import { Download, Plus, Printer } from "lucide-react"
 
 const BALANCE_FILTER_OPTIONS: ClientStatus[] = ["OK", "Surveillé", "Bloqué"]
-const PAGE_SIZE_OPTIONS = ["20", "50", "100"]
 
 function buildPageItems(currentPage: number, totalPages: number) {
   if (totalPages <= 7) {

@@ -4,13 +4,12 @@ import {
   backfillProcurementItemPharmacy,
   backfillSaleItemPharmacy,
 } from "@/convex/migrations"
-
-type ConvexHandler<Args, Result = unknown> = (ctx: unknown, args: Args) => Promise<Result>
+import { getHandler, type ConvexHandler } from "@/convex/__tests__/test_utils"
 
 describe("convex/migrations", () => {
   it("backfills identifier sequences for missing records", async () => {
     const ctx = buildContext()
-    const handler = backfillIdentifiers as unknown as ConvexHandler<
+    const handler = getHandler(backfillIdentifiers) as ConvexHandler<
       { clerkOrgId: string },
       {
         pharmacies: number
@@ -67,7 +66,7 @@ describe("convex/migrations", () => {
 
   it("backfills pharmacy ids on procurement items", async () => {
     const ctx = buildProcurementItemContext()
-    const handler = backfillProcurementItemPharmacy as unknown as ConvexHandler<
+    const handler = getHandler(backfillProcurementItemPharmacy) as ConvexHandler<
       { clerkOrgId: string },
       number
     >
@@ -80,7 +79,7 @@ describe("convex/migrations", () => {
 
   it("backfills pharmacy ids on sale items", async () => {
     const ctx = buildSaleItemContext()
-    const handler = backfillSaleItemPharmacy as unknown as ConvexHandler<
+    const handler = getHandler(backfillSaleItemPharmacy) as ConvexHandler<
       { clerkOrgId: string },
       number
     >
@@ -93,7 +92,7 @@ describe("convex/migrations", () => {
 
   it("backfills procurement discounts and totals", async () => {
     const ctx = buildProcurementDiscountContext()
-    const handler = backfillProcurementDiscounts as unknown as ConvexHandler<
+    const handler = getHandler(backfillProcurementDiscounts) as ConvexHandler<
       { clerkOrgId: string },
       { orders: number; items: number }
     >

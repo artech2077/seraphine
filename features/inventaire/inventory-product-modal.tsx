@@ -61,6 +61,10 @@ export function InventoryProductModal({
   item,
   onSubmit,
 }: InventoryProductModalProps) {
+  const [internalOpen, setInternalOpen] = React.useState(false)
+  const isControlled = open !== undefined
+  const resolvedOpen = isControlled ? open : internalOpen
+  const handleOpenChange = isControlled ? onOpenChange : setInternalOpen
   const { canManage } = useRoleAccess()
   const canManageInventory = canManage("inventaire")
   const id = React.useId()
@@ -115,14 +119,14 @@ export function InventoryProductModal({
 
     try {
       await onSubmit?.(payload, item)
-      toast.success(isEdit ? "Produit mis à jour." : "Produit ajouté.")
+      handleOpenChange?.(false)
     } catch {
-      toast.error("Impossible d'enregistrer le produit.")
+      // Error feedback is handled by the parent to avoid duplicate toasts.
     }
   }
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange}>
+    <Modal open={resolvedOpen} onOpenChange={handleOpenChange}>
       {trigger && <ModalTrigger render={trigger} />}
       <ModalContent showCloseButton>
         <ModalHeader showCloseButton>
@@ -260,13 +264,9 @@ export function InventoryProductModal({
                 </Button>
               }
             />
-            <ModalClose
-              render={
-                <Button type="submit" disabled={!canManageInventory}>
-                  Enregistrer
-                </Button>
-              }
-            />
+            <Button type="submit" disabled={!canManageInventory}>
+              Enregistrer
+            </Button>
           </ModalFooter>
         </ModalForm>
       </ModalContent>

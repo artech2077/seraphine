@@ -1,14 +1,13 @@
 import { vi } from "vitest"
 
 import { create, listByOrg, listByOrgPaginated, remove, update } from "@/convex/sales"
-
-type ConvexHandler<Args, Result = unknown> = (ctx: unknown, args: Args) => Promise<Result>
+import { getHandler, type ConvexHandler } from "@/convex/__tests__/test_utils"
 
 describe("convex/sales", () => {
   it("returns sales for the org", async () => {
     const ctx = buildContext()
 
-    const handler = listByOrg as unknown as ConvexHandler<{ clerkOrgId: string }, unknown[]>
+    const handler = getHandler(listByOrg) as ConvexHandler<{ clerkOrgId: string }, unknown[]>
 
     const result = await handler(ctx, { clerkOrgId: "org-1" })
 
@@ -25,7 +24,7 @@ describe("convex/sales", () => {
   it("creates sale, user, and line items", async () => {
     const ctx = buildContext({ existingUser: null })
 
-    const handler = create as unknown as ConvexHandler<{
+    const handler = getHandler(create) as ConvexHandler<{
       clerkOrgId: string
       saleDate: number
       clientId: string
@@ -90,7 +89,7 @@ describe("convex/sales", () => {
   it("paginates sales for the org", async () => {
     const ctx = buildContext()
 
-    const handler = listByOrgPaginated as unknown as ConvexHandler<
+    const handler = getHandler(listByOrgPaginated) as ConvexHandler<
       {
         clerkOrgId: string
         pagination: { page: number; pageSize: number }
@@ -113,7 +112,7 @@ describe("convex/sales", () => {
   it("removes a sale and its items", async () => {
     const ctx = buildContext()
 
-    const handler = remove as unknown as ConvexHandler<{ clerkOrgId: string; id: string }>
+    const handler = getHandler(remove) as ConvexHandler<{ clerkOrgId: string; id: string }>
 
     await handler(ctx, { clerkOrgId: "org-1", id: "sale-1" })
 
@@ -124,7 +123,7 @@ describe("convex/sales", () => {
   it("updates a sale and replaces its items", async () => {
     const ctx = buildContext()
 
-    const handler = update as unknown as ConvexHandler<{
+    const handler = getHandler(update) as ConvexHandler<{
       clerkOrgId: string
       id: string
       clientId?: string

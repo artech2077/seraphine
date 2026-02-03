@@ -11,6 +11,7 @@ import { PageShell } from "@/components/layout/page-shell"
 import { useSuppliers } from "@/features/fournisseurs/api"
 import { SupplierModal } from "@/features/fournisseurs/supplier-modal"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
+import { PAGE_SIZE_OPTIONS } from "@/lib/constants/pagination"
 import {
   SuppliersTable,
   SuppliersTableSkeleton,
@@ -31,7 +32,6 @@ import {
 import { Download, Plus, Printer } from "lucide-react"
 
 const BALANCE_FILTER_OPTIONS = ["Positive", "Negative", "Zero"]
-const PAGE_SIZE_OPTIONS = ["20", "50", "100"]
 
 function buildPageItems(currentPage: number, totalPages: number) {
   if (totalPages <= 7) {

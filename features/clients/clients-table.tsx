@@ -271,9 +271,10 @@ export function ClientsTable({
       .catch(() => null)
   }, [onDelete, pendingDelete])
 
-  function handleUpdate(values: ClientFormValues) {
-    if (!activeItem) return
-    void onUpdate?.(activeItem, values)
+  function handleUpdate(values: ClientFormValues, item?: Client) {
+    const target = item ?? activeItem
+    if (!target) return
+    void onUpdate?.(target, values)
   }
 
   return (

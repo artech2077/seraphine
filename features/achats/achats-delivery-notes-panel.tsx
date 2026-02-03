@@ -21,6 +21,7 @@ import { DELIVERY_STATUS_OPTIONS, type DeliveryNote } from "@/features/achats/pr
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "@/lib/constants/pagination"
 import {
   Pagination,
   PaginationContent,
@@ -30,8 +31,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-
-const PAGE_SIZE = 5
 
 function buildPageItems(currentPage: number, totalPages: number) {
   if (totalPages <= 7) {
@@ -126,6 +125,7 @@ export function DeliveryNotesPanel({ suppliers, products }: DeliveryNotesPanelPr
   const [statusFilter, setStatusFilter] = React.useState<string[]>([])
   const [referenceFilter, setReferenceFilter] = React.useState<string[]>([])
   const [currentPage, setCurrentPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
 
   const orderDates = React.useMemo(() => normalizeDateRange(dateRange), [dateRange])
   const dueDates = React.useMemo(() => normalizeDateRange(dueRange), [dueRange])
@@ -147,7 +147,7 @@ export function DeliveryNotesPanel({ suppliers, products }: DeliveryNotesPanelPr
   } = useDeliveryNotes({
     mode: "paged",
     page: currentPage,
-    pageSize: PAGE_SIZE,
+    pageSize,
     filters: {
       supplierNames: supplierFilter,
       statuses: statusValues,
@@ -163,11 +163,11 @@ export function DeliveryNotesPanel({ suppliers, products }: DeliveryNotesPanelPr
 
   React.useEffect(() => {
     setCurrentPage(1)
-  }, [supplierFilter, statusFilter, referenceFilter, dateRange, dueRange, createdRange])
+  }, [supplierFilter, statusFilter, referenceFilter, dateRange, dueRange, createdRange, pageSize])
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
-  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
-  const rangeEnd = Math.min(totalCount, currentPage * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const rangeEnd = Math.min(totalCount, currentPage * pageSize)
   const rangeLabel =
     totalCount === 0
       ? "0 sur 0 bons de livraison"
@@ -180,6 +180,13 @@ export function DeliveryNotesPanel({ suppliers, products }: DeliveryNotesPanelPr
 
   function handlePageChange(nextPage: number) {
     setCurrentPage(Math.min(Math.max(nextPage, 1), totalPages))
+  }
+
+  function handlePageSizeChange(value: string) {
+    const nextSize = Number(value)
+    if (!Number.isNaN(nextSize) && nextSize > 0) {
+      setPageSize(nextSize)
+    }
   }
 
   function handlePrint() {
@@ -279,8 +286,9 @@ export function DeliveryNotesPanel({ suppliers, products }: DeliveryNotesPanelPr
       footer={
         <DataTableFooter
           rangeLabel={rangeLabel}
-          itemsPerPageOptions={["5", "10", "20"]}
-          itemsPerPageValue={String(PAGE_SIZE)}
+          itemsPerPageOptions={PAGE_SIZE_OPTIONS}
+          itemsPerPageValue={String(pageSize)}
+          itemsPerPageOnChange={handlePageSizeChange}
           selectId="delivery-notes-items-per-page"
           pagination={
             <Pagination className="mx-0 w-auto justify-end">
@@ -341,7 +349,7 @@ export function DeliveryNotesPanel({ suppliers, products }: DeliveryNotesPanelPr
       }
     >
       {showSkeleton ? (
-        <DeliveryNotesTableSkeleton rows={PAGE_SIZE} />
+        <DeliveryNotesTableSkeleton rows={pageSize} />
       ) : (
         <DeliveryNotesTable
           notes={notes}

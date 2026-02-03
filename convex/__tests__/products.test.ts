@@ -1,8 +1,7 @@
 import { vi } from "vitest"
 
 import { create, listByOrg, listByOrgPaginated, remove, update } from "@/convex/products"
-
-type ConvexHandler<Args, Result = unknown> = (ctx: unknown, args: Args) => Promise<Result>
+import { getHandler, type ConvexHandler } from "@/convex/__tests__/test_utils"
 
 describe("convex/products", () => {
   it("returns empty list when org mismatch", async () => {
@@ -15,7 +14,7 @@ describe("convex/products", () => {
       },
     }
 
-    const handler = listByOrg as unknown as ConvexHandler<{ clerkOrgId: string }, unknown[]>
+    const handler = getHandler(listByOrg) as ConvexHandler<{ clerkOrgId: string }, unknown[]>
 
     const result = await handler(ctx, { clerkOrgId: "org-1" })
 
@@ -25,7 +24,7 @@ describe("convex/products", () => {
   it("creates products for the pharmacy", async () => {
     const ctx = buildContext()
 
-    const handler = create as unknown as ConvexHandler<{
+    const handler = getHandler(create) as ConvexHandler<{
       clerkOrgId: string
       name: string
       barcode: string
@@ -74,7 +73,7 @@ describe("convex/products", () => {
   it("paginates products for the org", async () => {
     const ctx = buildContext()
 
-    const handler = listByOrgPaginated as unknown as ConvexHandler<
+    const handler = getHandler(listByOrgPaginated) as ConvexHandler<
       {
         clerkOrgId: string
         pagination: { page: number; pageSize: number }
@@ -97,7 +96,7 @@ describe("convex/products", () => {
   it("updates products in the same pharmacy", async () => {
     const ctx = buildContext()
 
-    const handler = update as unknown as ConvexHandler<{
+    const handler = getHandler(update) as ConvexHandler<{
       clerkOrgId: string
       id: string
       name: string
@@ -144,7 +143,7 @@ describe("convex/products", () => {
   it("removes products in the same pharmacy", async () => {
     const ctx = buildContext()
 
-    const handler = remove as unknown as ConvexHandler<{ clerkOrgId: string; id: string }>
+    const handler = getHandler(remove) as ConvexHandler<{ clerkOrgId: string; id: string }>
 
     await handler(ctx, { clerkOrgId: "org-1", id: "product-1" })
 

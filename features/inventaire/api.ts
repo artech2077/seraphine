@@ -26,11 +26,13 @@ export type ProductOption = {
   id: string
   name: string
   unitPrice: number
+  barcode: string
 }
 
 export type ProductCatalogItem = {
   id: string
   name: string
+  barcode: string
   sellingPrice: number
   vatRate: number
 }
@@ -95,6 +97,7 @@ function mapProductToOption(product: InventoryProduct): ProductOption {
     id: product._id,
     name: product.name,
     unitPrice: product.purchasePrice,
+    barcode: product.barcode,
   }
 }
 
@@ -102,6 +105,7 @@ function mapProductToCatalogItem(product: InventoryProduct): ProductCatalogItem 
   return {
     id: product._id,
     name: product.name,
+    barcode: product.barcode,
     sellingPrice: product.sellingPrice,
     vatRate: product.vatRate,
   }

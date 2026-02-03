@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { act, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 
 import { SalesPos } from "@/features/ventes/sales-pos"
@@ -20,6 +20,7 @@ vi.mock("@/features/inventaire/api", () => ({
       {
         id: "prod-1",
         name: "Café",
+        barcode: "123",
         sellingPrice: 10,
         vatRate: 20,
       },
@@ -34,6 +35,22 @@ vi.mock("@/features/ventes/api", () => ({
   })),
 }))
 
+const scanHandlers: Array<(barcode: string) => void> = []
+
+vi.mock("@/hooks/use-barcode-scanner", () => ({
+  useBarcodeScanner: ({ onScan }: { onScan: (barcode: string) => void }) => {
+    scanHandlers.push(onScan)
+  },
+}))
+
+vi.mock("convex/react", async () => {
+  const actual = await vi.importActual<typeof import("convex/react")>("convex/react")
+  return {
+    ...actual,
+    useQuery: () => undefined,
+  }
+})
+
 vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
@@ -41,7 +58,14 @@ vi.mock("sonner", () => ({
   },
 }))
 
+vi.mock("@clerk/nextjs", () => ({
+  useAuth: () => ({ orgId: "org-1", userId: "user-1" }),
+}))
+
 describe("SalesPos", () => {
+  beforeEach(() => {
+    scanHandlers.length = 0
+  })
   it("adds a new line when clicking add line", async () => {
     const user = userEvent.setup()
     render(<SalesPos />)
@@ -134,5 +158,16 @@ describe("SalesPos", () => {
         paymentMethod: "cash",
       })
     )
+  })
+
+  it("adds a product line when scanning a barcode", async () => {
+    render(<SalesPos />)
+
+    await act(async () => {
+      scanHandlers[0]?.("123")
+    })
+
+    expect(await screen.findAllByDisplayValue("Café")).not.toHaveLength(0)
+    expect(screen.getByLabelText("Quantité")).toHaveValue(1)
   })
 })

@@ -16,6 +16,7 @@ import { useReconciliationHistory } from "@/features/reconciliation/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "@/lib/constants/pagination"
 import {
   Pagination,
   PaginationContent,
@@ -33,7 +34,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-const PAGE_SIZE = 5
 const STATUS_OPTIONS = ["Tous", "Validé", "Écart", "Excédent"]
 
 function normalizeDateRange(range?: DateRange) {
@@ -56,12 +56,13 @@ export function ReconciliationHistoryPanel() {
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
   const [statusFilter, setStatusFilter] = React.useState("Tous")
   const [currentPage, setCurrentPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
 
   const dateFilters = React.useMemo(() => normalizeDateRange(dateRange), [dateRange])
 
   const { items, isLoading, isFetching, totalCount, exportHistory } = useReconciliationHistory({
     page: currentPage,
-    pageSize: PAGE_SIZE,
+    pageSize,
     filters: {
       from: dateFilters.from,
       to: dateFilters.to,
@@ -71,16 +72,23 @@ export function ReconciliationHistoryPanel() {
 
   React.useEffect(() => {
     setCurrentPage(1)
-  }, [dateRange, statusFilter])
+  }, [dateRange, statusFilter, pageSize])
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
-  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
-  const rangeEnd = Math.min(totalCount, currentPage * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const rangeEnd = Math.min(totalCount, currentPage * pageSize)
   const isFirstPage = currentPage === 1
   const isLastPage = currentPage === totalPages
 
   function handlePageChange(nextPage: number) {
     setCurrentPage(Math.min(Math.max(nextPage, 1), totalPages))
+  }
+
+  function handlePageSizeChange(value: string) {
+    const nextSize = Number(value)
+    if (!Number.isNaN(nextSize) && nextSize > 0) {
+      setPageSize(nextSize)
+    }
   }
 
   function buildPageItems() {
@@ -184,8 +192,9 @@ export function ReconciliationHistoryPanel() {
       footer={
         <DataTableFooter
           rangeLabel={`${rangeStart}-${rangeEnd} sur ${totalCount} lignes`}
-          itemsPerPageOptions={["5", "10", "20"]}
-          itemsPerPageValue={String(PAGE_SIZE)}
+          itemsPerPageOptions={PAGE_SIZE_OPTIONS}
+          itemsPerPageValue={String(pageSize)}
+          itemsPerPageOnChange={handlePageSizeChange}
           selectId="reconciliation-items-per-page"
           pagination={
             <Pagination className="mx-0 w-auto justify-end">
@@ -246,7 +255,7 @@ export function ReconciliationHistoryPanel() {
       }
     >
       {showSkeleton ? (
-        <ReconciliationHistoryTableSkeleton rows={PAGE_SIZE} />
+        <ReconciliationHistoryTableSkeleton rows={pageSize} />
       ) : (
         <ReconciliationHistoryTable items={items} />
       )}

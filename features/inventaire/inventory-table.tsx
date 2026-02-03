@@ -281,9 +281,10 @@ export function InventoryTable({
       .catch(() => null)
   }, [onDelete, pendingDelete])
 
-  function handleUpdate(values: InventoryFormValues) {
-    if (!activeItem) return
-    void onUpdate?.(activeItem, values)
+  function handleUpdate(values: InventoryFormValues, item?: InventoryItem) {
+    const target = item ?? activeItem
+    if (!target) return
+    void onUpdate?.(target, values)
   }
 
   return (

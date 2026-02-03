@@ -1,14 +1,13 @@
 import { vi } from "vitest"
 
 import { create, listByOrg, listByOrgPaginated, remove, update } from "@/convex/suppliers"
-
-type ConvexHandler<Args, Result = unknown> = (ctx: unknown, args: Args) => Promise<Result>
+import { getHandler, type ConvexHandler } from "@/convex/__tests__/test_utils"
 
 describe("convex/suppliers", () => {
   it("lists suppliers for the org", async () => {
     const ctx = buildContext()
 
-    const handler = listByOrg as unknown as ConvexHandler<{ clerkOrgId: string }, unknown[]>
+    const handler = getHandler(listByOrg) as ConvexHandler<{ clerkOrgId: string }, unknown[]>
 
     const result = await handler(ctx, { clerkOrgId: "org-1" })
 
@@ -23,7 +22,7 @@ describe("convex/suppliers", () => {
   it("creates suppliers", async () => {
     const ctx = buildContext()
 
-    const handler = create as unknown as ConvexHandler<{
+    const handler = getHandler(create) as ConvexHandler<{
       clerkOrgId: string
       name: string
       email: string
@@ -58,7 +57,7 @@ describe("convex/suppliers", () => {
   it("paginates suppliers for the org", async () => {
     const ctx = buildContext()
 
-    const handler = listByOrgPaginated as unknown as ConvexHandler<
+    const handler = getHandler(listByOrgPaginated) as ConvexHandler<
       {
         clerkOrgId: string
         pagination: { page: number; pageSize: number }
@@ -81,7 +80,7 @@ describe("convex/suppliers", () => {
   it("updates suppliers", async () => {
     const ctx = buildContext()
 
-    const handler = update as unknown as ConvexHandler<{
+    const handler = getHandler(update) as ConvexHandler<{
       clerkOrgId: string
       id: string
       name: string
@@ -116,7 +115,7 @@ describe("convex/suppliers", () => {
   it("removes suppliers", async () => {
     const ctx = buildContext()
 
-    const handler = remove as unknown as ConvexHandler<{ clerkOrgId: string; id: string }>
+    const handler = getHandler(remove) as ConvexHandler<{ clerkOrgId: string; id: string }>
 
     await handler(ctx, { clerkOrgId: "org-1", id: "supplier-1" })
 

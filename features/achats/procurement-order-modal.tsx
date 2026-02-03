@@ -1,11 +1,13 @@
 "use client"
 
 import * as React from "react"
+import { useAuth } from "@clerk/nextjs"
+import { Trash2, Plus, Search } from "lucide-react"
+import { toast } from "sonner"
 
 import {
   Modal,
   ModalBody,
-  ModalClose,
   ModalContent,
   ModalFooter,
   ModalForm,
@@ -43,7 +45,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Separator } from "@/components/ui/separator"
-import { Trash2, Plus, Search } from "lucide-react"
 import {
   CHANNEL_OPTIONS,
   DELIVERY_STATUS_OPTIONS,
@@ -53,7 +54,8 @@ import {
   type PurchaseOrder,
 } from "@/features/achats/procurement-data"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
-import { toast } from "sonner"
+import { normalizeBarcode } from "@/lib/barcode"
+import { useBarcodeScanner } from "@/hooks/use-barcode-scanner"
 
 type SupplierOption = {
   id: string
@@ -64,6 +66,7 @@ type ProductOption = {
   id: string
   name: string
   unitPrice: number
+  barcode: string
 }
 
 type DiscountType = "percent" | "amount"
@@ -163,6 +166,11 @@ export function ProcurementOrderModal({
   products,
   onSubmit,
 }: ProcurementOrderModalProps) {
+  const { orgId } = useAuth()
+  const [internalOpen, setInternalOpen] = React.useState(false)
+  const isControlled = open !== undefined
+  const resolvedOpen = isControlled ? open : internalOpen
+  const handleOpenChange = isControlled ? onOpenChange : setInternalOpen
   const { canManage } = useRoleAccess()
   const canManagePurchases = canManage("achats")
   const id = React.useId()
@@ -180,7 +188,9 @@ export function ProcurementOrderModal({
       : "Créer un bon de commande"
 
   const [supplier, setSupplier] = React.useState(order?.supplier ?? "")
-  const [supplierId, setSupplierId] = React.useState("")
+  const [supplierId, setSupplierId] = React.useState(
+    (order as { supplierId?: string } | undefined)?.supplierId ?? ""
+  )
   const [channel, setChannel] = React.useState(order?.channel ?? "")
   const [status, setStatus] = React.useState(order?.status ?? "Brouillon")
   const [orderDate, setOrderDate] = React.useState(order?.orderDate ?? "")
@@ -196,6 +206,7 @@ export function ProcurementOrderModal({
     order?.items?.length
       ? order.items.map((item) => ({
           ...item,
+          productId: item.productId,
           discountType: item.lineDiscountType ?? "percent",
           discountValue: item.lineDiscountValue ?? 0,
         }))
@@ -210,20 +221,33 @@ export function ProcurementOrderModal({
     () => new Map(products.map((option) => [option.name, option])),
     [products]
   )
+  const barcodeMap = React.useMemo(() => {
+    const map = new Map<string, ProductOption>()
+    products.forEach((option) => {
+      const normalized = normalizeBarcode(option.barcode)
+      if (normalized) {
+        map.set(normalized, option)
+      }
+    })
+    return map
+  }, [products])
 
   React.useEffect(() => {
     const nextLines = order?.items?.length
       ? order.items.map((item) => ({
           ...item,
-          productId: productMap.get(item.product)?.id,
+          productId: item.productId ?? productMap.get(item.product)?.id,
           discountType: item.lineDiscountType ?? "percent",
           discountValue: item.lineDiscountValue ?? 0,
         }))
       : [emptyLine()]
     setLines(nextLines)
     const nextSupplier = order?.supplier ?? ""
+    const nextSupplierId =
+      (order as { supplierId?: string } | undefined)?.supplierId ??
+      (nextSupplier ? (supplierMap.get(nextSupplier) ?? "") : "")
     setSupplier(nextSupplier)
-    setSupplierId(nextSupplier ? (supplierMap.get(nextSupplier) ?? "") : "")
+    setSupplierId(nextSupplierId)
     setChannel(order?.channel ?? "")
     setStatus(order?.status ?? "Brouillon")
     setOrderDate(order?.orderDate ?? "")
@@ -345,17 +369,75 @@ export function ProcurementOrderModal({
     })
   }
 
+  const handleBarcodeScan = React.useCallback(
+    (barcode: string) => {
+      const match = barcodeMap.get(barcode)
+      if (!match) {
+        toast.error("Code barre inconnu.")
+        return
+      }
+
+      setLines((current) => {
+        const existingIndex = current.findIndex(
+          (line) => line.productId === match.id || line.product === match.name
+        )
+        if (existingIndex !== -1) {
+          return current.map((line, index) =>
+            index === existingIndex
+              ? {
+                  ...line,
+                  product: match.name,
+                  productId: match.id,
+                  unitPrice: match.unitPrice,
+                  quantity: line.quantity + 1,
+                }
+              : line
+          )
+        }
+
+        const emptyIndex = current.findIndex((line) => !line.product)
+        if (emptyIndex !== -1) {
+          return current.map((line, index) =>
+            index === emptyIndex
+              ? {
+                  ...line,
+                  product: match.name,
+                  productId: match.id,
+                  unitPrice: match.unitPrice,
+                  quantity: line.quantity > 0 ? line.quantity : 1,
+                }
+              : line
+          )
+        }
+
+        return [
+          ...current,
+          {
+            ...emptyLine(),
+            product: match.name,
+            productId: match.id,
+            unitPrice: match.unitPrice,
+            quantity: 1,
+          },
+        ]
+      })
+    },
+    [barcodeMap]
+  )
+
+  useBarcodeScanner({
+    clerkOrgId: orgId,
+    enabled: canManagePurchases && resolvedOpen,
+    onScan: handleBarcodeScan,
+  })
+
   const submitWithStatus = (nextStatus: string) => {
-    const items = lines
-      .filter((line) => line.productId && line.quantity > 0)
+    const resolvedLines = lines
+      .filter((line) => line.product.trim())
       .map((line) => ({
-        productId: line.productId as string,
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        lineDiscountType: line.discountType,
-        lineDiscountValue: line.discountValue,
+        line,
+        productId: line.productId ?? productMap.get(line.product)?.id,
       }))
-    if (items.length === 0) return
 
     if (!supplierId) {
       toast.error("Veuillez sélectionner un fournisseur.")
@@ -365,10 +447,26 @@ export function ProcurementOrderModal({
       toast.error("Veuillez renseigner une date.")
       return
     }
-    if (items.length === 0) {
+    if (resolvedLines.length === 0) {
       toast.error("Ajoutez au moins un article valide.")
       return
     }
+    if (resolvedLines.some((entry) => !entry.productId)) {
+      toast.error("Veuillez re-sélectionner les produits manquants.")
+      return
+    }
+    if (resolvedLines.some((entry) => entry.line.quantity <= 0)) {
+      toast.error("Veuillez renseigner une quantité valide.")
+      return
+    }
+
+    const items = resolvedLines.map(({ line, productId }) => ({
+      productId: productId as string,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      lineDiscountType: isDelivery ? line.discountType : undefined,
+      lineDiscountValue: isDelivery ? line.discountValue : undefined,
+    }))
 
     void Promise.resolve(
       onSubmit?.({
@@ -376,15 +474,16 @@ export function ProcurementOrderModal({
         channel,
         status: nextStatus,
         orderDate,
-        dueDate: dueDate || undefined,
+        dueDate: isDelivery ? dueDate || undefined : undefined,
         externalReference: isDelivery ? externalReference : undefined,
-        globalDiscountType,
-        globalDiscountValue,
+        globalDiscountType: isDelivery ? globalDiscountType : undefined,
+        globalDiscountValue: isDelivery ? globalDiscountValue : undefined,
         items,
       })
     )
       .then(() => {
         toast.success(isDelivery ? "Bon de livraison enregistré." : "Bon de commande enregistré.")
+        handleOpenChange?.(false)
       })
       .catch(() => {
         toast.error("Impossible d'enregistrer ce document.")
@@ -392,7 +491,7 @@ export function ProcurementOrderModal({
   }
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange}>
+    <Modal open={resolvedOpen} onOpenChange={handleOpenChange}>
       {trigger ? <ModalTrigger render={trigger} /> : null}
       <ModalContent showCloseButton className="sm:w-3/5 md:w-3/5 lg:w-3/5 xl:w-3/5">
         <ModalHeader showCloseButton>
@@ -566,6 +665,9 @@ export function ProcurementOrderModal({
             ) : null}
             <div className="space-y-3">
               <div className="text-sm font-semibold">Articles</div>
+              <p className="text-xs text-muted-foreground">
+                Astuce : utilisez un lecteur ou ouvrez /scan sur un téléphone connecté.
+              </p>
               <div className="rounded-lg border border-border">
                 <div className="overflow-x-auto p-4">
                   <Table className="table-fixed">
@@ -793,10 +895,12 @@ export function ProcurementOrderModal({
                     <span>Total P.TTC</span>
                     <span className="text-foreground">{formatCurrency(totalTtc)} MAD</span>
                   </div>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Remise</span>
-                    <span className="text-foreground">{formatCurrency(totalDiscount)} MAD</span>
-                  </div>
+                  {showGlobalDiscount ? (
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span>Remise</span>
+                      <span className="text-foreground">{formatCurrency(totalDiscount)} MAD</span>
+                    </div>
+                  ) : null}
                 </div>
                 <Separator className="my-4" />
                 <div className="flex items-center justify-between text-sm font-semibold">
@@ -807,25 +911,17 @@ export function ProcurementOrderModal({
             </div>
           </ModalBody>
           <ModalFooter>
-            <ModalClose
-              render={
-                <Button
-                  variant="outline"
-                  type="button"
-                  disabled={!canManagePurchases}
-                  onClick={() => submitWithStatus("Brouillon")}
-                >
-                  Enregistrer en brouillon
-                </Button>
-              }
-            />
-            <ModalClose
-              render={
-                <Button type="submit" disabled={!canManagePurchases}>
-                  Enregistrer
-                </Button>
-              }
-            />
+            <Button
+              variant="outline"
+              type="button"
+              disabled={!canManagePurchases}
+              onClick={() => submitWithStatus("Brouillon")}
+            >
+              Enregistrer en brouillon
+            </Button>
+            <Button type="submit" disabled={!canManagePurchases}>
+              Enregistrer
+            </Button>
           </ModalFooter>
         </ModalForm>
       </ModalContent>

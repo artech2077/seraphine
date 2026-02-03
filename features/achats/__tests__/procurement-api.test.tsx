@@ -58,6 +58,7 @@ describe("usePurchaseOrders", () => {
         items: [
           {
             id: "item-1",
+            productId: "prod-1",
             productName: "Produit A",
             quantity: 2,
             unitPrice: 50,
@@ -87,13 +88,14 @@ describe("usePurchaseOrders", () => {
     )
     expect(result.current.orders[0]?.items[0]).toEqual(
       expect.objectContaining({
+        productId: "prod-1",
         lineDiscountType: "amount",
         lineDiscountValue: 10,
       })
     )
   })
 
-  it("creates purchase orders with mapped status and totals", async () => {
+  it("creates purchase orders without remise fields", async () => {
     const createOrder = createMockMutation()
     const updateOrder = createMockMutation()
     const removeOrder = createMockMutation()
@@ -140,24 +142,24 @@ describe("usePurchaseOrders", () => {
       status: "ORDERED",
       channel: "EMAIL",
       orderDate: Date.parse("2026-01-02"),
-      dueDate: Date.parse("2026-01-10"),
-      globalDiscountType: "PERCENT",
-      globalDiscountValue: 10,
-      totalAmount: 106.65,
+      dueDate: undefined,
+      globalDiscountType: undefined,
+      globalDiscountValue: 0,
+      totalAmount: 130,
       items: [
         {
           productId: "prod-1",
           quantity: 2,
           unitPrice: 50,
-          lineDiscountType: "AMOUNT",
-          lineDiscountValue: 10,
+          lineDiscountType: undefined,
+          lineDiscountValue: 0,
         },
         {
           productId: "prod-2",
           quantity: 1,
           unitPrice: 30,
-          lineDiscountType: "PERCENT",
-          lineDiscountValue: 5,
+          lineDiscountType: undefined,
+          lineDiscountValue: 0,
         },
       ],
     })

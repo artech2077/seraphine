@@ -9,6 +9,14 @@ vi.mock("@/lib/auth/use-role-access", () => ({
   }),
 }))
 
+vi.mock("@clerk/nextjs", () => ({
+  useAuth: () => ({ orgId: "org-1", userId: "user-1" }),
+}))
+
+vi.mock("@/hooks/use-barcode-scanner", () => ({
+  useBarcodeScanner: () => {},
+}))
+
 describe("PurchaseOrdersTable", () => {
   it("sorts by total when header is clicked", async () => {
     const user = userEvent.setup()

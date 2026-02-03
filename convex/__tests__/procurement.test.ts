@@ -1,14 +1,13 @@
 import { vi } from "vitest"
 
 import { create, listByOrg, listByOrgPaginated, remove, update } from "@/convex/procurement"
-
-type ConvexHandler<Args, Result = unknown> = (ctx: unknown, args: Args) => Promise<Result>
+import { getHandler, type ConvexHandler } from "@/convex/__tests__/test_utils"
 
 describe("convex/procurement", () => {
   it("lists procurement orders with mapped items", async () => {
     const ctx = buildContext()
 
-    const handler = listByOrg as unknown as ConvexHandler<
+    const handler = getHandler(listByOrg) as ConvexHandler<
       { clerkOrgId: string; type: string },
       unknown[]
     >
@@ -26,16 +25,17 @@ describe("convex/procurement", () => {
       expect.objectContaining({
         id: "order-1",
         orderNumber: "BC-01",
+        supplierId: "supplier-1",
         supplierName: "Fournisseur A",
-        items: [expect.objectContaining({ productName: "Produit A" })],
+        items: [expect.objectContaining({ productId: "product-1", productName: "Produit A" })],
       }),
     ])
   })
 
-  it("creates procurement orders and items", async () => {
+  it("creates procurement orders without remise fields", async () => {
     const ctx = buildContext()
 
-    const handler = create as unknown as ConvexHandler<{
+    const handler = getHandler(create) as ConvexHandler<{
       clerkOrgId: string
       type: string
       supplierId: string
@@ -85,10 +85,10 @@ describe("convex/procurement", () => {
         orderSequence: 2,
         supplierId: "supplier-1",
         status: "ORDERED",
-        dueDate: 150,
-        globalDiscountType: "PERCENT",
-        globalDiscountValue: 10,
-        totalAmount: 81,
+        dueDate: undefined,
+        globalDiscountType: undefined,
+        globalDiscountValue: 0,
+        totalAmount: 100,
       })
     )
     expect(ctx.db.insert).toHaveBeenCalledWith(
@@ -97,17 +97,17 @@ describe("convex/procurement", () => {
         pharmacyId: "pharmacy-1",
         orderId: "order-1",
         productId: "product-1",
-        lineDiscountType: "AMOUNT",
-        lineDiscountValue: 10,
-        lineTotal: 90,
+        lineDiscountType: undefined,
+        lineDiscountValue: 0,
+        lineTotal: 100,
       })
     )
   })
 
-  it("updates procurement orders and replaces items", async () => {
+  it("updates procurement orders and strips remise fields", async () => {
     const ctx = buildContext()
 
-    const handler = update as unknown as ConvexHandler<{
+    const handler = getHandler(update) as ConvexHandler<{
       clerkOrgId: string
       id: string
       supplierId: string
@@ -157,10 +157,10 @@ describe("convex/procurement", () => {
         externalReference: undefined,
         channel: "PHONE",
         orderDate: 456,
-        dueDate: 500,
-        globalDiscountType: "AMOUNT",
-        globalDiscountValue: 5,
-        totalAmount: 40,
+        dueDate: undefined,
+        globalDiscountType: undefined,
+        globalDiscountValue: 0,
+        totalAmount: 50,
       })
     )
     expect(ctx.db.delete).toHaveBeenCalledWith("item-1")
@@ -170,9 +170,9 @@ describe("convex/procurement", () => {
         pharmacyId: "pharmacy-1",
         orderId: "order-1",
         quantity: 1,
-        lineDiscountType: "PERCENT",
-        lineDiscountValue: 10,
-        lineTotal: 45,
+        lineDiscountType: undefined,
+        lineDiscountValue: 0,
+        lineTotal: 50,
       })
     )
   })
@@ -180,7 +180,7 @@ describe("convex/procurement", () => {
   it("paginates procurement orders", async () => {
     const ctx = buildContext()
 
-    const handler = listByOrgPaginated as unknown as ConvexHandler<
+    const handler = getHandler(listByOrgPaginated) as ConvexHandler<
       {
         clerkOrgId: string
         type: "PURCHASE_ORDER"
@@ -205,7 +205,7 @@ describe("convex/procurement", () => {
   it("removes procurement orders and items", async () => {
     const ctx = buildContext()
 
-    const handler = remove as unknown as ConvexHandler<{ clerkOrgId: string; id: string }>
+    const handler = getHandler(remove) as ConvexHandler<{ clerkOrgId: string; id: string }>
 
     await handler(ctx, { clerkOrgId: "org-1", id: "order-1" })
 

@@ -17,6 +17,15 @@ export default defineSchema({
     email: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_clerkUserId", ["clerkUserId"]),
+  barcodeScans: defineTable({
+    clerkOrgId: v.string(),
+    clerkUserId: v.string(),
+    barcode: v.string(),
+    source: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_clerkOrgId", ["clerkOrgId"])
+    .index("by_clerkOrgId_userId_createdAt", ["clerkOrgId", "clerkUserId", "createdAt"]),
   products: defineTable({
     pharmacyId: v.id("pharmacies"),
     name: v.string(),

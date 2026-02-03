@@ -1,14 +1,13 @@
 import { vi } from "vitest"
 
 import { ensureForOrg } from "@/convex/pharmacies"
-
-type ConvexHandler<Args, Result = unknown> = (ctx: unknown, args: Args) => Promise<Result>
+import { getHandler, type ConvexHandler } from "@/convex/__tests__/test_utils"
 
 describe("convex/pharmacies", () => {
   it("returns existing pharmacy id", async () => {
     const ctx = buildContext({ existing: true })
 
-    const handler = ensureForOrg as unknown as ConvexHandler<
+    const handler = getHandler(ensureForOrg) as ConvexHandler<
       {
         clerkOrgId: string
         name: string
@@ -28,7 +27,7 @@ describe("convex/pharmacies", () => {
   it("creates pharmacy when missing", async () => {
     const ctx = buildContext({ existing: false, latestSequence: 1 })
 
-    const handler = ensureForOrg as unknown as ConvexHandler<
+    const handler = getHandler(ensureForOrg) as ConvexHandler<
       {
         clerkOrgId: string
         name: string

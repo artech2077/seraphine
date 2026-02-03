@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 
 import { ProcurementOrderModal } from "@/features/achats/procurement-order-modal"
@@ -16,7 +16,32 @@ vi.mock("sonner", () => ({
   },
 }))
 
+vi.mock("convex/react", async () => {
+  const actual = await vi.importActual<typeof import("convex/react")>("convex/react")
+  return {
+    ...actual,
+    useQuery: () => undefined,
+  }
+})
+
+const scanHandlers: Array<(barcode: string) => void> = []
+
+vi.mock("@/hooks/use-barcode-scanner", () => ({
+  useBarcodeScanner: ({ onScan }: { onScan: (barcode: string) => void }) => {
+    scanHandlers.push(onScan)
+  },
+}))
+
+vi.mock("@clerk/nextjs", () => ({
+  useAuth: () => ({ orgId: "org-1", userId: "user-1" }),
+}))
+
+const PRODUCTS = [{ id: "prod-1", name: "Produit A", unitPrice: 10, barcode: "900" }]
+
 describe("ProcurementOrderModal", () => {
+  beforeEach(() => {
+    scanHandlers.length = 0
+  })
   it("blocks adding a line until a product and quantity are set", async () => {
     const user = userEvent.setup()
 
@@ -26,7 +51,7 @@ describe("ProcurementOrderModal", () => {
         variant="purchase"
         open
         suppliers={[{ id: "supplier-1", name: "Fournisseur A" }]}
-        products={[{ id: "prod-1", name: "Produit A", unitPrice: 10 }]}
+        products={PRODUCTS}
       />
     )
 
@@ -46,7 +71,7 @@ describe("ProcurementOrderModal", () => {
         variant="delivery"
         open
         suppliers={[{ id: "supplier-1", name: "Fournisseur A" }]}
-        products={[{ id: "prod-1", name: "Produit A", unitPrice: 10 }]}
+        products={PRODUCTS}
       />
     )
 
@@ -63,7 +88,7 @@ describe("ProcurementOrderModal", () => {
         variant="purchase"
         open
         suppliers={[{ id: "supplier-1", name: "Fournisseur A" }]}
-        products={[{ id: "prod-1", name: "Produit A", unitPrice: 10 }]}
+        products={PRODUCTS}
       />
     )
 
@@ -82,7 +107,7 @@ describe("ProcurementOrderModal", () => {
         variant="purchase"
         open
         suppliers={[{ id: "supplier-1", name: "Fournisseur A" }]}
-        products={[{ id: "prod-1", name: "Produit A", unitPrice: 10 }]}
+        products={PRODUCTS}
       />
     )
 
@@ -111,7 +136,7 @@ describe("ProcurementOrderModal", () => {
         variant="purchase"
         open
         suppliers={[{ id: "supplier-1", name: "Fournisseur A" }]}
-        products={[{ id: "prod-1", name: "Produit A", unitPrice: 10 }]}
+        products={PRODUCTS}
       />
     )
 
@@ -135,7 +160,7 @@ describe("ProcurementOrderModal", () => {
         variant="purchase"
         open
         suppliers={[{ id: "supplier-1", name: "Fournisseur A" }]}
-        products={[{ id: "prod-1", name: "Produit A", unitPrice: 10 }]}
+        products={PRODUCTS}
       />
     )
 
@@ -160,5 +185,127 @@ describe("ProcurementOrderModal", () => {
     })
 
     expect(screen.getByLabelText("Quantité")).toHaveValue(3)
+  })
+
+  it("adds a product when scanning a barcode", async () => {
+    render(
+      <ProcurementOrderModal
+        mode="create"
+        variant="purchase"
+        open
+        suppliers={[{ id: "supplier-1", name: "Fournisseur A" }]}
+        products={PRODUCTS}
+      />
+    )
+
+    await act(async () => {
+      scanHandlers[0]?.("900")
+    })
+
+    await waitFor(() => {
+      expect(screen.getAllByDisplayValue("Produit A")).not.toHaveLength(0)
+    })
+    expect(screen.getByLabelText("Quantité")).toHaveValue(1)
+  })
+
+  it("submits existing lines using stored product ids", async () => {
+    const user = userEvent.setup()
+    const handleSubmit = vi.fn()
+
+    render(
+      <ProcurementOrderModal
+        mode="edit"
+        variant="purchase"
+        open
+        suppliers={[{ id: "supplier-1", name: "Fournisseur A" }]}
+        products={[]}
+        order={{
+          id: "order-1",
+          orderNumber: "BC-01",
+          supplierId: "supplier-1",
+          supplier: "Fournisseur A",
+          channel: "Email",
+          createdAt: "2026-01-01",
+          orderDate: "2026-01-02",
+          total: 100,
+          status: "Commandé",
+          items: [
+            {
+              id: "line-1",
+              productId: "prod-1",
+              product: "Produit A",
+              quantity: 2,
+              unitPrice: 50,
+            },
+          ],
+        }}
+        onSubmit={handleSubmit}
+      />
+    )
+
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }))
+
+    await waitFor(() => {
+      expect(handleSubmit).toHaveBeenCalled()
+    })
+
+    expect(handleSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supplierId: "supplier-1",
+        items: [
+          expect.objectContaining({
+            productId: "prod-1",
+            quantity: 2,
+            unitPrice: 50,
+          }),
+        ],
+      })
+    )
+  })
+
+  it("does not send remise or delivery-only fields for purchase orders", async () => {
+    const user = userEvent.setup()
+    const handleSubmit = vi.fn()
+
+    render(
+      <ProcurementOrderModal
+        mode="create"
+        variant="purchase"
+        open
+        suppliers={[{ id: "supplier-1", name: "Fournisseur A" }]}
+        products={PRODUCTS}
+        onSubmit={handleSubmit}
+      />
+    )
+
+    const supplierInput = screen.getByLabelText("Fournisseur")
+    await user.click(supplierInput)
+    await user.type(supplierInput, "Fournisseur A")
+    await user.click(await screen.findByRole("option", { name: "Fournisseur A" }))
+
+    const orderDateInput = screen.getByLabelText("Date de bon de commande")
+    await user.type(orderDateInput, "2026-02-03")
+
+    const productInput = screen.getByLabelText("Produit")
+    await user.click(productInput)
+    await user.type(productInput, "Produit A")
+    await user.click(await screen.findByRole("option", { name: "Produit A" }))
+
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }))
+
+    expect(handleSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dueDate: undefined,
+        externalReference: undefined,
+        globalDiscountType: undefined,
+        globalDiscountValue: undefined,
+        items: [
+          expect.objectContaining({
+            lineDiscountType: undefined,
+            lineDiscountValue: undefined,
+          }),
+        ],
+      })
+    )
   })
 })

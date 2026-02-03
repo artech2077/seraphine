@@ -1,14 +1,13 @@
 import { vi } from "vitest"
 
 import { create, listByOrg, listByOrgPaginated, remove, update } from "@/convex/clients"
-
-type ConvexHandler<Args, Result = unknown> = (ctx: unknown, args: Args) => Promise<Result>
+import { getHandler, type ConvexHandler } from "@/convex/__tests__/test_utils"
 
 describe("convex/clients", () => {
   it("lists clients for the org", async () => {
     const ctx = buildContext()
 
-    const handler = listByOrg as unknown as ConvexHandler<{ clerkOrgId: string }, unknown[]>
+    const handler = getHandler(listByOrg) as ConvexHandler<{ clerkOrgId: string }, unknown[]>
 
     const result = await handler(ctx, { clerkOrgId: "org-1" })
 
@@ -24,7 +23,7 @@ describe("convex/clients", () => {
   it("creates clients", async () => {
     const ctx = buildContext()
 
-    const handler = create as unknown as ConvexHandler<{
+    const handler = getHandler(create) as ConvexHandler<{
       clerkOrgId: string
       name: string
       phone: string
@@ -61,7 +60,7 @@ describe("convex/clients", () => {
   it("paginates clients for the org", async () => {
     const ctx = buildContext()
 
-    const handler = listByOrgPaginated as unknown as ConvexHandler<
+    const handler = getHandler(listByOrgPaginated) as ConvexHandler<
       {
         clerkOrgId: string
         pagination: { page: number; pageSize: number }
@@ -84,7 +83,7 @@ describe("convex/clients", () => {
   it("updates clients", async () => {
     const ctx = buildContext()
 
-    const handler = update as unknown as ConvexHandler<{
+    const handler = getHandler(update) as ConvexHandler<{
       clerkOrgId: string
       id: string
       name: string
@@ -122,7 +121,7 @@ describe("convex/clients", () => {
   it("removes clients", async () => {
     const ctx = buildContext()
 
-    const handler = remove as unknown as ConvexHandler<{ clerkOrgId: string; id: string }>
+    const handler = getHandler(remove) as ConvexHandler<{ clerkOrgId: string; id: string }>
 
     await handler(ctx, { clerkOrgId: "org-1", id: "client-1" })
 

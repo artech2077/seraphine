@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { format } from "date-fns"
 import { vi } from "vitest"
 
 import { ReconciliationDashboard } from "@/features/reconciliation/reconciliation-dashboard"
@@ -31,6 +32,7 @@ describe("ReconciliationDashboard", () => {
   })
 
   it("confirms opening values", async () => {
+    const today = format(new Date(), "yyyy-MM-dd")
     const user = userEvent.setup()
     const onUpdateDay = vi.fn().mockResolvedValue(undefined)
 
@@ -39,7 +41,7 @@ describe("ReconciliationDashboard", () => {
         days={[
           {
             id: "day-1",
-            date: "2026-01-02",
+            date: today,
             opening: null,
             openingLocked: false,
             sales: 200,

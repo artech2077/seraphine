@@ -1,6 +1,7 @@
 import { vi } from "vitest"
 
 import { getSummary } from "@/convex/dashboard"
+import { getHandler, type ConvexHandler } from "@/convex/__tests__/test_utils"
 
 type SummaryResult = {
   sales: {
@@ -29,13 +30,11 @@ type SummaryResult = {
   recentOrders: Array<{ supplier: string; status: string }>
 } | null
 
-type ConvexHandler<Args, Result = unknown> = (ctx: unknown, args: Args) => Promise<Result>
-
 describe("convex/dashboard", () => {
   it("returns null when org mismatch", async () => {
     const ctx = buildContext({ orgId: "org-2" })
 
-    const handler = getSummary as unknown as ConvexHandler<
+    const handler = getHandler(getSummary) as ConvexHandler<
       { clerkOrgId: string; now: number },
       SummaryResult
     >
@@ -50,7 +49,7 @@ describe("convex/dashboard", () => {
 
     const ctx = buildContext()
 
-    const handler = getSummary as unknown as ConvexHandler<
+    const handler = getHandler(getSummary) as ConvexHandler<
       { clerkOrgId: string; now: number },
       SummaryResult
     >

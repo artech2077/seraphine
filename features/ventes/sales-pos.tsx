@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useAuth } from "@clerk/nextjs"
 import { Plus, Search, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -36,16 +37,19 @@ import {
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
+import { normalizeBarcode } from "@/lib/barcode"
 import { useClients } from "@/features/clients/api"
 import { useProductCatalog } from "@/features/inventaire/api"
 import { useSalesHistory } from "@/features/ventes/api"
 import type { SaleHistoryItem } from "@/features/ventes/sales-history-table"
+import { useBarcodeScanner } from "@/hooks/use-barcode-scanner"
 
 type DiscountType = "percent" | "amount"
 
 type Product = {
   id: string
   name: string
+  barcode: string
   unitPriceHt: number
   vatRate: number
 }
@@ -142,6 +146,7 @@ type SalesPosProps = {
 }
 
 export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: SalesPosProps) {
+  const { orgId } = useAuth()
   const { items: clients } = useClients()
   const { items: catalogItems } = useProductCatalog()
   const { createSale, updateSale } = useSalesHistory({ mode: "mutations" })
@@ -162,6 +167,7 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
       catalogItems.map((item) => ({
         id: item.id,
         name: item.name,
+        barcode: item.barcode,
         unitPriceHt: item.sellingPrice,
         vatRate: item.vatRate,
       })),
@@ -169,6 +175,16 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
   )
   const productOptions = React.useMemo(() => products.map((product) => product.name), [products])
   const clientOptions = React.useMemo(() => clients.map((client) => client.name), [clients])
+  const barcodeMap = React.useMemo(() => {
+    const map = new Map<string, Product>()
+    products.forEach((product) => {
+      const normalized = normalizeBarcode(product.barcode)
+      if (normalized) {
+        map.set(normalized, product)
+      }
+    })
+    return map
+  }, [products])
 
   const resetForm = React.useCallback(() => {
     setLines([createEmptyLine()])
@@ -187,6 +203,61 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
       resetForm()
     }
   }, [onCancelEdit, resetForm])
+
+  const handleBarcodeScan = React.useCallback(
+    (barcode: string) => {
+      const match = barcodeMap.get(barcode)
+      if (!match) {
+        toast.error("Code barre inconnu.")
+        return
+      }
+
+      setLines((current) => {
+        const existingIndex = current.findIndex(
+          (line) => line.productId === match.id || line.productName === match.name
+        )
+        if (existingIndex !== -1) {
+          return current.map((line, index) =>
+            index === existingIndex
+              ? {
+                  ...line,
+                  productId: match.id,
+                  productName: match.name,
+                  quantity: line.quantity + 1,
+                }
+              : line
+          )
+        }
+
+        const emptyIndex = current.findIndex((line) => !line.productName)
+        if (emptyIndex !== -1) {
+          return current.map((line, index) =>
+            index === emptyIndex
+              ? {
+                  ...line,
+                  productId: match.id,
+                  productName: match.name,
+                  quantity: line.quantity > 0 ? line.quantity : 1,
+                }
+              : line
+          )
+        }
+
+        return [
+          ...current,
+          {
+            ...createEmptyLine(),
+            productId: match.id,
+            productName: match.name,
+            quantity: 1,
+          },
+        ]
+      })
+    },
+    [barcodeMap]
+  )
+
+  useBarcodeScanner({ clerkOrgId: orgId, enabled: canManageSales, onScan: handleBarcodeScan })
 
   const appliedEditId = React.useRef<string | null>(null)
 
@@ -408,6 +479,9 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        <p className="text-xs text-muted-foreground">
+          Astuce : vous pouvez scanner avec un lecteur ou ouvrir /scan sur un téléphone connecté.
+        </p>
         <div className="space-y-3">
           <Table>
             <TableHeader>

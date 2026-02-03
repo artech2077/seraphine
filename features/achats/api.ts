@@ -33,6 +33,7 @@ export type ProcurementFormValues = {
 
 type ProcurementItem = {
   id: string
+  productId?: string
   productName: string
   quantity: number
   unitPrice: number
@@ -45,6 +46,7 @@ type ProcurementOrder = {
   id: string
   orderNumber?: string | null
   orderSequence?: number | null
+  supplierId?: string
   supplierName: string
   channel: "EMAIL" | "PHONE" | null
   createdAt: number
@@ -174,6 +176,21 @@ function calculateTotals(values: ProcurementFormValues) {
   return Math.max(0, subtotal - globalDiscount)
 }
 
+function normalizePurchaseOrderValues(values: ProcurementFormValues): ProcurementFormValues {
+  return {
+    ...values,
+    dueDate: undefined,
+    externalReference: undefined,
+    globalDiscountType: undefined,
+    globalDiscountValue: 0,
+    items: values.items.map((item) => ({
+      ...item,
+      lineDiscountType: undefined,
+      lineDiscountValue: 0,
+    })),
+  }
+}
+
 function mapDeliveryStatus(value: string) {
   switch (value) {
     case "En cours":
@@ -236,6 +253,7 @@ function mapPurchaseOrder(order: ProcurementOrder, fallbackNumber?: string): Pur
   return {
     id: String(order.id),
     orderNumber,
+    supplierId: order.supplierId,
     supplier: order.supplierName,
     channel: channelLabels[order.channel ?? ""] ?? "Portail",
     createdAt: formatDate(order.createdAt),
@@ -247,6 +265,7 @@ function mapPurchaseOrder(order: ProcurementOrder, fallbackNumber?: string): Pur
     globalDiscountValue: order.globalDiscountValue ?? undefined,
     items: order.items.map((item) => ({
       id: String(item.id),
+      productId: item.productId,
       product: item.productName,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
@@ -267,6 +286,7 @@ function mapDeliveryNote(order: ProcurementOrder, fallbackNumber?: string): Deli
   return {
     id: String(order.id),
     orderNumber,
+    supplierId: order.supplierId,
     supplier: order.supplierName,
     channel: channelLabels[order.channel ?? ""] ?? "Portail",
     createdAt: formatDate(order.createdAt),
@@ -279,6 +299,7 @@ function mapDeliveryNote(order: ProcurementOrder, fallbackNumber?: string): Deli
     globalDiscountValue: order.globalDiscountValue ?? undefined,
     items: order.items.map((item) => ({
       id: String(item.id),
+      productId: item.productId,
       product: item.productName,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
@@ -400,47 +421,51 @@ export function usePurchaseOrders(options?: ProcurementListOptions) {
     exportOrders,
     async createOrder(values: ProcurementFormValues) {
       if (!orgId) return
-      await createOrderMutation({
+      const normalizedValues = normalizePurchaseOrderValues(values)
+      const payload = {
         clerkOrgId: orgId,
         type: "PURCHASE_ORDER",
-        supplierId: values.supplierId as Id<"suppliers">,
-        status: mapPurchaseStatus(values.status),
-        channel: mapChannel(values.channel),
-        orderDate: parseDate(values.orderDate),
-        dueDate: parseOptionalDate(values.dueDate),
-        globalDiscountType: mapDiscountType(values.globalDiscountType),
-        globalDiscountValue: values.globalDiscountValue ?? 0,
-        totalAmount: calculateTotals(values),
-        items: values.items.map((item) => ({
+        supplierId: normalizedValues.supplierId as Id<"suppliers">,
+        status: mapPurchaseStatus(normalizedValues.status),
+        channel: mapChannel(normalizedValues.channel),
+        orderDate: parseDate(normalizedValues.orderDate),
+        dueDate: undefined,
+        globalDiscountType: undefined,
+        globalDiscountValue: 0,
+        totalAmount: calculateTotals(normalizedValues),
+        items: normalizedValues.items.map((item) => ({
           productId: item.productId as Id<"products">,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          lineDiscountType: mapDiscountType(item.lineDiscountType),
-          lineDiscountValue: item.lineDiscountValue ?? 0,
+          lineDiscountType: undefined,
+          lineDiscountValue: 0,
         })),
-      })
+      }
+      await createOrderMutation(payload)
     },
     async updateOrder(order: PurchaseOrder, values: ProcurementFormValues) {
       if (!orgId) return
-      await updateOrderMutation({
+      const normalizedValues = normalizePurchaseOrderValues(values)
+      const payload = {
         clerkOrgId: orgId,
         id: order.id as Id<"procurementOrders">,
-        supplierId: values.supplierId as Id<"suppliers">,
-        status: mapPurchaseStatus(values.status),
-        channel: mapChannel(values.channel),
-        orderDate: parseDate(values.orderDate),
-        dueDate: parseOptionalDate(values.dueDate),
-        globalDiscountType: mapDiscountType(values.globalDiscountType),
-        globalDiscountValue: values.globalDiscountValue ?? 0,
-        totalAmount: calculateTotals(values),
-        items: values.items.map((item) => ({
+        supplierId: normalizedValues.supplierId as Id<"suppliers">,
+        status: mapPurchaseStatus(normalizedValues.status),
+        channel: mapChannel(normalizedValues.channel),
+        orderDate: parseDate(normalizedValues.orderDate),
+        dueDate: undefined,
+        globalDiscountType: undefined,
+        globalDiscountValue: 0,
+        totalAmount: calculateTotals(normalizedValues),
+        items: normalizedValues.items.map((item) => ({
           productId: item.productId as Id<"products">,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          lineDiscountType: mapDiscountType(item.lineDiscountType),
-          lineDiscountValue: item.lineDiscountValue ?? 0,
+          lineDiscountType: undefined,
+          lineDiscountValue: 0,
         })),
-      })
+      }
+      await updateOrderMutation(payload)
     },
     async removeOrder(order: PurchaseOrder) {
       if (!orgId) return
@@ -564,7 +589,7 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
     exportNotes,
     async createNote(values: ProcurementFormValues) {
       if (!orgId) return
-      await createOrderMutation({
+      const payload = {
         clerkOrgId: orgId,
         type: "DELIVERY_NOTE",
         supplierId: values.supplierId as Id<"suppliers">,
@@ -583,11 +608,12 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
           lineDiscountType: mapDiscountType(item.lineDiscountType),
           lineDiscountValue: item.lineDiscountValue ?? 0,
         })),
-      })
+      }
+      await createOrderMutation(payload)
     },
     async updateNote(note: DeliveryNote, values: ProcurementFormValues) {
       if (!orgId) return
-      await updateOrderMutation({
+      const payload = {
         clerkOrgId: orgId,
         id: note.id as Id<"procurementOrders">,
         supplierId: values.supplierId as Id<"suppliers">,
@@ -606,7 +632,8 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
           lineDiscountType: mapDiscountType(item.lineDiscountType),
           lineDiscountValue: item.lineDiscountValue ?? 0,
         })),
-      })
+      }
+      await updateOrderMutation(payload)
     },
     async removeNote(note: DeliveryNote) {
       if (!orgId) return

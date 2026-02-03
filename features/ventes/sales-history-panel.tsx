@@ -30,8 +30,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-
-const PAGE_SIZE_OPTIONS = ["20", "50", "100"]
+import { PAGE_SIZE_OPTIONS } from "@/lib/constants/pagination"
 
 const paymentOptions = ["Tous", "Espèce", "Carte", "Crédit"]
 

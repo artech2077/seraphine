@@ -1,14 +1,13 @@
 import { vi } from "vitest"
 
 import { listByOrg, listByOrgPaginated, upsertDay } from "@/convex/reconciliation"
-
-type ConvexHandler<Args, Result = unknown> = (ctx: unknown, args: Args) => Promise<Result>
+import { getHandler, type ConvexHandler } from "@/convex/__tests__/test_utils"
 
 describe("convex/reconciliation", () => {
   it("lists reconciliation records for the org", async () => {
     const ctx = buildContext()
 
-    const handler = listByOrg as unknown as ConvexHandler<{ clerkOrgId: string }, unknown[]>
+    const handler = getHandler(listByOrg) as ConvexHandler<{ clerkOrgId: string }, unknown[]>
 
     const result = await handler(ctx, { clerkOrgId: "org-1" })
 
@@ -23,7 +22,7 @@ describe("convex/reconciliation", () => {
   it("updates existing reconciliation records", async () => {
     const ctx = buildContext({ existingDay: true })
 
-    const handler = upsertDay as unknown as ConvexHandler<{
+    const handler = getHandler(upsertDay) as ConvexHandler<{
       clerkOrgId: string
       date: string
       opening: number
@@ -65,7 +64,7 @@ describe("convex/reconciliation", () => {
   it("creates new reconciliation records", async () => {
     const ctx = buildContext({ existingDay: false })
 
-    const handler = upsertDay as unknown as ConvexHandler<{
+    const handler = getHandler(upsertDay) as ConvexHandler<{
       clerkOrgId: string
       date: string
       opening: number
@@ -104,7 +103,7 @@ describe("convex/reconciliation", () => {
   it("paginates reconciliation history", async () => {
     const ctx = buildContext()
 
-    const handler = listByOrgPaginated as unknown as ConvexHandler<
+    const handler = getHandler(listByOrgPaginated) as ConvexHandler<
       {
         clerkOrgId: string
         pagination: { page: number; pageSize: number }

@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Spinner } from "@/components/ui/spinner"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
+import { PAGE_SIZE_OPTIONS } from "@/lib/constants/pagination"
 import {
   Pagination,
   PaginationContent,
@@ -33,7 +34,6 @@ import { toast } from "sonner"
 
 const STOCK_FILTER_LABELS = ["Tous", "En stock", "Stock bas", "Rupture"]
 const VAT_FILTER_LABELS = ["Toutes", "0%", "7%", "20%"]
-const PAGE_SIZE_OPTIONS = ["20", "50", "100"]
 
 function buildPageItems(currentPage: number, totalPages: number) {
   if (totalPages <= 7) {
@@ -199,8 +199,9 @@ export function InventoryPage() {
             try {
               await createProduct(values)
               toast.success("Produit ajouté.")
-            } catch {
+            } catch (error) {
               toast.error("Impossible d'ajouter le produit.")
+              throw error
             }
           }}
           trigger={
@@ -338,8 +339,9 @@ export function InventoryPage() {
               try {
                 await updateProduct(item, values)
                 toast.success("Produit mis à jour.")
-              } catch {
+              } catch (error) {
                 toast.error("Impossible de mettre à jour le produit.")
+                throw error
               }
             }}
             onDelete={async (item) => {

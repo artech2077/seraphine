@@ -48,6 +48,10 @@ export function ClientModal({
   item,
   onSubmit,
 }: ClientModalProps) {
+  const [internalOpen, setInternalOpen] = React.useState(false)
+  const isControlled = open !== undefined
+  const resolvedOpen = isControlled ? open : internalOpen
+  const handleOpenChange = isControlled ? onOpenChange : setInternalOpen
   const { canManage } = useRoleAccess()
   const canManageClients = canManage("clients")
   const id = React.useId()
@@ -74,11 +78,15 @@ export function ClientModal({
       notes: String(formData.get("notes") ?? ""),
     }
 
-    void onSubmit?.(payload, item)
+    void Promise.resolve(onSubmit?.(payload, item))
+      .then(() => {
+        handleOpenChange?.(false)
+      })
+      .catch(() => null)
   }
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange}>
+    <Modal open={resolvedOpen} onOpenChange={handleOpenChange}>
       {trigger ? <ModalTrigger render={trigger} /> : null}
       <ModalContent showCloseButton>
         <ModalHeader showCloseButton>
@@ -178,13 +186,9 @@ export function ClientModal({
                 </Button>
               }
             />
-            <ModalClose
-              render={
-                <Button type="submit" disabled={!canManageClients}>
-                  Enregistrer
-                </Button>
-              }
-            />
+            <Button type="submit" disabled={!canManageClients}>
+              Enregistrer
+            </Button>
           </ModalFooter>
         </ModalForm>
       </ModalContent>

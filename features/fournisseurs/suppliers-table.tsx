@@ -224,9 +224,10 @@ export function SuppliersTable({
       .catch(() => null)
   }, [onDelete, pendingDelete])
 
-  function handleUpdate(values: SupplierFormValues) {
-    if (!activeItem) return
-    void onUpdate?.(activeItem, values)
+  function handleUpdate(values: SupplierFormValues, item?: Supplier) {
+    const target = item ?? activeItem
+    if (!target) return
+    void onUpdate?.(target, values)
   }
 
   return (

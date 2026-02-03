@@ -193,6 +193,7 @@ export const listByOrg = query({
         const product = productsById.get(item.productId)
         return {
           id: item._id,
+          productId: item.productId,
           productName: product?.name ?? "Produit inconnu",
           quantity: item.quantity,
           unitPrice: item.unitPrice,
@@ -206,6 +207,7 @@ export const listByOrg = query({
         id: order._id,
         orderNumber: order.orderNumber ?? null,
         orderSequence: order.orderSequence ?? null,
+        supplierId: order.supplierId,
         supplierName: supplier?.name ?? "Fournisseur inconnu",
         channel: order.channel ?? null,
         createdAt: order.createdAt,
@@ -340,6 +342,7 @@ export const listByOrgPaginated = query({
         const product = productsById.get(String(item.productId))
         return {
           id: item._id,
+          productId: item.productId,
           productName: product?.name ?? "Produit inconnu",
           quantity: item.quantity,
           unitPrice: item.unitPrice,
@@ -353,6 +356,7 @@ export const listByOrgPaginated = query({
         id: order._id,
         orderNumber: order.orderNumber ?? null,
         orderSequence: order.orderSequence ?? null,
+        supplierId: order.supplierId,
         supplierName: supplier?.name ?? "Fournisseur inconnu",
         channel: order.channel ?? null,
         createdAt: order.createdAt,
@@ -498,10 +502,26 @@ export const create = mutation({
     const orderSequence = maxSequence + 1
     const orderNumber = formatOrderNumber(orderPrefix, orderSequence)
 
+    const normalizedArgs =
+      args.type === "PURCHASE_ORDER"
+        ? {
+            ...args,
+            dueDate: undefined,
+            externalReference: undefined,
+            globalDiscountType: undefined,
+            globalDiscountValue: 0,
+            items: args.items.map((item) => ({
+              ...item,
+              lineDiscountType: undefined,
+              lineDiscountValue: 0,
+            })),
+          }
+        : args
+
     const totalAmount = calculateOrderTotal(
-      args.items,
-      args.globalDiscountType,
-      args.globalDiscountValue
+      normalizedArgs.items,
+      normalizedArgs.globalDiscountType,
+      normalizedArgs.globalDiscountValue
     )
 
     const orderId = await ctx.db.insert("procurementOrders", {
@@ -510,19 +530,19 @@ export const create = mutation({
       orderSequence,
       type: args.type,
       supplierId: args.supplierId,
-      status: args.status,
-      externalReference: args.externalReference,
-      channel: args.channel,
-      orderDate: args.orderDate,
-      dueDate: args.dueDate,
-      globalDiscountType: args.globalDiscountType,
-      globalDiscountValue: args.globalDiscountValue,
+      status: normalizedArgs.status,
+      externalReference: normalizedArgs.externalReference,
+      channel: normalizedArgs.channel,
+      orderDate: normalizedArgs.orderDate,
+      dueDate: normalizedArgs.dueDate,
+      globalDiscountType: normalizedArgs.globalDiscountType,
+      globalDiscountValue: normalizedArgs.globalDiscountValue,
       totalAmount,
       createdAt: Date.now(),
     })
 
     await Promise.all(
-      args.items.map((item) =>
+      normalizedArgs.items.map((item) =>
         ctx.db.insert("procurementItems", {
           pharmacyId: pharmacy._id,
           orderId,
@@ -586,21 +606,37 @@ export const update = mutation({
       throw new Error("Unauthorized")
     }
 
+    const normalizedArgs =
+      order.type === "PURCHASE_ORDER"
+        ? {
+            ...args,
+            dueDate: undefined,
+            externalReference: undefined,
+            globalDiscountType: undefined,
+            globalDiscountValue: 0,
+            items: args.items.map((item) => ({
+              ...item,
+              lineDiscountType: undefined,
+              lineDiscountValue: 0,
+            })),
+          }
+        : args
+
     const totalAmount = calculateOrderTotal(
-      args.items,
-      args.globalDiscountType,
-      args.globalDiscountValue
+      normalizedArgs.items,
+      normalizedArgs.globalDiscountType,
+      normalizedArgs.globalDiscountValue
     )
 
     await ctx.db.patch(args.id, {
-      supplierId: args.supplierId,
-      status: args.status,
-      externalReference: args.externalReference,
-      channel: args.channel,
-      orderDate: args.orderDate,
-      dueDate: args.dueDate,
-      globalDiscountType: args.globalDiscountType,
-      globalDiscountValue: args.globalDiscountValue,
+      supplierId: normalizedArgs.supplierId,
+      status: normalizedArgs.status,
+      externalReference: normalizedArgs.externalReference,
+      channel: normalizedArgs.channel,
+      orderDate: normalizedArgs.orderDate,
+      dueDate: normalizedArgs.dueDate,
+      globalDiscountType: normalizedArgs.globalDiscountType,
+      globalDiscountValue: normalizedArgs.globalDiscountValue,
       totalAmount,
     })
 
@@ -612,7 +648,7 @@ export const update = mutation({
     await Promise.all(existingItems.map((item) => ctx.db.delete(item._id)))
 
     await Promise.all(
-      args.items.map((item) =>
+      normalizedArgs.items.map((item) =>
         ctx.db.insert("procurementItems", {
           pharmacyId: pharmacy._id,
           orderId: args.id,

@@ -21,6 +21,7 @@ import { PURCHASE_STATUS_OPTIONS, type PurchaseOrder } from "@/features/achats/p
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "@/lib/constants/pagination"
 import {
   Pagination,
   PaginationContent,
@@ -30,8 +31,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-
-const PAGE_SIZE = 5
 
 function buildPageItems(currentPage: number, totalPages: number) {
   if (totalPages <= 7) {
@@ -109,6 +108,7 @@ export function PurchaseOrdersPanel({ suppliers, products }: PurchaseOrdersPanel
   const [supplierFilter, setSupplierFilter] = React.useState<string[]>([])
   const [statusFilter, setStatusFilter] = React.useState<string[]>([])
   const [currentPage, setCurrentPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
 
   const orderDates = React.useMemo(() => normalizeDateRange(dateRange), [dateRange])
   const createdDates = React.useMemo(() => normalizeDateRange(createdRange), [createdRange])
@@ -129,7 +129,7 @@ export function PurchaseOrdersPanel({ suppliers, products }: PurchaseOrdersPanel
   } = usePurchaseOrders({
     mode: "paged",
     page: currentPage,
-    pageSize: PAGE_SIZE,
+    pageSize,
     filters: {
       supplierNames: supplierFilter,
       statuses: statusValues,
@@ -142,11 +142,11 @@ export function PurchaseOrdersPanel({ suppliers, products }: PurchaseOrdersPanel
 
   React.useEffect(() => {
     setCurrentPage(1)
-  }, [supplierFilter, statusFilter, dateRange, createdRange])
+  }, [supplierFilter, statusFilter, dateRange, createdRange, pageSize])
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
-  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
-  const rangeEnd = Math.min(totalCount, currentPage * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const rangeStart = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const rangeEnd = Math.min(totalCount, currentPage * pageSize)
   const rangeLabel =
     totalCount === 0
       ? "0 sur 0 bons de commande"
@@ -159,6 +159,13 @@ export function PurchaseOrdersPanel({ suppliers, products }: PurchaseOrdersPanel
 
   function handlePageChange(nextPage: number) {
     setCurrentPage(Math.min(Math.max(nextPage, 1), totalPages))
+  }
+
+  function handlePageSizeChange(value: string) {
+    const nextSize = Number(value)
+    if (!Number.isNaN(nextSize) && nextSize > 0) {
+      setPageSize(nextSize)
+    }
   }
 
   function handlePrint() {
@@ -247,8 +254,9 @@ export function PurchaseOrdersPanel({ suppliers, products }: PurchaseOrdersPanel
       footer={
         <DataTableFooter
           rangeLabel={rangeLabel}
-          itemsPerPageOptions={["5", "10", "20"]}
-          itemsPerPageValue={String(PAGE_SIZE)}
+          itemsPerPageOptions={PAGE_SIZE_OPTIONS}
+          itemsPerPageValue={String(pageSize)}
+          itemsPerPageOnChange={handlePageSizeChange}
           selectId="purchase-orders-items-per-page"
           pagination={
             <Pagination className="mx-0 w-auto justify-end">
@@ -309,7 +317,7 @@ export function PurchaseOrdersPanel({ suppliers, products }: PurchaseOrdersPanel
       }
     >
       {showSkeleton ? (
-        <PurchaseOrdersTableSkeleton rows={PAGE_SIZE} />
+        <PurchaseOrdersTableSkeleton rows={pageSize} />
       ) : (
         <PurchaseOrdersTable
           orders={orders}

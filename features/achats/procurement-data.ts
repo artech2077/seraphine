@@ -1,5 +1,6 @@
 export type ProcurementLineItem = {
   id: string
+  productId?: string
   product: string
   quantity: number
   unitPrice: number
@@ -13,6 +14,7 @@ export type DeliveryNoteStatus = "Brouillon" | "En cours" | "Livré"
 export type PurchaseOrder = {
   id: string
   orderNumber: string
+  supplierId?: string
   supplier: string
   channel: string
   createdAt: string
@@ -28,6 +30,7 @@ export type PurchaseOrder = {
 export type DeliveryNote = {
   id: string
   orderNumber: string
+  supplierId?: string
   supplier: string
   channel: string
   createdAt: string
@@ -45,6 +48,7 @@ export type ProductOption = {
   id: string
   name: string
   unitPrice: number
+  barcode: string
 }
 
 export const SUPPLIER_OPTIONS = [
@@ -65,9 +69,9 @@ export const PURCHASE_STATUS_OPTIONS: PurchaseOrderStatus[] = ["Brouillon", "Com
 export const DELIVERY_STATUS_OPTIONS: DeliveryNoteStatus[] = ["Brouillon", "En cours", "Livré"]
 
 export const PRODUCT_OPTIONS: ProductOption[] = [
-  { id: "prod-001", name: "Paracétamol 1g", unitPrice: 24.5 },
-  { id: "prod-002", name: "Gants nitrile - Boite 100", unitPrice: 86 },
-  { id: "prod-003", name: "Ibuprofène 400mg", unitPrice: 18.2 },
-  { id: "prod-004", name: "Vitamine C 1000", unitPrice: 12.8 },
-  { id: "prod-005", name: "Gel hydroalcoolique 500ml", unitPrice: 32.4 },
+  { id: "prod-001", name: "Paracétamol 1g", unitPrice: 24.5, barcode: "100001" },
+  { id: "prod-002", name: "Gants nitrile - Boite 100", unitPrice: 86, barcode: "100002" },
+  { id: "prod-003", name: "Ibuprofène 400mg", unitPrice: 18.2, barcode: "100003" },
+  { id: "prod-004", name: "Vitamine C 1000", unitPrice: 12.8, barcode: "100004" },
+  { id: "prod-005", name: "Gel hydroalcoolique 500ml", unitPrice: 32.4, barcode: "100005" },
 ]
