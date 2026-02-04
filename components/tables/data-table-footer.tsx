@@ -16,7 +16,7 @@ type DataTableFooterProps = {
   rangeLabel: string
   pagination?: React.ReactNode
   itemsPerPageLabel?: string
-  itemsPerPageOptions?: string[]
+  itemsPerPageOptions?: readonly string[]
   itemsPerPageValue?: string
   itemsPerPageOnChange?: (value: string) => void
   selectId?: string
