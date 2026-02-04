@@ -18,6 +18,7 @@ cp .env.local.example .env.local
 ```
 
 Fill in your Clerk and Convex values in `.env.local`.
+Set `NEXT_PUBLIC_APP_ENV=development` for local development.
 
 ## Run
 

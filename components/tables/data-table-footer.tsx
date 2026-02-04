@@ -33,13 +33,11 @@ export function DataTableFooter({
   selectId = "items-per-page",
   className,
 }: DataTableFooterProps) {
-  const selectProps = itemsPerPageOnChange
+  const selectProps: React.ComponentProps<typeof Select> = itemsPerPageOnChange
     ? {
         value: itemsPerPageValue,
-        onValueChange: (value: string | null) => {
-          if (value) {
-            itemsPerPageOnChange(value)
-          }
+        onValueChange: (value) => {
+          itemsPerPageOnChange(value)
         },
       }
     : { defaultValue: itemsPerPageValue }
