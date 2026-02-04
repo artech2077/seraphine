@@ -37,7 +37,9 @@ export function DataTableFooter({
     ? {
         value: itemsPerPageValue,
         onValueChange: (value) => {
-          itemsPerPageOnChange(value)
+          if (typeof value === "string") {
+            itemsPerPageOnChange(value)
+          }
         },
       }
     : { defaultValue: itemsPerPageValue }
