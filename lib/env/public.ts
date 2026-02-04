@@ -14,7 +14,12 @@ export type PublicEnv = z.infer<typeof publicEnvSchema>
 export type { AppEnvironment }
 
 export function getPublicEnv(): PublicEnv {
-  const result = publicEnvSchema.safeParse(process.env)
+  const result = publicEnvSchema.safeParse({
+    NEXT_PUBLIC_APP_ENV: process.env.NEXT_PUBLIC_APP_ENV,
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  })
 
   if (!result.success) {
     throw new Error(formatEnvErrors(result.error, "public"))
