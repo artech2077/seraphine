@@ -17,7 +17,11 @@ import {
   PurchaseOrdersTable,
   PurchaseOrdersTableSkeleton,
 } from "@/features/achats/achats-purchase-orders-table"
-import { PURCHASE_STATUS_OPTIONS, type PurchaseOrder } from "@/features/achats/procurement-data"
+import {
+  PURCHASE_STATUS_OPTIONS,
+  type ProductOption,
+  type PurchaseOrder,
+} from "@/features/achats/procurement-data"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -72,7 +76,7 @@ function toCsv(items: PurchaseOrder[]) {
 
 type PurchaseOrdersPanelProps = {
   suppliers: Array<{ id: string; name: string }>
-  products: Array<{ id: string; name: string; unitPrice: number }>
+  products: ProductOption[]
 }
 
 function normalizeDateRange(range?: DateRange) {

@@ -1,34 +1,12 @@
 import { mutation, query } from "./_generated/server"
 import { v } from "convex/values"
 import { assertOrgAccess, getAuthOrgId } from "./auth"
-import type { Id } from "./_generated/dataModel"
+import type { Doc, Id } from "./_generated/dataModel"
 
 const SALE_NUMBER_PREFIX = "FAC-"
 
-type SaleRecord = {
-  _id: Id<"sales">
-  saleNumber?: string
-  saleSequence?: number
-  saleDate: number
-  createdAt?: number
-  paymentMethod: "CASH" | "CARD" | "CHECK" | "CREDIT"
-  globalDiscountType?: "PERCENT" | "AMOUNT"
-  globalDiscountValue?: number
-  clientId?: Id<"clients">
-  sellerId: Id<"users">
-}
-
-type SaleItemRecord = {
-  _id: Id<"saleItems">
-  saleId: Id<"sales">
-  productNameSnapshot: string
-  quantity: number
-  unitPriceHt: number
-  vatRate: number
-  lineDiscountType?: "PERCENT" | "AMOUNT"
-  lineDiscountValue?: number
-  totalLineTtc: number
-}
+type SaleRecord = Doc<"sales">
+type SaleItemRecord = Doc<"saleItems">
 
 function formatSaleNumber(sequence: number) {
   return `${SALE_NUMBER_PREFIX}${String(sequence).padStart(2, "0")}`

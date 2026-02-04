@@ -1,20 +1,9 @@
 import { mutation, query } from "./_generated/server"
+import type { Doc } from "./_generated/dataModel"
 import { v } from "convex/values"
 import { assertOrgAccess, getAuthOrgId } from "./auth"
 
-type ProductRecord = {
-  _id: string
-  name: string
-  barcode: string
-  category: string
-  purchasePrice: number
-  sellingPrice: number
-  vatRate: number
-  stockQuantity: number
-  lowStockThreshold: number
-  dosageForm: string
-  createdAt?: number
-}
+type ProductRecord = Doc<"products">
 
 type StockStatus = "En stock" | "Stock bas" | "Rupture"
 

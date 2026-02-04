@@ -144,8 +144,11 @@ export function ClientsPage() {
     }
   }
 
-  function handleBalanceFilterChange(values: ClientStatus[]) {
-    setBalanceFilter(values)
+  function handleBalanceFilterChange(values: string[]) {
+    const nextValues = values.filter((value): value is ClientStatus =>
+      BALANCE_FILTER_OPTIONS.includes(value as ClientStatus)
+    )
+    setBalanceFilter(nextValues)
     if (currentPage !== 1) {
       setCurrentPage(1)
     }

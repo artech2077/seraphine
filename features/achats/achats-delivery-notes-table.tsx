@@ -33,7 +33,11 @@ import {
 } from "@/components/ui/alert-dialog"
 import type { ProcurementFormValues } from "@/features/achats/api"
 import { ProcurementOrderModal } from "@/features/achats/procurement-order-modal"
-import type { DeliveryNote, DeliveryNoteStatus } from "@/features/achats/procurement-data"
+import type {
+  DeliveryNote,
+  DeliveryNoteStatus,
+  ProductOption,
+} from "@/features/achats/procurement-data"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { Download, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
@@ -75,7 +79,7 @@ type DeliveryNotesTableProps = {
   page?: number
   pageSize?: number
   suppliers: Array<{ id: string; name: string }>
-  products: Array<{ id: string; name: string; unitPrice: number }>
+  products: ProductOption[]
   onUpdate?: (note: DeliveryNote, values: ProcurementFormValues) => void | Promise<void>
   onDelete?: (note: DeliveryNote) => void | Promise<void>
 }

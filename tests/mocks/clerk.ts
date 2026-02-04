@@ -1,5 +1,4 @@
 import type { useAuth, useOrganization } from "@clerk/nextjs"
-import { vi } from "vitest"
 
 type UseAuthReturn = ReturnType<typeof useAuth>
 type UseOrganizationReturn = ReturnType<typeof useOrganization>

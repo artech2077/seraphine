@@ -1,3 +1,5 @@
+import { Suspense } from "react"
+
 import { ParametresPage } from "@/features/parametres/parametres-page"
 
 export const metadata = {
@@ -5,5 +7,9 @@ export const metadata = {
 }
 
 export default function Page() {
-  return <ParametresPage />
+  return (
+    <Suspense fallback={null}>
+      <ParametresPage />
+    </Suspense>
+  )
 }

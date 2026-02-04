@@ -33,7 +33,11 @@ import {
 } from "@/components/ui/alert-dialog"
 import type { ProcurementFormValues } from "@/features/achats/api"
 import { ProcurementOrderModal } from "@/features/achats/procurement-order-modal"
-import type { PurchaseOrder, PurchaseOrderStatus } from "@/features/achats/procurement-data"
+import type {
+  ProductOption,
+  PurchaseOrder,
+  PurchaseOrderStatus,
+} from "@/features/achats/procurement-data"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { Download, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
@@ -63,7 +67,7 @@ type PurchaseOrdersTableProps = {
   page?: number
   pageSize?: number
   suppliers: Array<{ id: string; name: string }>
-  products: Array<{ id: string; name: string; unitPrice: number }>
+  products: ProductOption[]
   onUpdate?: (order: PurchaseOrder, values: ProcurementFormValues) => void | Promise<void>
   onDelete?: (order: PurchaseOrder) => void | Promise<void>
 }

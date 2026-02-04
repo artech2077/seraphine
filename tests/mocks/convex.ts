@@ -1,6 +1,5 @@
 import type { FunctionReference } from "convex/server"
 import type { ReactMutation } from "convex/react"
-import { vi } from "vitest"
 
 export function createMockMutation() {
   const mutation = vi.fn() as ReturnType<typeof vi.fn> &

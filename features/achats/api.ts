@@ -127,13 +127,17 @@ function parseOptionalDate(value?: string) {
   return Number.isNaN(parsed) ? undefined : parsed
 }
 
-function mapChannel(value: string) {
+type ProcurementChannel = "EMAIL" | "PHONE"
+type ProcurementStatus = "DRAFT" | "ORDERED" | "DELIVERED"
+type DiscountTypeApi = "PERCENT" | "AMOUNT"
+
+function mapChannel(value?: string): ProcurementChannel | undefined {
   if (value === "Email") return "EMAIL"
   if (value === "Téléphone") return "PHONE"
   return undefined
 }
 
-function mapPurchaseStatus(value: string) {
+function mapPurchaseStatus(value: string): ProcurementStatus {
   switch (value) {
     case "Commandé":
       return "ORDERED"
@@ -144,12 +148,12 @@ function mapPurchaseStatus(value: string) {
   }
 }
 
-function mapDiscountType(value?: DiscountType) {
+function mapDiscountType(value?: DiscountType): DiscountTypeApi {
   if (value === "amount") return "AMOUNT"
   return "PERCENT"
 }
 
-function mapDiscountTypeFromApi(value?: "PERCENT" | "AMOUNT" | null) {
+function mapDiscountTypeFromApi(value?: DiscountTypeApi | null) {
   if (value === "AMOUNT") return "amount"
   if (value === "PERCENT") return "percent"
   return undefined
@@ -191,7 +195,7 @@ function normalizePurchaseOrderValues(values: ProcurementFormValues): Procuremen
   }
 }
 
-function mapDeliveryStatus(value: string) {
+function mapDeliveryStatus(value: string): ProcurementStatus {
   switch (value) {
     case "En cours":
       return "ORDERED"
@@ -424,7 +428,7 @@ export function usePurchaseOrders(options?: ProcurementListOptions) {
       const normalizedValues = normalizePurchaseOrderValues(values)
       const payload = {
         clerkOrgId: orgId,
-        type: "PURCHASE_ORDER",
+        type: "PURCHASE_ORDER" as const,
         supplierId: normalizedValues.supplierId as Id<"suppliers">,
         status: mapPurchaseStatus(normalizedValues.status),
         channel: mapChannel(normalizedValues.channel),
@@ -591,7 +595,7 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
       if (!orgId) return
       const payload = {
         clerkOrgId: orgId,
-        type: "DELIVERY_NOTE",
+        type: "DELIVERY_NOTE" as const,
         supplierId: values.supplierId as Id<"suppliers">,
         status: mapDeliveryStatus(values.status),
         channel: mapChannel(values.channel),

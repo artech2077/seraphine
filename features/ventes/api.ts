@@ -176,12 +176,14 @@ function mapPaymentMethodToForm(value: SaleRecord["paymentMethod"]) {
   }
 }
 
-function mapDiscountType(value?: "percent" | "amount") {
+type DiscountTypeApi = "PERCENT" | "AMOUNT"
+
+function mapDiscountType(value?: "percent" | "amount"): DiscountTypeApi | undefined {
   if (!value) return undefined
   return value === "percent" ? "PERCENT" : "AMOUNT"
 }
 
-function mapDiscountTypeToForm(value?: "PERCENT" | "AMOUNT") {
+function mapDiscountTypeToForm(value?: DiscountTypeApi) {
   if (!value) return undefined
   return value === "PERCENT" ? "percent" : "amount"
 }

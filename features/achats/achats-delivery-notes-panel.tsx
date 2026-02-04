@@ -17,7 +17,11 @@ import {
   DeliveryNotesTable,
   DeliveryNotesTableSkeleton,
 } from "@/features/achats/achats-delivery-notes-table"
-import { DELIVERY_STATUS_OPTIONS, type DeliveryNote } from "@/features/achats/procurement-data"
+import {
+  DELIVERY_STATUS_OPTIONS,
+  type DeliveryNote,
+  type ProductOption,
+} from "@/features/achats/procurement-data"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -87,7 +91,7 @@ function toCsv(items: DeliveryNote[]) {
 
 type DeliveryNotesPanelProps = {
   suppliers: Array<{ id: string; name: string }>
-  products: Array<{ id: string; name: string; unitPrice: number }>
+  products: ProductOption[]
 }
 
 function normalizeDateRange(range?: DateRange) {

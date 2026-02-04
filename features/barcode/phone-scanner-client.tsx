@@ -83,7 +83,8 @@ export function PhoneScannerClient() {
     void startScanner()
     return () => {
       controlsRef.current?.stop()
-      readerRef.current?.reset()
+      controlsRef.current = null
+      readerRef.current = null
     }
   }, [startScanner])
 
