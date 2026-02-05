@@ -212,6 +212,56 @@ describe("convex/procurement", () => {
     expect(ctx.db.delete).toHaveBeenCalledWith("item-1")
     expect(ctx.db.delete).toHaveBeenCalledWith("order-1")
   })
+
+  it("clears low stock alert when alert draft is ordered", async () => {
+    const ctx = buildAlertContext()
+
+    const handler = getHandler(update) as ConvexHandler<{
+      clerkOrgId: string
+      id: string
+      supplierId: string
+      status: string
+      channel: string
+      orderDate: number
+      dueDate?: number
+      globalDiscountType?: string
+      globalDiscountValue?: number
+      totalAmount: number
+      items: Array<{
+        productId: string
+        quantity: number
+        unitPrice: number
+        lineDiscountType?: string
+        lineDiscountValue?: number
+      }>
+    }>
+
+    await handler(ctx, {
+      clerkOrgId: "org-1",
+      id: "order-1",
+      supplierId: "supplier-1",
+      status: "ORDERED",
+      channel: "PHONE",
+      orderDate: 456,
+      totalAmount: 50,
+      items: [
+        {
+          productId: "product-1",
+          quantity: 1,
+          unitPrice: 50,
+        },
+      ],
+    })
+
+    expect(ctx.db.patch).toHaveBeenCalledWith(
+      "pharmacy-1",
+      expect.objectContaining({
+        lowStockAlertOrderId: undefined,
+        lowStockAlertSignature: undefined,
+        lowStockAlertHandledSignature: "product-1",
+      })
+    )
+  })
 })
 
 function buildContext() {
@@ -320,5 +370,93 @@ function buildContext() {
     mocks: {
       procurementOrdersIndex,
     },
+  }
+}
+
+function buildAlertContext() {
+  const pharmacy = {
+    _id: "pharmacy-1",
+    clerkOrgId: "org-1",
+    lowStockAlertOrderId: "order-1",
+    lowStockAlertSignature: "product-1",
+  }
+  const supplier = {
+    _id: "supplier-1",
+    pharmacyId: "pharmacy-1",
+    name: "Fournisseur A",
+  }
+  const product = {
+    _id: "product-1",
+    pharmacyId: "pharmacy-1",
+    name: "Produit A",
+    stockQuantity: 1,
+    lowStockThreshold: 2,
+  }
+  const order = {
+    _id: "order-1",
+    pharmacyId: "pharmacy-1",
+    orderNumber: "BC-01",
+    orderSequence: 1,
+    supplierId: "supplier-1",
+    type: "PURCHASE_ORDER",
+    status: "DRAFT",
+    channel: "EMAIL",
+    createdAt: 100,
+    orderDate: 200,
+    totalAmount: 100,
+  }
+  const item = {
+    _id: "item-1",
+    pharmacyId: "pharmacy-1",
+    orderId: "order-1",
+    productId: "product-1",
+    quantity: 2,
+    unitPrice: 50,
+  }
+
+  const db = {
+    query: vi.fn((table: string) => {
+      if (table === "pharmacies") {
+        return {
+          withIndex: () => ({
+            unique: async () => pharmacy,
+          }),
+        }
+      }
+      if (table === "procurementItems") {
+        return {
+          withIndex: () => ({
+            collect: async () => [item],
+          }),
+        }
+      }
+      if (table === "products") {
+        return {
+          withIndex: () => ({
+            collect: async () => [product],
+          }),
+        }
+      }
+      return {
+        withIndex: () => ({
+          collect: async () => [],
+        }),
+      }
+    }),
+    get: vi.fn(async (id: string) => {
+      if (id === "supplier-1") return supplier
+      if (id === "order-1") return order
+      return null
+    }),
+    insert: vi.fn(async () => "item-1"),
+    patch: vi.fn(async () => {}),
+    delete: vi.fn(async () => {}),
+  }
+
+  return {
+    auth: {
+      getUserIdentity: vi.fn().mockResolvedValue({ orgId: "org-1" }),
+    },
+    db,
   }
 }

@@ -7,6 +7,9 @@ export default defineSchema({
     clerkOrgId: v.string(),
     pharmacyNumber: v.optional(v.string()),
     pharmacySequence: v.optional(v.number()),
+    lowStockAlertOrderId: v.optional(v.id("procurementOrders")),
+    lowStockAlertSignature: v.optional(v.string()),
+    lowStockAlertHandledSignature: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_clerkOrgId", ["clerkOrgId"])
@@ -107,6 +110,7 @@ export default defineSchema({
     type: v.union(v.literal("PURCHASE_ORDER"), v.literal("DELIVERY_NOTE")),
     supplierId: v.id("suppliers"),
     status: v.union(v.literal("DRAFT"), v.literal("ORDERED"), v.literal("DELIVERED")),
+    createdFromAlert: v.optional(v.boolean()),
     externalReference: v.optional(v.string()),
     channel: v.optional(v.union(v.literal("EMAIL"), v.literal("PHONE"))),
     orderDate: v.number(),

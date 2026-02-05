@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server"
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server"
 import { v } from "convex/values"
 import { assertOrgAccess, getAuthOrgId } from "./auth"
 import type { Id } from "./_generated/dataModel"
@@ -10,6 +10,7 @@ const ORDER_PREFIXES = {
 
 type ProcurementOrderRecord = {
   _id: Id<"procurementOrders">
+  pharmacyId: Id<"pharmacies">
   orderNumber?: string | null
   orderSequence?: number | null
   supplierId: Id<"suppliers">
@@ -108,6 +109,31 @@ function calculateOrderTotal(
   const subtotal = items.reduce((sum, item) => sum + calculateLineTotal(item), 0)
   const globalDiscount = getDiscountAmount(subtotal, globalDiscountType, globalDiscountValue ?? 0)
   return Math.max(0, subtotal - globalDiscount)
+}
+
+function buildLowStockSignature(
+  products: Array<{ _id: Id<"products">; stockQuantity: number; lowStockThreshold: number }>
+) {
+  const lowStock = products.filter((product) => product.stockQuantity <= product.lowStockThreshold)
+  if (lowStock.length === 0) return ""
+  return lowStock
+    .map((product) => String(product._id))
+    .sort()
+    .join("|")
+}
+
+type QueryOrMutationCtx = QueryCtx | MutationCtx
+
+async function getLowStockSignature(ctx: QueryOrMutationCtx, pharmacyId: Id<"pharmacies">) {
+  const products = (await ctx.db
+    .query("products")
+    .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacyId))
+    .collect()) as Array<{
+    _id: Id<"products">
+    stockQuantity: number
+    lowStockThreshold: number
+  }>
+  return buildLowStockSignature(products)
 }
 
 export const listByOrg = query({
@@ -222,6 +248,112 @@ export const listByOrg = query({
         items: mappedItems,
       }
     })
+  },
+})
+
+const procurementItemValidator = v.object({
+  id: v.id("procurementItems"),
+  productId: v.id("products"),
+  productName: v.string(),
+  quantity: v.number(),
+  unitPrice: v.number(),
+  lineDiscountType: v.union(v.literal("PERCENT"), v.literal("AMOUNT"), v.null()),
+  lineDiscountValue: v.union(v.number(), v.null()),
+  lineTotal: v.union(v.number(), v.null()),
+})
+
+const procurementOrderValidator = v.object({
+  id: v.id("procurementOrders"),
+  orderNumber: v.union(v.string(), v.null()),
+  orderSequence: v.union(v.number(), v.null()),
+  supplierId: v.id("suppliers"),
+  supplierName: v.string(),
+  channel: v.union(v.literal("EMAIL"), v.literal("PHONE"), v.null()),
+  createdAt: v.number(),
+  orderDate: v.number(),
+  dueDate: v.union(v.number(), v.null()),
+  totalAmount: v.number(),
+  status: v.union(v.literal("DRAFT"), v.literal("ORDERED"), v.literal("DELIVERED")),
+  type: v.union(v.literal("PURCHASE_ORDER"), v.literal("DELIVERY_NOTE")),
+  externalReference: v.union(v.string(), v.null()),
+  globalDiscountType: v.union(v.literal("PERCENT"), v.literal("AMOUNT"), v.null()),
+  globalDiscountValue: v.union(v.number(), v.null()),
+  items: v.array(procurementItemValidator),
+})
+
+export const getById = query({
+  args: {
+    clerkOrgId: v.string(),
+    id: v.id("procurementOrders"),
+  },
+  returns: v.union(procurementOrderValidator, v.null()),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    const orgId = getAuthOrgId(identity)
+    if (!orgId || orgId !== args.clerkOrgId) {
+      return null
+    }
+
+    const pharmacy = await ctx.db
+      .query("pharmacies")
+      .withIndex("by_clerkOrgId", (q) => q.eq("clerkOrgId", args.clerkOrgId))
+      .unique()
+
+    if (!pharmacy) {
+      return null
+    }
+
+    const order = (await ctx.db.get(args.id)) as ProcurementOrderRecord | null
+    if (!order || order.pharmacyId !== pharmacy._id) {
+      return null
+    }
+
+    const [supplier, items, products] = await Promise.all([
+      ctx.db.get(order.supplierId),
+      ctx.db
+        .query("procurementItems")
+        .withIndex("by_orderId", (q) => q.eq("orderId", order._id))
+        .collect(),
+      ctx.db
+        .query("products")
+        .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+        .collect(),
+    ])
+
+    const productsById = new Map(products.map((product) => [product._id, product]))
+
+    const mappedItems = items.map((item) => {
+      const product = productsById.get(item.productId)
+      return {
+        id: item._id,
+        productId: item.productId,
+        productName: product?.name ?? "Produit inconnu",
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        lineDiscountType: item.lineDiscountType ?? null,
+        lineDiscountValue: item.lineDiscountValue ?? null,
+        lineTotal: item.lineTotal ?? null,
+      }
+    })
+
+    return {
+      id: order._id,
+      orderNumber: order.orderNumber ?? null,
+      orderSequence: order.orderSequence ?? null,
+      supplierId: order.supplierId,
+      supplierName: supplier?.name ?? "Fournisseur inconnu",
+      channel: order.channel ?? null,
+      createdAt: order.createdAt,
+      orderDate: order.orderDate,
+      dueDate: order.dueDate ?? null,
+      totalAmount: order.totalAmount,
+      status: order.status,
+      type: order.type,
+      externalReference: order.externalReference ?? null,
+      globalDiscountType: order.globalDiscountType ?? null,
+      globalDiscountValue: order.globalDiscountValue ?? null,
+      items: mappedItems,
+    }
   },
 })
 
@@ -661,6 +793,19 @@ export const update = mutation({
         })
       )
     )
+
+    const shouldHandleAlert =
+      pharmacy.lowStockAlertOrderId === order._id &&
+      (normalizedArgs.status === "ORDERED" || normalizedArgs.status === "DELIVERED")
+
+    if (shouldHandleAlert) {
+      const signature = await getLowStockSignature(ctx, pharmacy._id)
+      await ctx.db.patch(pharmacy._id, {
+        lowStockAlertOrderId: undefined,
+        lowStockAlertSignature: undefined,
+        lowStockAlertHandledSignature: signature.length > 0 ? signature : undefined,
+      })
+    }
   },
 })
 
@@ -694,5 +839,13 @@ export const remove = mutation({
 
     await Promise.all(items.map((item) => ctx.db.delete(item._id)))
     await ctx.db.delete(args.id)
+
+    if (pharmacy.lowStockAlertOrderId === order._id) {
+      await ctx.db.patch(pharmacy._id, {
+        lowStockAlertOrderId: undefined,
+        lowStockAlertSignature: undefined,
+        lowStockAlertHandledSignature: undefined,
+      })
+    }
   },
 })

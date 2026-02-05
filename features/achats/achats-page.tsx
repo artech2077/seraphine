@@ -1,30 +1,40 @@
 "use client"
 
+import { Plus } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
 import * as React from "react"
+import { toast } from "sonner"
 
 import { PageShell } from "@/components/layout/page-shell"
-import { useDeliveryNotes, usePurchaseOrders } from "@/features/achats/api"
-import { PurchaseOrdersPanel } from "@/features/achats/achats-purchase-orders-panel"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useDeliveryNotes, usePurchaseOrderById, usePurchaseOrders } from "@/features/achats/api"
 import { DeliveryNotesPanel } from "@/features/achats/achats-delivery-notes-panel"
+import { PurchaseOrdersPanel } from "@/features/achats/achats-purchase-orders-panel"
 import { ProcurementOrderModal } from "@/features/achats/procurement-order-modal"
 import { useSuppliers } from "@/features/fournisseurs/api"
 import { useProductOptions } from "@/features/inventaire/api"
-import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
-import { Plus } from "lucide-react"
 
 const TAB_STORAGE_KEY = "achats:last-tab"
 
 export function AchatsPage() {
-  const { createOrder } = usePurchaseOrders({ mode: "mutations" })
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const orderIdParam = searchParams.get("orderId") ?? undefined
+  const tabParam = searchParams.get("tab")
+  const { createOrder, updateOrder } = usePurchaseOrders({ mode: "mutations" })
   const { createNote } = useDeliveryNotes({ mode: "mutations" })
   const { items: suppliers } = useSuppliers()
   const { options: productOptions } = useProductOptions()
+  const { order: alertOrder, isLoading: alertOrderLoading } = usePurchaseOrderById(orderIdParam)
   const { canManage } = useRoleAccess()
   const canManagePurchases = canManage("achats")
-  const [activeTab, setActiveTab] = React.useState<"commande" | "livraison">("commande")
+  const [activeTab, setActiveTab] = React.useState<"commande" | "livraison">(
+    tabParam === "livraison" ? "livraison" : "commande"
+  )
+  const [alertOrderOpen, setAlertOrderOpen] = React.useState(false)
+  const missingOrderRef = React.useRef<string | null>(null)
 
   const supplierOptions = React.useMemo(
     () => suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name })),
@@ -32,19 +42,61 @@ export function AchatsPage() {
   )
 
   React.useEffect(() => {
+    if (orderIdParam) {
+      setActiveTab("commande")
+      return
+    }
+    if (tabParam === "commande" || tabParam === "livraison") {
+      setActiveTab(tabParam)
+      return
+    }
     const stored = window.localStorage.getItem(TAB_STORAGE_KEY)
     if (stored === "commande" || stored === "livraison") {
       setActiveTab(stored)
     }
-  }, [])
+  }, [orderIdParam, tabParam])
 
-  const handleTabChange = React.useCallback((value: string) => {
-    if (value !== "commande" && value !== "livraison") {
+  const handleTabChange = React.useCallback(
+    (value: string) => {
+      if (orderIdParam) {
+        setActiveTab("commande")
+        return
+      }
+      if (value !== "commande" && value !== "livraison") {
+        return
+      }
+      setActiveTab(value)
+      window.localStorage.setItem(TAB_STORAGE_KEY, value)
+    },
+    [orderIdParam]
+  )
+
+  React.useEffect(() => {
+    if (!orderIdParam) {
+      missingOrderRef.current = null
       return
     }
-    setActiveTab(value)
-    window.localStorage.setItem(TAB_STORAGE_KEY, value)
-  }, [])
+    if (alertOrderLoading) return
+    if (!alertOrder) {
+      if (missingOrderRef.current !== orderIdParam) {
+        toast.error("Bon de commande introuvable.")
+        missingOrderRef.current = orderIdParam
+      }
+      router.replace("/app/achats?tab=commande")
+      return
+    }
+    setAlertOrderOpen(true)
+  }, [alertOrder, alertOrderLoading, orderIdParam, router])
+
+  const handleAlertOrderOpenChange = React.useCallback(
+    (open: boolean) => {
+      setAlertOrderOpen(open)
+      if (!open) {
+        router.replace("/app/achats?tab=commande")
+      }
+    },
+    [router]
+  )
 
   const actionButton =
     activeTab === "livraison" ? (
@@ -111,6 +163,24 @@ export function AchatsPage() {
           <DeliveryNotesPanel suppliers={supplierOptions} products={productOptions} />
         </TabsContent>
       </PageShell>
+      <ProcurementOrderModal
+        mode="edit"
+        variant="purchase"
+        open={alertOrderOpen}
+        onOpenChange={handleAlertOrderOpenChange}
+        order={alertOrder ?? undefined}
+        suppliers={supplierOptions}
+        products={productOptions}
+        onSubmit={async (values) => {
+          if (!alertOrder) return
+          try {
+            await updateOrder(alertOrder, values)
+            toast.success("Bon de commande mis à jour.")
+          } catch {
+            toast.error("Impossible de mettre à jour le bon de commande.")
+          }
+        }}
+      />
     </Tabs>
   )
 }

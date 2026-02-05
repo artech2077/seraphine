@@ -313,6 +313,25 @@ function mapDeliveryNote(order: ProcurementOrder, fallbackNumber?: string): Deli
   }
 }
 
+export function usePurchaseOrderById(orderId?: string) {
+  const { orgId } = useAuth()
+  const orderQuery = useStableQuery(
+    api.procurement.getById,
+    orgId && orderId ? { clerkOrgId: orgId, id: orderId as Id<"procurementOrders"> } : "skip"
+  ) as { data: ProcurementOrder | null | undefined; isLoading: boolean; isFetching: boolean }
+
+  const order = React.useMemo(() => {
+    if (!orderQuery.data || orderQuery.data.type !== "PURCHASE_ORDER") return null
+    return mapPurchaseOrder(orderQuery.data)
+  }, [orderQuery.data])
+
+  return {
+    order,
+    isLoading: orderQuery.isLoading,
+    isFetching: orderQuery.isFetching,
+  }
+}
+
 export function usePurchaseOrders(options?: ProcurementListOptions) {
   const { orgId } = useAuth()
   const convex = useConvex()
