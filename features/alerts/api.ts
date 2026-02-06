@@ -5,13 +5,14 @@ import { useAuth } from "@clerk/nextjs"
 import { useMutation } from "convex/react"
 
 import { api } from "@/convex/_generated/api"
+import type { Id } from "@/convex/_generated/dataModel"
 import { useStableQuery } from "@/hooks/use-stable-query"
 
 export type LowStockSummary = {
   count: number
   signature: string
   hasActiveDraft: boolean
-  activeOrderId?: string
+  activeOrderId?: Id<"procurementOrders">
   lastSyncedSignature?: string
   isHandled: boolean
 }
@@ -37,7 +38,7 @@ export function useLowStockAlertActions() {
   const syncDraftMutation = useMutation(api.alerts.syncLowStockDraft)
 
   const createLowStockDraft = React.useCallback(
-    async (supplierId: string) => {
+    async (supplierId: Id<"suppliers">) => {
       if (!orgId) return null
       return await createDraftMutation({ clerkOrgId: orgId, supplierId })
     },
@@ -45,7 +46,7 @@ export function useLowStockAlertActions() {
   )
 
   const syncLowStockDraft = React.useCallback(
-    async (orderId: string) => {
+    async (orderId: Id<"procurementOrders">) => {
       if (!orgId) return null
       return await syncDraftMutation({ clerkOrgId: orgId, orderId })
     },

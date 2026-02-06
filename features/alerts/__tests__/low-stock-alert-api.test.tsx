@@ -1,6 +1,7 @@
 import { renderHook } from "@testing-library/react"
 import { vi } from "vitest"
 
+import type { Id } from "@/convex/_generated/dataModel"
 import { useLowStockAlertActions, useLowStockAlertSummary } from "@/features/alerts/api"
 import { mockClerkAuth } from "@/tests/mocks/clerk"
 import { createMockMutation } from "@/tests/mocks/convex"
@@ -58,7 +59,7 @@ describe("useLowStockAlertActions", () => {
 
     const { result } = renderHook(() => useLowStockAlertActions())
 
-    await result.current.createLowStockDraft("supplier-1")
+    await result.current.createLowStockDraft("supplier-1" as Id<"suppliers">)
 
     expect(createDraft).toHaveBeenCalledWith({
       clerkOrgId: "org-1",
@@ -76,7 +77,7 @@ describe("useLowStockAlertActions", () => {
 
     const { result } = renderHook(() => useLowStockAlertActions())
 
-    await result.current.syncLowStockDraft("order-1")
+    await result.current.syncLowStockDraft("order-1" as Id<"procurementOrders">)
 
     expect(syncDraft).toHaveBeenCalledWith({
       clerkOrgId: "org-1",

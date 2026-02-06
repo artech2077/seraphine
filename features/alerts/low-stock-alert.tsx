@@ -5,6 +5,7 @@ import { AlertTriangle, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
+import type { Id } from "@/convex/_generated/dataModel"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -155,7 +156,7 @@ export function LowStockAlert() {
     }
 
     try {
-      const orderId = await createLowStockDraft(selectedSupplierId)
+      const orderId = await createLowStockDraft(selectedSupplierId as Id<"suppliers">)
       setDialogOpen(false)
       if (orderId) {
         handleOpenOrder(String(orderId))
@@ -216,7 +217,7 @@ export function LowStockAlert() {
                 <Label htmlFor="low-stock-supplier">Fournisseur</Label>
                 <Select
                   value={selectedSupplierId}
-                  onValueChange={(value) => setSelectedSupplierId(value)}
+                  onValueChange={(value) => setSelectedSupplierId(value ?? "")}
                 >
                   <SelectTrigger id="low-stock-supplier">
                     <SelectValue placeholder="Choisir un fournisseur" />
