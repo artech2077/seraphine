@@ -320,7 +320,7 @@ export function DashboardPage({
                   variant="ghost"
                   size="icon-sm"
                   nativeButton={false}
-                  render={<a href="/app/inventaire" />}
+                  render={<a href="/app/produit" />}
                 >
                   <AlertTriangle />
                 </Button>
@@ -466,9 +466,9 @@ export function DashboardPage({
                 variant="outline"
                 size="sm"
                 nativeButton={false}
-                render={<a href="/app/inventaire" />}
+                render={<a href="/app/produit" />}
               >
-                Voir l&apos;inventaire
+                Voir les produits
               </Button>
             }
           >

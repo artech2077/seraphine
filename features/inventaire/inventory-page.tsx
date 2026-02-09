@@ -8,6 +8,7 @@ import { FilterMultiCombobox } from "@/components/filters/filter-multi-combobox"
 import { FilterMultiSelect } from "@/components/filters/filter-multi-select"
 import { FiltersBar } from "@/components/filters/filters-bar"
 import { useInventoryItems } from "@/features/inventaire/api"
+import { BatchProductModal } from "@/features/inventaire/batch-product-modal"
 import { InventoryProductModal } from "@/features/inventaire/inventory-product-modal"
 import {
   InventoryTable,
@@ -29,7 +30,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { Download, Plus, Printer } from "lucide-react"
+import { Download, ListPlus, Plus, Printer } from "lucide-react"
 import { toast } from "sonner"
 
 const STOCK_FILTER_LABELS = ["Tous", "En stock", "Stock bas", "Rupture"]
@@ -113,6 +114,7 @@ export function InventoryPage() {
     isLoading,
     isFetching,
     createProduct,
+    createProductsBatch,
     updateProduct,
     removeProduct,
     totalCount,
@@ -179,7 +181,7 @@ export function InventoryPage() {
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
-    link.download = "inventaire.csv"
+    link.download = "produits.csv"
     link.click()
     window.URL.revokeObjectURL(url)
   }
@@ -190,34 +192,55 @@ export function InventoryPage() {
 
   return (
     <PageShell
-      title="Inventaire"
-      description="Ajouter, modifier ou supprimer le stock d'un produit."
+      title="Produit"
+      description="Ajouter, modifier et organiser votre catalogue produit."
       actions={
-        <InventoryProductModal
-          mode="create"
-          onSubmit={async (values) => {
-            try {
-              await createProduct(values)
-              toast.success("Produit ajouté.")
-            } catch (error) {
-              toast.error("Impossible d'ajouter le produit.")
-              throw error
+        <div className="flex items-center gap-2">
+          <BatchProductModal
+            onSubmit={async (values) => {
+              try {
+                await createProductsBatch(values)
+                toast.success(
+                  values.length > 1 ? `${values.length} produits ajoutés.` : "1 produit ajouté."
+                )
+              } catch (error) {
+                toast.error("Impossible d'importer les produits.")
+                throw error
+              }
+            }}
+            trigger={
+              <Button variant="outline" disabled={!canManageInventory}>
+                <ListPlus className="size-4" />
+                Ajouter en lot
+              </Button>
             }
-          }}
-          trigger={
-            <Button disabled={!canManageInventory}>
-              <Plus className="size-4" />
-              Ajouter un produit
-            </Button>
-          }
-        />
+          />
+          <InventoryProductModal
+            mode="create"
+            onSubmit={async (values) => {
+              try {
+                await createProduct(values)
+                toast.success("Produit ajouté.")
+              } catch (error) {
+                toast.error("Impossible d'ajouter le produit.")
+                throw error
+              }
+            }}
+            trigger={
+              <Button disabled={!canManageInventory}>
+                <Plus className="size-4" />
+                Ajouter un produit
+              </Button>
+            }
+          />
+        </div>
       }
     >
       <DataTable
         isEmpty={!isLoading && totalCount === 0}
         emptyState={{
           title: "Aucun produit pour le moment",
-          description: "Ajoutez un produit ou importez votre inventaire pour commencer.",
+          description: "Ajoutez un produit ou importez votre catalogue pour commencer.",
         }}
         toolbar={
           <>

@@ -4,6 +4,14 @@ import { vi } from "vitest"
 
 import { InventoryTable } from "@/features/inventaire/inventory-table"
 
+vi.mock("@clerk/nextjs", () => ({
+  useAuth: () => ({ orgId: "org-1" }),
+}))
+
+vi.mock("@/hooks/use-barcode-scanner", () => ({
+  useBarcodeScanner: () => undefined,
+}))
+
 vi.mock("@/lib/auth/use-role-access", () => ({
   useRoleAccess: () => ({
     canManage: () => true,

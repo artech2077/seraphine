@@ -114,6 +114,76 @@ describe("useInventoryItems", () => {
     })
   })
 
+  it("creates multiple products in batch", async () => {
+    const createProduct = createMockMutation()
+    const updateProduct = createMockMutation()
+    const removeProduct = createMockMutation()
+
+    vi.mocked(useMutation)
+      .mockImplementationOnce(() => createProduct)
+      .mockImplementationOnce(() => updateProduct)
+      .mockImplementationOnce(() => removeProduct)
+
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
+
+    const { result } = renderHook(() => useInventoryItems())
+
+    await result.current.createProductsBatch([
+      {
+        name: "Produit A",
+        barcode: "111",
+        category: "Medicaments",
+        dosageForm: "Comprime",
+        purchasePrice: 1,
+        sellingPrice: 2,
+        vatRate: 7,
+        stock: 3,
+        threshold: 1,
+        notes: "",
+      },
+      {
+        name: "Produit B",
+        barcode: "",
+        category: "Parapharmacie",
+        dosageForm: "Sachet",
+        purchasePrice: 5,
+        sellingPrice: 8,
+        vatRate: 20,
+        stock: 6,
+        threshold: 2,
+        notes: "",
+      },
+    ])
+
+    expect(createProduct).toHaveBeenCalledTimes(2)
+    expect(createProduct).toHaveBeenNthCalledWith(1, {
+      clerkOrgId: "org-1",
+      name: "Produit A",
+      barcode: "111",
+      category: "Medicaments",
+      purchasePrice: 1,
+      sellingPrice: 2,
+      vatRate: 7,
+      stockQuantity: 3,
+      lowStockThreshold: 1,
+      dosageForm: "Comprime",
+      internalNotes: undefined,
+    })
+    expect(createProduct).toHaveBeenNthCalledWith(2, {
+      clerkOrgId: "org-1",
+      name: "Produit B",
+      barcode: undefined,
+      category: "Parapharmacie",
+      purchasePrice: 5,
+      sellingPrice: 8,
+      vatRate: 20,
+      stockQuantity: 6,
+      lowStockThreshold: 2,
+      dosageForm: "Sachet",
+      internalNotes: undefined,
+    })
+  })
+
   it("returns paginated inventory metadata", async () => {
     const createProduct = createMockMutation()
     const updateProduct = createMockMutation()

@@ -1,9 +1,5 @@
-import { InventoryPage } from "@/features/inventaire/inventory-page"
-
-export const metadata = {
-  title: "Seraphine - Inventaire",
-}
+import { redirect } from "next/navigation"
 
 export default function Page() {
-  return <InventoryPage />
+  redirect("/app/produit")
 }

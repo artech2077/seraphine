@@ -11,6 +11,11 @@ describe("navigation", () => {
     expect(getPageTitle(`${ventes?.href}/detail`)).toBe("Ventes")
   })
 
+  it("matches produit route title", () => {
+    expect(getPageTitle("/app/produit")).toBe("Produit")
+    expect(getPageTitle("/app/produit/nouveau")).toBe("Produit")
+  })
+
   it("matches utility navigation routes", () => {
     const settings = utilityNavItems.find((item) => item.title === "Paramètres")
     expect(settings).toBeDefined()

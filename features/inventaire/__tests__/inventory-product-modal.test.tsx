@@ -1,8 +1,20 @@
-import { render, screen } from "@testing-library/react"
+import { act, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { vi } from "vitest"
 
 import { InventoryProductModal } from "@/features/inventaire/inventory-product-modal"
+
+const barcodeHandlers: Array<(barcode: string) => void> = []
+
+vi.mock("@clerk/nextjs", () => ({
+  useAuth: () => ({ orgId: "org-1" }),
+}))
+
+vi.mock("@/hooks/use-barcode-scanner", () => ({
+  useBarcodeScanner: ({ onScan }: { onScan: (barcode: string) => void }) => {
+    barcodeHandlers.push(onScan)
+  },
+}))
 
 vi.mock("@/lib/auth/use-role-access", () => ({
   useRoleAccess: () => ({
@@ -25,6 +37,7 @@ const mockedToast = toast as unknown as {
 
 describe("InventoryProductModal", () => {
   beforeEach(() => {
+    barcodeHandlers.length = 0
     mockedToast.success.mockClear()
     mockedToast.error.mockClear()
   })
@@ -78,5 +91,15 @@ describe("InventoryProductModal", () => {
         id: "product-1",
       })
     )
+  })
+
+  it("fills barcode input from scanner events", async () => {
+    render(<InventoryProductModal mode="create" open />)
+
+    await act(async () => {
+      barcodeHandlers[0]?.("789456")
+    })
+
+    expect(screen.getByLabelText("Code barre")).toHaveValue("789456")
   })
 })

@@ -32,8 +32,8 @@ export const mainNavItems: NavItem[] = [
     icon: ShoppingBagIcon,
   },
   {
-    title: "Inventaire",
-    href: `${appBasePath}/inventaire`,
+    title: "Produit",
+    href: `${appBasePath}/produit`,
     icon: PackageIcon,
   },
   {

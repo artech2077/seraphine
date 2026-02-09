@@ -115,6 +115,22 @@ function mapProductToCatalogItem(product: InventoryProduct): ProductCatalogItem 
   }
 }
 
+function mapFormValuesToCreatePayload(orgId: string, values: InventoryFormValues) {
+  return {
+    clerkOrgId: orgId,
+    name: values.name,
+    barcode: values.barcode || undefined,
+    category: values.category,
+    purchasePrice: values.purchasePrice,
+    sellingPrice: values.sellingPrice,
+    vatRate: values.vatRate,
+    stockQuantity: values.stock,
+    lowStockThreshold: values.threshold,
+    dosageForm: values.dosageForm,
+    internalNotes: values.notes || undefined,
+  }
+}
+
 function useProducts() {
   const { orgId } = useAuth()
 
@@ -236,19 +252,13 @@ export function useInventoryItems(options?: InventoryListOptions) {
     }, [convex, items, listFilters, mode, orgId, pagedResponse?.totalCount]),
     async createProduct(values: InventoryFormValues) {
       if (!orgId) return
-      await createProductMutation({
-        clerkOrgId: orgId,
-        name: values.name,
-        barcode: values.barcode || undefined,
-        category: values.category,
-        purchasePrice: values.purchasePrice,
-        sellingPrice: values.sellingPrice,
-        vatRate: values.vatRate,
-        stockQuantity: values.stock,
-        lowStockThreshold: values.threshold,
-        dosageForm: values.dosageForm,
-        internalNotes: values.notes || undefined,
-      })
+      await createProductMutation(mapFormValuesToCreatePayload(orgId, values))
+    },
+    async createProductsBatch(values: InventoryFormValues[]) {
+      if (!orgId || values.length === 0) return
+      await Promise.all(
+        values.map((value) => createProductMutation(mapFormValuesToCreatePayload(orgId, value)))
+      )
     },
     async updateProduct(item: InventoryItem, values: InventoryFormValues) {
       if (!orgId) return
