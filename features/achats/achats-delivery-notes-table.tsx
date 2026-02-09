@@ -66,10 +66,12 @@ function getStatusVariant(status: DeliveryNoteStatus) {
   switch (status) {
     case "Brouillon":
       return "secondary"
+    case "Commandé":
+      return "success"
     case "En cours":
-    default:
       return "outline"
     case "Livré":
+    default:
       return "default"
   }
 }

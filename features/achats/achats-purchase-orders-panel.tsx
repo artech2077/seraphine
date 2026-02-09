@@ -77,6 +77,7 @@ function toCsv(items: PurchaseOrder[]) {
 type PurchaseOrdersPanelProps = {
   suppliers: Array<{ id: string; name: string }>
   products: ProductOption[]
+  onCreateDelivery?: (order: PurchaseOrder) => void | Promise<void>
 }
 
 function normalizeDateRange(range?: DateRange) {
@@ -99,14 +100,16 @@ function mapPurchaseStatusFilter(value: string) {
   switch (value) {
     case "Commandé":
       return "ORDERED" as const
-    case "Livré":
-      return "DELIVERED" as const
     default:
       return "DRAFT" as const
   }
 }
 
-export function PurchaseOrdersPanel({ suppliers, products }: PurchaseOrdersPanelProps) {
+export function PurchaseOrdersPanel({
+  suppliers,
+  products,
+  onCreateDelivery,
+}: PurchaseOrdersPanelProps) {
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
   const [createdRange, setCreatedRange] = React.useState<DateRange | undefined>()
   const [supplierFilter, setSupplierFilter] = React.useState<string[]>([])
@@ -327,6 +330,7 @@ export function PurchaseOrdersPanel({ suppliers, products }: PurchaseOrdersPanel
           orders={orders}
           suppliers={suppliers}
           products={products}
+          onCreateDelivery={onCreateDelivery}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
         />

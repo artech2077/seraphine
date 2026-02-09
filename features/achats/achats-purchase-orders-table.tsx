@@ -68,6 +68,7 @@ type PurchaseOrdersTableProps = {
   pageSize?: number
   suppliers: Array<{ id: string; name: string }>
   products: ProductOption[]
+  onCreateDelivery?: (order: PurchaseOrder) => void | Promise<void>
   onUpdate?: (order: PurchaseOrder, values: ProcurementFormValues) => void | Promise<void>
   onDelete?: (order: PurchaseOrder) => void | Promise<void>
 }
@@ -79,8 +80,6 @@ function getStatusVariant(status: PurchaseOrderStatus) {
     case "Brouillon":
       return "secondary"
     case "Commandé":
-      return "success"
-    case "Livré":
     default:
       return "default"
   }
@@ -149,6 +148,7 @@ export function PurchaseOrdersTable({
   pageSize,
   suppliers,
   products,
+  onCreateDelivery,
   onUpdate,
   onDelete,
 }: PurchaseOrdersTableProps) {
@@ -255,6 +255,11 @@ export function PurchaseOrdersTable({
     void onUpdate?.(activeOrder, values)
   }
 
+  function handleCreateDelivery(order: PurchaseOrder) {
+    if (!onCreateDelivery) return
+    void onCreateDelivery(order)
+  }
+
   return (
     <>
       <Table>
@@ -276,38 +281,50 @@ export function PurchaseOrdersTable({
               <TableCell>
                 <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
               </TableCell>
-              <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={<Button variant="ghost" size="icon" aria-label="Ouvrir le menu" />}
-                  >
-                    <MoreHorizontal />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuGroup>
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem
-                        onClick={() => handleEdit(order)}
-                        disabled={!canManagePurchases}
-                      >
-                        <Pencil />
-                        Modifier
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Download />
-                        Télécharger
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        variant="destructive"
-                        disabled={!canManagePurchases}
-                        onClick={() => handleDeleteRequest(order)}
-                      >
-                        <Trash2 />
-                        Supprimer
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              <TableCell>
+                <div className="flex items-center justify-end gap-2">
+                  {order.status === "Commandé" && onCreateDelivery ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!canManagePurchases}
+                      onClick={() => handleCreateDelivery(order)}
+                    >
+                      Créer BL
+                    </Button>
+                  ) : null}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={<Button variant="ghost" size="icon" aria-label="Ouvrir le menu" />}
+                    >
+                      <MoreHorizontal />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuGroup>
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem
+                          onClick={() => handleEdit(order)}
+                          disabled={!canManagePurchases}
+                        >
+                          <Pencil />
+                          Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Download />
+                          Télécharger
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          disabled={!canManagePurchases}
+                          onClick={() => handleDeleteRequest(order)}
+                        >
+                          <Trash2 />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </TableCell>
             </TableRow>
           ))}

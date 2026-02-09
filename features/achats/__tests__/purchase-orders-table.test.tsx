@@ -20,6 +20,7 @@ vi.mock("@/hooks/use-barcode-scanner", () => ({
 describe("PurchaseOrdersTable", () => {
   it("sorts by total when header is clicked", async () => {
     const user = userEvent.setup()
+    const handleCreateDelivery = vi.fn()
     render(
       <PurchaseOrdersTable
         orders={[
@@ -46,6 +47,7 @@ describe("PurchaseOrdersTable", () => {
         ]}
         suppliers={[]}
         products={[]}
+        onCreateDelivery={handleCreateDelivery}
       />
     )
 
@@ -63,5 +65,13 @@ describe("PurchaseOrdersTable", () => {
 
     expect(ids[0]).toContain("BC-01")
     expect(ids[1]).toContain("BC-02")
+
+    const createDeliveryButton = screen.getByRole("button", { name: "Créer BL" })
+    await user.click(createDeliveryButton)
+    expect(handleCreateDelivery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "order-2",
+      })
+    )
   })
 })

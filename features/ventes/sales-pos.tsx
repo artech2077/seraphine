@@ -488,9 +488,9 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
               <TableRow>
                 <TableHead>Produit</TableHead>
                 <TableHead>Quantité</TableHead>
-                <TableHead>P.U HT</TableHead>
+                <TableHead>PPH</TableHead>
                 <TableHead>TVA</TableHead>
-                <TableHead>P.U TTC</TableHead>
+                <TableHead>PPV</TableHead>
                 <TableHead>Remise</TableHead>
                 <TableHead>Total ligne</TableHead>
                 <TableHead className="text-right"></TableHead>

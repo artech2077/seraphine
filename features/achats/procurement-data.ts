@@ -8,8 +8,8 @@ export type ProcurementLineItem = {
   lineDiscountValue?: number
 }
 
-export type PurchaseOrderStatus = "Brouillon" | "Commandé" | "Livré"
-export type DeliveryNoteStatus = "Brouillon" | "En cours" | "Livré"
+export type PurchaseOrderStatus = "Brouillon" | "Commandé"
+export type DeliveryNoteStatus = "Brouillon" | "Commandé" | "En cours" | "Livré"
 
 export type PurchaseOrder = {
   id: string
@@ -64,9 +64,14 @@ export const SUPPLIER_OPTIONS = [
 
 export const CHANNEL_OPTIONS = ["Email", "Téléphone", "Portail"]
 
-export const PURCHASE_STATUS_OPTIONS: PurchaseOrderStatus[] = ["Brouillon", "Commandé", "Livré"]
+export const PURCHASE_STATUS_OPTIONS: PurchaseOrderStatus[] = ["Brouillon", "Commandé"]
 
-export const DELIVERY_STATUS_OPTIONS: DeliveryNoteStatus[] = ["Brouillon", "En cours", "Livré"]
+export const DELIVERY_STATUS_OPTIONS: DeliveryNoteStatus[] = [
+  "Brouillon",
+  "Commandé",
+  "En cours",
+  "Livré",
+]
 
 export const PRODUCT_OPTIONS: ProductOption[] = [
   { id: "prod-001", name: "Paracétamol 1g", unitPrice: 24.5, barcode: "100001" },

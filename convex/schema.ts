@@ -109,7 +109,12 @@ export default defineSchema({
     orderSequence: v.optional(v.number()),
     type: v.union(v.literal("PURCHASE_ORDER"), v.literal("DELIVERY_NOTE")),
     supplierId: v.id("suppliers"),
-    status: v.union(v.literal("DRAFT"), v.literal("ORDERED"), v.literal("DELIVERED")),
+    status: v.union(
+      v.literal("DRAFT"),
+      v.literal("ORDERED"),
+      v.literal("IN_PROGRESS"),
+      v.literal("DELIVERED")
+    ),
     createdFromAlert: v.optional(v.boolean()),
     externalReference: v.optional(v.string()),
     channel: v.optional(v.union(v.literal("EMAIL"), v.literal("PHONE"))),

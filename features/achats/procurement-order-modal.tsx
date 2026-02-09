@@ -687,9 +687,9 @@ export function ProcurementOrderModal({
                           </TableHead>
                         ) : null}
                         <TableHead className="w-12 px-1 text-xs text-right">P.U</TableHead>
-                        <TableHead className="w-12 px-1 text-xs text-right">P.HT</TableHead>
+                        <TableHead className="w-12 px-1 text-xs text-right">PPH</TableHead>
                         <TableHead className="w-10 px-1 text-xs text-right">TVA</TableHead>
-                        <TableHead className="w-12 px-1 text-xs text-right">P.TTC</TableHead>
+                        <TableHead className="w-12 px-1 text-xs text-right">PPV</TableHead>
                         <TableHead className="w-16 px-1 text-xs leading-tight whitespace-normal text-right">
                           Total ligne
                         </TableHead>
@@ -888,11 +888,11 @@ export function ProcurementOrderModal({
                     <span className="text-foreground">{totalProducts}</span>
                   </div>
                   <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Total P.HT</span>
+                    <span>Total PPH</span>
                     <span className="text-foreground">{formatCurrency(totalHt)} MAD</span>
                   </div>
                   <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Total P.TTC</span>
+                    <span>Total PPV</span>
                     <span className="text-foreground">{formatCurrency(totalTtc)} MAD</span>
                   </div>
                   {showGlobalDiscount ? (
