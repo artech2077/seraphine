@@ -50,6 +50,7 @@ import {
   DELIVERY_STATUS_OPTIONS,
   PURCHASE_STATUS_OPTIONS,
   type DeliveryNote,
+  type ProductOption,
   type ProcurementLineItem,
   type PurchaseOrder,
 } from "@/features/achats/procurement-data"
@@ -60,13 +61,6 @@ import { useBarcodeScanner } from "@/hooks/use-barcode-scanner"
 type SupplierOption = {
   id: string
   name: string
-}
-
-type ProductOption = {
-  id: string
-  name: string
-  unitPrice: number
-  barcode: string
 }
 
 type DiscountType = "percent" | "amount"
@@ -111,18 +105,23 @@ function isPercentDiscount(type: DiscountType) {
   return type === "percent"
 }
 
-function getLineTotals(line: ProcurementLineDraft) {
+function getLineTotals(line: ProcurementLineDraft, product?: ProductOption) {
   const subtotalHt = line.unitPrice * line.quantity
   const discount = isPercentDiscount(line.discountType)
     ? (subtotalHt * line.discountValue) / 100
     : line.discountValue
   const total = Math.max(0, subtotalHt - discount)
+  const vatRate = product?.vatRate ?? 0
+  const sellingPriceHt = product?.sellingPrice ?? line.unitPrice
+  const unitPriceTtc = sellingPriceHt * (1 + vatRate / 100)
+  const subtotalPpv = unitPriceTtc * line.quantity
 
   return {
     unitPrice: line.unitPrice,
     subtotalHt,
-    vatRate: 0,
-    unitPriceTtc: line.unitPrice,
+    vatRate,
+    unitPriceTtc,
+    subtotalPpv,
     total,
   }
 }
@@ -217,8 +216,12 @@ export function ProcurementOrderModal({
     () => new Map(suppliers.map((option) => [option.name, option.id])),
     [suppliers]
   )
-  const productMap = React.useMemo(
+  const productMapByName = React.useMemo(
     () => new Map(products.map((option) => [option.name, option])),
+    [products]
+  )
+  const productMapById = React.useMemo(
+    () => new Map(products.map((option) => [option.id, option])),
     [products]
   )
   const barcodeMap = React.useMemo(() => {
@@ -236,7 +239,7 @@ export function ProcurementOrderModal({
     const nextLines = order?.items?.length
       ? order.items.map((item) => ({
           ...item,
-          productId: item.productId ?? productMap.get(item.product)?.id,
+          productId: item.productId ?? productMapByName.get(item.product)?.id,
           discountType: item.lineDiscountType ?? "percent",
           discountValue: item.lineDiscountValue ?? 0,
         }))
@@ -259,7 +262,7 @@ export function ProcurementOrderModal({
     setGlobalDiscountValue(
       (order as { globalDiscountValue?: number } | undefined)?.globalDiscountValue ?? 0
     )
-  }, [order, productMap, supplierMap])
+  }, [order, productMapByName, supplierMap])
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -269,12 +272,17 @@ export function ProcurementOrderModal({
   const canAddLine =
     canManagePurchases && lines.every((line) => line.product.trim() && line.quantity > 0)
 
-  const lineTotals = lines.map((line) => getLineTotals(line))
+  const lineTotals = lines.map((line) => {
+    const selectedProduct = line.productId
+      ? (productMapById.get(line.productId) ?? productMapByName.get(line.product))
+      : productMapByName.get(line.product)
+    return getLineTotals(line, selectedProduct)
+  })
   const linesWithProduct = lines.filter((line) => line.product.trim())
   const totalLines = linesWithProduct.length
   const totalProducts = linesWithProduct.reduce((sum, line) => sum + line.quantity, 0)
   const totalHt = lineTotals.reduce((sum, line) => sum + line.subtotalHt, 0)
-  const totalTtc = totalHt
+  const totalTtc = lineTotals.reduce((sum, line) => sum + line.subtotalPpv, 0)
   const lineDiscountTotal = lineTotals.reduce(
     (sum, line) => sum + (line.subtotalHt - line.total),
     0
@@ -306,7 +314,7 @@ export function ProcurementOrderModal({
 
   const handleProductChange = (lineId: string, value: string | null) => {
     const nextValue = value ?? ""
-    const selected = productMap.get(nextValue)
+    const selected = productMapByName.get(nextValue)
 
     setLines((current) => {
       const lineIndex = current.findIndex((line) => line.id === lineId)
@@ -436,7 +444,7 @@ export function ProcurementOrderModal({
       .filter((line) => line.product.trim())
       .map((line) => ({
         line,
-        productId: line.productId ?? productMap.get(line.product)?.id,
+        productId: line.productId ?? productMapByName.get(line.product)?.id,
       }))
 
     if (!supplierId) {
@@ -698,7 +706,11 @@ export function ProcurementOrderModal({
                     </TableHeader>
                     <TableBody>
                       {lines.map((line) => {
-                        const lineTotals = getLineTotals(line)
+                        const selectedProduct = line.productId
+                          ? (productMapById.get(line.productId) ??
+                            productMapByName.get(line.product))
+                          : productMapByName.get(line.product)
+                        const lineTotals = getLineTotals(line, selectedProduct)
                         return (
                           <TableRow key={line.id}>
                             <TableCell

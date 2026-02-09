@@ -36,7 +36,16 @@ vi.mock("@clerk/nextjs", () => ({
   useAuth: () => ({ orgId: "org-1", userId: "user-1" }),
 }))
 
-const PRODUCTS = [{ id: "prod-1", name: "Produit A", unitPrice: 10, barcode: "900" }]
+const PRODUCTS = [
+  {
+    id: "prod-1",
+    name: "Produit A",
+    unitPrice: 10,
+    sellingPrice: 15,
+    vatRate: 7,
+    barcode: "900",
+  },
+]
 
 describe("ProcurementOrderModal", () => {
   beforeEach(() => {
@@ -149,6 +158,10 @@ describe("ProcurementOrderModal", () => {
       const totalRow = screen.getByText("Total de la commande").parentElement
       expect(totalRow).toHaveTextContent("10,00 MAD")
     })
+
+    const totalPpvRow = screen.getByText("Total PPV").parentElement
+    expect(totalPpvRow).toHaveTextContent("16,05 MAD")
+    expect(screen.getByText("7%")).toBeInTheDocument()
   })
 
   it("merges duplicate products by increasing quantity", async () => {
