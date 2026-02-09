@@ -112,8 +112,10 @@ function normalizeDateRange(range?: DateRange) {
 
 function mapDeliveryStatusFilter(value: string) {
   switch (value) {
-    case "En cours":
+    case "Commandé":
       return "ORDERED" as const
+    case "En cours":
+      return "IN_PROGRESS" as const
     case "Livré":
       return "DELIVERED" as const
     default:

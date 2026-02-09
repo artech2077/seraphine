@@ -26,6 +26,8 @@ export type ProductOption = {
   id: string
   name: string
   unitPrice: number
+  sellingPrice: number
+  vatRate: number
   barcode: string
 }
 
@@ -97,6 +99,8 @@ function mapProductToOption(product: InventoryProduct): ProductOption {
     id: product._id,
     name: product.name,
     unitPrice: product.purchasePrice,
+    sellingPrice: product.sellingPrice,
+    vatRate: product.vatRate,
     barcode: product.barcode,
   }
 }

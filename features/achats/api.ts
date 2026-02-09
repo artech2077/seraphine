@@ -53,7 +53,7 @@ type ProcurementOrder = {
   orderDate: number
   dueDate?: number | null
   totalAmount: number
-  status: "DRAFT" | "ORDERED" | "DELIVERED"
+  status: "DRAFT" | "ORDERED" | "IN_PROGRESS" | "DELIVERED"
   type: "PURCHASE_ORDER" | "DELIVERY_NOTE"
   externalReference: string | null
   globalDiscountType?: "PERCENT" | "AMOUNT" | null
@@ -63,7 +63,7 @@ type ProcurementOrder = {
 
 type ProcurementListFilters = {
   supplierNames?: string[]
-  statuses?: Array<"DRAFT" | "ORDERED" | "DELIVERED">
+  statuses?: Array<"DRAFT" | "ORDERED" | "IN_PROGRESS" | "DELIVERED">
   references?: string[]
   orderFrom?: number
   orderTo?: number
@@ -98,12 +98,14 @@ const channelLabels: Record<string, string> = {
 const purchaseStatusLabels: Record<string, PurchaseOrder["status"]> = {
   DRAFT: "Brouillon",
   ORDERED: "Commandé",
-  DELIVERED: "Livré",
+  IN_PROGRESS: "Commandé",
+  DELIVERED: "Commandé",
 }
 
 const deliveryStatusLabels: Record<string, DeliveryNote["status"]> = {
   DRAFT: "Brouillon",
-  ORDERED: "En cours",
+  ORDERED: "Commandé",
+  IN_PROGRESS: "En cours",
   DELIVERED: "Livré",
 }
 
@@ -128,7 +130,7 @@ function parseOptionalDate(value?: string) {
 }
 
 type ProcurementChannel = "EMAIL" | "PHONE"
-type ProcurementStatus = "DRAFT" | "ORDERED" | "DELIVERED"
+type ProcurementStatus = "DRAFT" | "ORDERED" | "IN_PROGRESS" | "DELIVERED"
 type DiscountTypeApi = "PERCENT" | "AMOUNT"
 
 function mapChannel(value?: string): ProcurementChannel | undefined {
@@ -141,8 +143,6 @@ function mapPurchaseStatus(value: string): ProcurementStatus {
   switch (value) {
     case "Commandé":
       return "ORDERED"
-    case "Livré":
-      return "DELIVERED"
     default:
       return "DRAFT"
   }
@@ -197,8 +197,10 @@ function normalizePurchaseOrderValues(values: ProcurementFormValues): Procuremen
 
 function mapDeliveryStatus(value: string): ProcurementStatus {
   switch (value) {
-    case "En cours":
+    case "Commandé":
       return "ORDERED"
+    case "En cours":
+      return "IN_PROGRESS"
     case "Livré":
       return "DELIVERED"
     default:
@@ -310,6 +312,44 @@ function mapDeliveryNote(order: ProcurementOrder, fallbackNumber?: string): Deli
       lineDiscountType: mapDiscountTypeFromApi(item.lineDiscountType),
       lineDiscountValue: item.lineDiscountValue ?? undefined,
     })),
+  }
+}
+
+export function usePurchaseOrderById(orderId?: string) {
+  const { orgId } = useAuth()
+  const orderQuery = useStableQuery(
+    api.procurement.getById,
+    orgId && orderId ? { clerkOrgId: orgId, id: orderId as Id<"procurementOrders"> } : "skip"
+  ) as { data: ProcurementOrder | null | undefined; isLoading: boolean; isFetching: boolean }
+
+  const order = React.useMemo(() => {
+    if (!orderQuery.data || orderQuery.data.type !== "PURCHASE_ORDER") return null
+    return mapPurchaseOrder(orderQuery.data)
+  }, [orderQuery.data])
+
+  return {
+    order,
+    isLoading: orderQuery.isLoading,
+    isFetching: orderQuery.isFetching,
+  }
+}
+
+export function useDeliveryNoteById(noteId?: string) {
+  const { orgId } = useAuth()
+  const orderQuery = useStableQuery(
+    api.procurement.getById,
+    orgId && noteId ? { clerkOrgId: orgId, id: noteId as Id<"procurementOrders"> } : "skip"
+  ) as { data: ProcurementOrder | null | undefined; isLoading: boolean; isFetching: boolean }
+
+  const note = React.useMemo(() => {
+    if (!orderQuery.data || orderQuery.data.type !== "DELIVERY_NOTE") return null
+    return mapDeliveryNote(orderQuery.data)
+  }, [orderQuery.data])
+
+  return {
+    note,
+    isLoading: orderQuery.isLoading,
+    isFetching: orderQuery.isFetching,
   }
 }
 
@@ -512,6 +552,7 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
     ]
   )
   const createOrderMutation = useMutation(api.procurement.create)
+  const createFromPurchaseMutation = useMutation(api.procurement.createDeliveryFromPurchase)
   const updateOrderMutation = useMutation(api.procurement.update)
   const removeOrderMutation = useMutation(api.procurement.remove)
 
@@ -591,6 +632,14 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
     totalCount,
     filterOptions,
     exportNotes,
+    async createFromPurchase(order: PurchaseOrder) {
+      if (!orgId) return undefined
+      const deliveryId = await createFromPurchaseMutation({
+        clerkOrgId: orgId,
+        purchaseOrderId: order.id as Id<"procurementOrders">,
+      })
+      return String(deliveryId)
+    },
     async createNote(values: ProcurementFormValues) {
       if (!orgId) return
       const payload = {

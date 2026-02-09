@@ -9,6 +9,7 @@
  */
 
 import type * as __tests___test_utils from "../__tests__/test_utils.js"
+import type * as alerts from "../alerts.js"
 import type * as auth from "../auth.js"
 import type * as barcodeScans from "../barcodeScans.js"
 import type * as clients from "../clients.js"
@@ -25,6 +26,7 @@ import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server
 
 declare const fullApi: ApiFromModules<{
   "__tests__/test_utils": typeof __tests___test_utils
+  alerts: typeof alerts
   auth: typeof auth
   barcodeScans: typeof barcodeScans
   clients: typeof clients

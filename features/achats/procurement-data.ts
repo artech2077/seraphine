@@ -8,8 +8,8 @@ export type ProcurementLineItem = {
   lineDiscountValue?: number
 }
 
-export type PurchaseOrderStatus = "Brouillon" | "Commandé" | "Livré"
-export type DeliveryNoteStatus = "Brouillon" | "En cours" | "Livré"
+export type PurchaseOrderStatus = "Brouillon" | "Commandé"
+export type DeliveryNoteStatus = "Brouillon" | "Commandé" | "En cours" | "Livré"
 
 export type PurchaseOrder = {
   id: string
@@ -48,6 +48,8 @@ export type ProductOption = {
   id: string
   name: string
   unitPrice: number
+  sellingPrice: number
+  vatRate: number
   barcode: string
 }
 
@@ -64,14 +66,54 @@ export const SUPPLIER_OPTIONS = [
 
 export const CHANNEL_OPTIONS = ["Email", "Téléphone", "Portail"]
 
-export const PURCHASE_STATUS_OPTIONS: PurchaseOrderStatus[] = ["Brouillon", "Commandé", "Livré"]
+export const PURCHASE_STATUS_OPTIONS: PurchaseOrderStatus[] = ["Brouillon", "Commandé"]
 
-export const DELIVERY_STATUS_OPTIONS: DeliveryNoteStatus[] = ["Brouillon", "En cours", "Livré"]
+export const DELIVERY_STATUS_OPTIONS: DeliveryNoteStatus[] = [
+  "Brouillon",
+  "Commandé",
+  "En cours",
+  "Livré",
+]
 
 export const PRODUCT_OPTIONS: ProductOption[] = [
-  { id: "prod-001", name: "Paracétamol 1g", unitPrice: 24.5, barcode: "100001" },
-  { id: "prod-002", name: "Gants nitrile - Boite 100", unitPrice: 86, barcode: "100002" },
-  { id: "prod-003", name: "Ibuprofène 400mg", unitPrice: 18.2, barcode: "100003" },
-  { id: "prod-004", name: "Vitamine C 1000", unitPrice: 12.8, barcode: "100004" },
-  { id: "prod-005", name: "Gel hydroalcoolique 500ml", unitPrice: 32.4, barcode: "100005" },
+  {
+    id: "prod-001",
+    name: "Paracétamol 1g",
+    unitPrice: 24.5,
+    sellingPrice: 32.9,
+    vatRate: 7,
+    barcode: "100001",
+  },
+  {
+    id: "prod-002",
+    name: "Gants nitrile - Boite 100",
+    unitPrice: 86,
+    sellingPrice: 119,
+    vatRate: 20,
+    barcode: "100002",
+  },
+  {
+    id: "prod-003",
+    name: "Ibuprofène 400mg",
+    unitPrice: 18.2,
+    sellingPrice: 24.8,
+    vatRate: 7,
+    barcode: "100003",
+  },
+  {
+    id: "prod-004",
+    name: "Vitamine C 1000",
+    unitPrice: 12.8,
+    sellingPrice: 17.2,
+    vatRate: 7,
+    barcode: "100004",
+  },
+  {
+    id: "prod-005",
+    name: "Gel hydroalcoolique 500ml",
+    unitPrice: 32.4,
+    sellingPrice: 45,
+    vatRate: 20,
+    barcode: "100005",
+  },
 ]

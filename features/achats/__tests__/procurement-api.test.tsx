@@ -217,11 +217,13 @@ describe("useDeliveryNotes", () => {
 
   it("maps procurement orders to delivery notes", async () => {
     const createNote = createMockMutation()
+    const createFromPurchase = createMockMutation()
     const updateNote = createMockMutation()
     const removeNote = createMockMutation()
 
     vi.mocked(useMutation)
       .mockImplementationOnce(() => createNote)
+      .mockImplementationOnce(() => createFromPurchase)
       .mockImplementationOnce(() => updateNote)
       .mockImplementationOnce(() => removeNote)
 
@@ -255,7 +257,7 @@ describe("useDeliveryNotes", () => {
         orderNumber: "BL-01",
         supplier: "Pharma Sud",
         channel: "Téléphone",
-        status: "En cours",
+        status: "Commandé",
         externalReference: "-",
         dueDate: "2023-11-14",
         globalDiscountType: "amount",
@@ -266,11 +268,13 @@ describe("useDeliveryNotes", () => {
 
   it("creates delivery notes with external references", async () => {
     const createNote = createMockMutation()
+    const createFromPurchase = createMockMutation()
     const updateNote = createMockMutation()
     const removeNote = createMockMutation()
 
     vi.mocked(useMutation)
       .mockImplementationOnce(() => createNote)
+      .mockImplementationOnce(() => createFromPurchase)
       .mockImplementationOnce(() => updateNote)
       .mockImplementationOnce(() => removeNote)
 
@@ -294,7 +298,7 @@ describe("useDeliveryNotes", () => {
       clerkOrgId: "org-1",
       type: "DELIVERY_NOTE",
       supplierId: "supplier-2",
-      status: "ORDERED",
+      status: "IN_PROGRESS",
       channel: "PHONE",
       orderDate: Date.parse("2026-02-01"),
       dueDate: Date.parse("2026-02-15"),
@@ -314,13 +318,51 @@ describe("useDeliveryNotes", () => {
     })
   })
 
+  it("creates a delivery note from a purchase order", async () => {
+    const createNote = createMockMutation()
+    const createFromPurchase = createMockMutation()
+    const updateNote = createMockMutation()
+    const removeNote = createMockMutation()
+    createFromPurchase.mockResolvedValue("note-42")
+
+    vi.mocked(useMutation)
+      .mockImplementationOnce(() => createNote)
+      .mockImplementationOnce(() => createFromPurchase)
+      .mockImplementationOnce(() => updateNote)
+      .mockImplementationOnce(() => removeNote)
+
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
+
+    const { result } = renderHook(() => useDeliveryNotes())
+    const createdId = await result.current.createFromPurchase({
+      id: "order-1",
+      orderNumber: "BC-01",
+      supplierId: "supplier-1",
+      supplier: "Pharma Nord",
+      channel: "Email",
+      createdAt: "2026-02-01",
+      orderDate: "2026-02-01",
+      total: 120,
+      status: "Commandé",
+      items: [],
+    })
+
+    expect(createFromPurchase).toHaveBeenCalledWith({
+      clerkOrgId: "org-1",
+      purchaseOrderId: "order-1",
+    })
+    expect(createdId).toBe("note-42")
+  })
+
   it("returns paginated delivery notes metadata", async () => {
     const createNote = createMockMutation()
+    const createFromPurchase = createMockMutation()
     const updateNote = createMockMutation()
     const removeNote = createMockMutation()
 
     vi.mocked(useMutation)
       .mockImplementationOnce(() => createNote)
+      .mockImplementationOnce(() => createFromPurchase)
       .mockImplementationOnce(() => updateNote)
       .mockImplementationOnce(() => removeNote)
 
