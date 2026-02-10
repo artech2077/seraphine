@@ -29,6 +29,9 @@ export type ProductOption = {
   sellingPrice: number
   vatRate: number
   barcode: string
+  category: string
+  stockQuantity: number
+  lowStockThreshold: number
 }
 
 export type ProductCatalogItem = {
@@ -37,6 +40,9 @@ export type ProductCatalogItem = {
   barcode: string
   sellingPrice: number
   vatRate: number
+  category: string
+  stockQuantity: number
+  lowStockThreshold: number
 }
 
 type InventoryListFilters = {
@@ -102,6 +108,9 @@ function mapProductToOption(product: InventoryProduct): ProductOption {
     sellingPrice: product.sellingPrice,
     vatRate: product.vatRate,
     barcode: product.barcode,
+    category: product.category,
+    stockQuantity: product.stockQuantity,
+    lowStockThreshold: product.lowStockThreshold,
   }
 }
 
@@ -112,6 +121,9 @@ function mapProductToCatalogItem(product: InventoryProduct): ProductCatalogItem 
     barcode: product.barcode,
     sellingPrice: product.sellingPrice,
     vatRate: product.vatRate,
+    category: product.category,
+    stockQuantity: product.stockQuantity,
+    lowStockThreshold: product.lowStockThreshold,
   }
 }
 

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useAuth } from "@clerk/nextjs"
-import { Plus, Search, Trash2 } from "lucide-react"
+import { Search, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -40,6 +40,7 @@ import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { normalizeBarcode } from "@/lib/barcode"
 import { useClients } from "@/features/clients/api"
 import { useProductCatalog } from "@/features/inventaire/api"
+import { ProductSearchPanel } from "@/features/products/product-search-panel"
 import { useSalesHistory } from "@/features/ventes/api"
 import type { SaleHistoryItem } from "@/features/ventes/sales-history-table"
 import { useBarcodeScanner } from "@/hooks/use-barcode-scanner"
@@ -50,6 +51,10 @@ type Product = {
   id: string
   name: string
   barcode: string
+  category: string
+  sellingPrice: number
+  stockQuantity: number
+  lowStockThreshold: number
   unitPriceHt: number
   vatRate: number
 }
@@ -74,14 +79,35 @@ const paymentOptions = [
   { value: "credit", label: "Crédit" },
 ]
 
-const createEmptyLine = (): SaleLine => ({
-  id: `line-${Date.now()}-${Math.round(Math.random() * 1000)}`,
-  productId: undefined,
-  productName: "",
-  quantity: 0,
-  discountType: "percent",
-  discountValue: 0,
-})
+function mergeProductIntoLines(current: SaleLine[], product: Product) {
+  const existingIndex = current.findIndex(
+    (line) => line.productId === product.id || line.productName === product.name
+  )
+  if (existingIndex !== -1) {
+    return current.map((line, index) =>
+      index === existingIndex
+        ? {
+            ...line,
+            productId: product.id,
+            productName: product.name,
+            quantity: line.quantity + 1,
+          }
+        : line
+    )
+  }
+
+  return [
+    ...current,
+    {
+      id: `line-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+      productId: product.id,
+      productName: product.name,
+      quantity: 1,
+      discountType: "percent",
+      discountValue: 0,
+    },
+  ]
+}
 
 const dropdownTriggerBaseClassName = "bg-popover rounded-md min-w-0"
 
@@ -152,7 +178,7 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
   const { createSale, updateSale } = useSalesHistory({ mode: "mutations" })
   const { canManage } = useRoleAccess()
   const canManageSales = canManage("ventes")
-  const [lines, setLines] = React.useState<SaleLine[]>([createEmptyLine()])
+  const [lines, setLines] = React.useState<SaleLine[]>([])
   const [globalDiscountType, setGlobalDiscountType] = React.useState<DiscountType>("percent")
   const [globalDiscountValue, setGlobalDiscountValue] = React.useState(0)
   const [paymentMethod, setPaymentMethod] = React.useState<string>("")
@@ -168,12 +194,15 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
         id: item.id,
         name: item.name,
         barcode: item.barcode,
+        category: item.category,
+        sellingPrice: item.sellingPrice,
+        stockQuantity: item.stockQuantity,
+        lowStockThreshold: item.lowStockThreshold,
         unitPriceHt: item.sellingPrice,
         vatRate: item.vatRate,
       })),
     [catalogItems]
   )
-  const productOptions = React.useMemo(() => products.map((product) => product.name), [products])
   const clientOptions = React.useMemo(() => clients.map((client) => client.name), [clients])
   const barcodeMap = React.useMemo(() => {
     const map = new Map<string, Product>()
@@ -187,7 +216,7 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
   }, [products])
 
   const resetForm = React.useCallback(() => {
-    setLines([createEmptyLine()])
+    setLines([])
     setGlobalDiscountType("percent")
     setGlobalDiscountValue(0)
     setPaymentMethod("")
@@ -204,6 +233,11 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
     }
   }, [onCancelEdit, resetForm])
 
+  const handleAddProductFromSearch = React.useCallback((product: Product) => {
+    setSubmitAttempted(false)
+    setLines((current) => mergeProductIntoLines(current, product))
+  }, [])
+
   const handleBarcodeScan = React.useCallback(
     (barcode: string) => {
       const match = barcodeMap.get(barcode)
@@ -212,47 +246,7 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
         return
       }
 
-      setLines((current) => {
-        const existingIndex = current.findIndex(
-          (line) => line.productId === match.id || line.productName === match.name
-        )
-        if (existingIndex !== -1) {
-          return current.map((line, index) =>
-            index === existingIndex
-              ? {
-                  ...line,
-                  productId: match.id,
-                  productName: match.name,
-                  quantity: line.quantity + 1,
-                }
-              : line
-          )
-        }
-
-        const emptyIndex = current.findIndex((line) => !line.productName)
-        if (emptyIndex !== -1) {
-          return current.map((line, index) =>
-            index === emptyIndex
-              ? {
-                  ...line,
-                  productId: match.id,
-                  productName: match.name,
-                  quantity: line.quantity > 0 ? line.quantity : 1,
-                }
-              : line
-          )
-        }
-
-        return [
-          ...current,
-          {
-            ...createEmptyLine(),
-            productId: match.id,
-            productName: match.name,
-            quantity: 1,
-          },
-        ]
-      })
+      setLines((current) => mergeProductIntoLines(current, match))
     },
     [barcodeMap]
   )
@@ -303,7 +297,7 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
       ? clients.find((client) => client.name === clientLabel)
       : undefined
 
-    setLines(nextLines.length > 0 ? nextLines : [createEmptyLine()])
+    setLines(nextLines)
     setGlobalDiscountType(editingSale.globalDiscountType ?? "percent")
     setGlobalDiscountValue(editingSale.globalDiscountValue ?? 0)
     setPaymentMethod(editingSale.paymentMethodValue ?? "")
@@ -323,11 +317,8 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
     : globalDiscountValue
   const totalToCollect = Math.max(0, totalAfterLineDiscounts - globalDiscount)
 
-  const canAddLine = canManageSales && lines.every((line) => line.productName.trim())
-  const hasValidLines = lines.some((line) => line.productName && line.quantity > 0)
-  const hasErrors = lines.some(
-    (line) => (line.productName && line.quantity <= 0) || (!line.productName && line.quantity > 0)
-  )
+  const hasValidLines = lines.some((line) => line.productId && line.quantity > 0)
+  const hasErrors = lines.some((line) => line.quantity <= 0)
   const canSave = hasValidLines && !hasErrors && canManageSales
   const showValidation = submitAttempted && !canSave && canManageSales
 
@@ -337,83 +328,12 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
     }
   }, [canSave, submitAttempted])
 
-  const handleAddLine = () => {
-    if (!canAddLine) return
-    setSubmitAttempted(false)
-    setLines((current) => [...current, createEmptyLine()])
-  }
-
   const handleRemoveLine = (id: string) => {
-    setLines((current) => {
-      const next = current.filter((line) => line.id !== id)
-      return next.length > 0 ? next : [createEmptyLine()]
-    })
+    setLines((current) => current.filter((line) => line.id !== id))
   }
 
   const updateLine = (id: string, updates: Partial<SaleLine>) => {
     setLines((current) => current.map((line) => (line.id === id ? { ...line, ...updates } : line)))
-  }
-
-  const handleProductChange = (id: string, value: string | null) => {
-    const nextValue = value ?? ""
-    const selected = products.find((product) => product.name === nextValue)
-
-    setLines((current) => {
-      const lineIndex = current.findIndex((line) => line.id === id)
-      if (lineIndex === -1) return current
-
-      const line = current[lineIndex]
-      const nextQuantity = nextValue ? (line.quantity > 0 ? line.quantity : 1) : 0
-
-      if (!nextValue) {
-        return current.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                productName: "",
-                productId: undefined,
-                quantity: 0,
-              }
-            : item
-        )
-      }
-
-      const duplicateIndex = current.findIndex(
-        (item) =>
-          item.id !== id &&
-          (item.productName === nextValue || (selected?.id && item.productId === selected.id))
-      )
-
-      if (duplicateIndex === -1) {
-        return current.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                productName: nextValue,
-                productId: selected?.id,
-                quantity: nextQuantity,
-              }
-            : item
-        )
-      }
-
-      const duplicateLine = current[duplicateIndex]
-      const mergedQuantity = duplicateLine.quantity + nextQuantity
-      const nextLines = current
-        .map((item, index) =>
-          index === duplicateIndex
-            ? {
-                ...item,
-                productName: nextValue,
-                productId: selected?.id ?? item.productId,
-                quantity: mergedQuantity,
-              }
-            : item
-        )
-        .filter((item) => item.id !== id)
-
-      return nextLines.length > 0 ? nextLines : [createEmptyLine()]
-    })
   }
 
   async function handleSaveSale() {
@@ -483,6 +403,11 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
           Astuce : vous pouvez scanner avec un lecteur ou ouvrir /scan sur un téléphone connecté.
         </p>
         <div className="space-y-3">
+          <ProductSearchPanel
+            products={products}
+            onAddProduct={handleAddProductFromSearch}
+            contextLabel="POS"
+          />
           <Table>
             <TableHeader>
               <TableRow>
@@ -497,137 +422,116 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
               </TableRow>
             </TableHeader>
             <TableBody>
-              {lines.map((line, index) => {
-                const linePricing = pricing[index]
-                return (
-                  <TableRow key={line.id}>
-                    <TableCell className="min-w-64">
-                      <Combobox
-                        items={productOptions}
-                        value={line.productName}
-                        onValueChange={(value) => handleProductChange(line.id, value)}
-                      >
-                        <ComboboxInput
-                          placeholder="Chercher ou scanner le code barre"
-                          showClear={Boolean(line.productName)}
-                          showTrigger={false}
-                          className="bg-popover rounded-md min-w-0"
+              {lines.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    Aucun produit sélectionné. Ajoutez depuis la recherche ci-dessus ou scannez un
+                    code-barres.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                lines.map((line, index) => {
+                  const linePricing = pricing[index]
+                  return (
+                    <TableRow key={line.id}>
+                      <TableCell className="min-w-64">
+                        <span
+                          className="block rounded-md bg-popover px-3 py-2"
                           aria-invalid={showValidation && !line.productName}
                         >
-                          <InputGroupAddon align="inline-end" className="text-muted-foreground">
-                            <Search className="size-4" />
-                          </InputGroupAddon>
-                        </ComboboxInput>
-                        <ComboboxContent align="start" alignOffset={0}>
-                          <ComboboxEmpty>Aucun produit.</ComboboxEmpty>
-                          <ComboboxList>
-                            {(item) => (
-                              <ComboboxItem key={item} value={item}>
-                                {item}
-                              </ComboboxItem>
-                            )}
-                          </ComboboxList>
-                        </ComboboxContent>
-                      </Combobox>
-                    </TableCell>
-                    <TableCell className="w-28">
-                      <Input
-                        aria-label="Quantité"
-                        type="number"
-                        min={0}
-                        value={line.quantity}
-                        className="bg-popover"
-                        aria-invalid={showValidation && line.quantity <= 0}
-                        onChange={(event) =>
-                          updateLine(line.id, {
-                            quantity: parseNumericInput(event.target.value),
-                          })
-                        }
-                      />
-                    </TableCell>
-                    <TableCell className="w-28">
-                      <span className="text-foreground">
-                        {formatCurrency(linePricing.unitPriceHt)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="w-20">
-                      <span className="text-foreground">{linePricing.vatRate}%</span>
-                    </TableCell>
-                    <TableCell className="w-28">
-                      <span className="text-foreground">
-                        {formatCurrency(linePricing.unitPriceTtc)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="w-40">
-                      <ButtonGroup className="w-full">
-                        <Select
-                          value={line.discountType}
-                          onValueChange={(value) =>
-                            updateLine(line.id, {
-                              discountType: value as DiscountType,
-                            })
-                          }
-                        >
-                          <SelectTrigger className={`${dropdownTriggerBaseClassName} w-24`}>
-                            <SelectValue>
-                              {(value) => getDiscountLabel((value as DiscountType) ?? "percent")}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {discountOptions.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          {line.productName}
+                        </span>
+                      </TableCell>
+                      <TableCell className="w-28">
                         <Input
-                          aria-label="Valeur de remise"
+                          aria-label="Quantité"
                           type="number"
                           min={0}
-                          value={line.discountValue}
+                          value={line.quantity}
                           className="bg-popover"
+                          aria-invalid={showValidation && line.quantity <= 0}
                           onChange={(event) =>
                             updateLine(line.id, {
-                              discountValue: parseNumericInput(event.target.value),
+                              quantity: parseNumericInput(event.target.value),
                             })
                           }
                         />
-                      </ButtonGroup>
-                    </TableCell>
-                    <TableCell className="w-32">
-                      <span className="text-foreground font-semibold">
-                        {formatCurrency(linePricing.lineTotal)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Supprimer la ligne"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleRemoveLine(line.id)}
-                        disabled={!canManageSales}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
+                      </TableCell>
+                      <TableCell className="w-28">
+                        <span className="text-foreground">
+                          {formatCurrency(linePricing.unitPriceHt)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="w-20">
+                        <span className="text-foreground">{linePricing.vatRate}%</span>
+                      </TableCell>
+                      <TableCell className="w-28">
+                        <span className="text-foreground">
+                          {formatCurrency(linePricing.unitPriceTtc)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="w-40">
+                        <ButtonGroup className="w-full">
+                          <Select
+                            value={line.discountType}
+                            onValueChange={(value) =>
+                              updateLine(line.id, {
+                                discountType: value as DiscountType,
+                              })
+                            }
+                          >
+                            <SelectTrigger className={`${dropdownTriggerBaseClassName} w-24`}>
+                              <SelectValue>
+                                {(value) => getDiscountLabel((value as DiscountType) ?? "percent")}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {discountOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            aria-label="Valeur de remise"
+                            type="number"
+                            min={0}
+                            value={line.discountValue}
+                            className="bg-popover"
+                            onChange={(event) =>
+                              updateLine(line.id, {
+                                discountValue: parseNumericInput(event.target.value),
+                              })
+                            }
+                          />
+                        </ButtonGroup>
+                      </TableCell>
+                      <TableCell className="w-32">
+                        <span className="text-foreground font-semibold">
+                          {formatCurrency(linePricing.lineTotal)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Supprimer la ligne"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleRemoveLine(line.id)}
+                          disabled={!canManageSales}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
             </TableBody>
           </Table>
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-            <Button
-              variant="secondary"
-              onClick={handleAddLine}
-              disabled={!canAddLine}
-              className="shrink-0"
-            >
-              <Plus className="size-4" />
-              Ajouter une ligne
-            </Button>
             <div className="flex items-center">
               <span className="font-medium text-foreground">Total TTC</span>
               <span className="ml-2 font-semibold text-foreground">

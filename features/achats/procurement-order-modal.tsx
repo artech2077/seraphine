@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useAuth } from "@clerk/nextjs"
-import { Trash2, Plus, Search } from "lucide-react"
+import { Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -27,7 +27,6 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox"
 import { Input } from "@/components/ui/input"
-import { InputGroupAddon } from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -54,6 +53,7 @@ import {
   type ProcurementLineItem,
   type PurchaseOrder,
 } from "@/features/achats/procurement-data"
+import { ProductSearchPanel } from "@/features/products/product-search-panel"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { normalizeBarcode } from "@/lib/barcode"
 import { useBarcodeScanner } from "@/hooks/use-barcode-scanner"
@@ -79,6 +79,36 @@ const emptyLine = (): ProcurementLineDraft => ({
   discountType: "percent",
   discountValue: 0,
 })
+
+function mergeProductIntoProcurementLines(current: ProcurementLineDraft[], product: ProductOption) {
+  const existingIndex = current.findIndex(
+    (line) => line.productId === product.id || line.product === product.name
+  )
+  if (existingIndex !== -1) {
+    return current.map((line, index) =>
+      index === existingIndex
+        ? {
+            ...line,
+            product: product.name,
+            productId: product.id,
+            unitPrice: product.unitPrice,
+            quantity: line.quantity + 1,
+          }
+        : line
+    )
+  }
+
+  return [
+    ...current,
+    {
+      ...emptyLine(),
+      product: product.name,
+      productId: product.id,
+      unitPrice: product.unitPrice,
+      quantity: 1,
+    },
+  ]
+}
 
 const discountOptions: { value: DiscountType; label: string }[] = [
   { value: "percent", label: "%" },
@@ -209,7 +239,7 @@ export function ProcurementOrderModal({
           discountType: item.lineDiscountType ?? "percent",
           discountValue: item.lineDiscountValue ?? 0,
         }))
-      : [emptyLine()]
+      : []
   )
 
   const supplierMap = React.useMemo(
@@ -243,7 +273,7 @@ export function ProcurementOrderModal({
           discountType: item.lineDiscountType ?? "percent",
           discountValue: item.lineDiscountValue ?? 0,
         }))
-      : [emptyLine()]
+      : []
     setLines(nextLines)
     const nextSupplier = order?.supplier ?? ""
     const nextSupplierId =
@@ -269,9 +299,6 @@ export function ProcurementOrderModal({
     submitWithStatus(status)
   }
 
-  const canAddLine =
-    canManagePurchases && lines.every((line) => line.product.trim() && line.quantity > 0)
-
   const lineTotals = lines.map((line) => {
     const selectedProduct = line.productId
       ? (productMapById.get(line.productId) ?? productMapByName.get(line.product))
@@ -294,16 +321,8 @@ export function ProcurementOrderModal({
   const totalDiscount = lineDiscountTotal + globalDiscount
   const totalOrder = Math.max(0, totalAfterLineDiscounts - globalDiscount)
 
-  const handleAddLine = () => {
-    if (!canAddLine) return
-    setLines((current) => [...current, emptyLine()])
-  }
-
   const handleRemoveLine = (lineId: string) => {
-    setLines((current) => {
-      const next = current.filter((line) => line.id !== lineId)
-      return next.length > 0 ? next : [emptyLine()]
-    })
+    setLines((current) => current.filter((line) => line.id !== lineId))
   }
 
   const updateLine = (lineId: string, updates: Partial<ProcurementLineDraft>) => {
@@ -312,70 +331,9 @@ export function ProcurementOrderModal({
     )
   }
 
-  const handleProductChange = (lineId: string, value: string | null) => {
-    const nextValue = value ?? ""
-    const selected = productMapByName.get(nextValue)
-
-    setLines((current) => {
-      const lineIndex = current.findIndex((line) => line.id === lineId)
-      if (lineIndex === -1) return current
-
-      const line = current[lineIndex]
-      const nextQuantity = nextValue ? (line.quantity > 0 ? line.quantity : 1) : 0
-
-      if (!nextValue) {
-        return current.map((item) =>
-          item.id === lineId
-            ? {
-                ...item,
-                product: "",
-                productId: undefined,
-                quantity: 0,
-                unitPrice: 0,
-              }
-            : item
-        )
-      }
-
-      const duplicateIndex = current.findIndex(
-        (item) =>
-          item.id !== lineId &&
-          (item.product === nextValue || (selected?.id && item.productId === selected.id))
-      )
-
-      if (duplicateIndex === -1) {
-        return current.map((item) =>
-          item.id === lineId
-            ? {
-                ...item,
-                product: nextValue,
-                productId: selected?.id,
-                quantity: nextQuantity,
-                unitPrice: selected?.unitPrice ?? line.unitPrice,
-              }
-            : item
-        )
-      }
-
-      const duplicateLine = current[duplicateIndex]
-      const mergedQuantity = duplicateLine.quantity + nextQuantity
-      const nextLines = current
-        .map((item, index) =>
-          index === duplicateIndex
-            ? {
-                ...item,
-                product: nextValue,
-                productId: selected?.id ?? item.productId,
-                quantity: mergedQuantity,
-                unitPrice: duplicateLine.unitPrice,
-              }
-            : item
-        )
-        .filter((item) => item.id !== lineId)
-
-      return nextLines.length > 0 ? nextLines : [emptyLine()]
-    })
-  }
+  const handleAddProductFromSearch = React.useCallback((product: ProductOption) => {
+    setLines((current) => mergeProductIntoProcurementLines(current, product))
+  }, [])
 
   const handleBarcodeScan = React.useCallback(
     (barcode: string) => {
@@ -385,50 +343,7 @@ export function ProcurementOrderModal({
         return
       }
 
-      setLines((current) => {
-        const existingIndex = current.findIndex(
-          (line) => line.productId === match.id || line.product === match.name
-        )
-        if (existingIndex !== -1) {
-          return current.map((line, index) =>
-            index === existingIndex
-              ? {
-                  ...line,
-                  product: match.name,
-                  productId: match.id,
-                  unitPrice: match.unitPrice,
-                  quantity: line.quantity + 1,
-                }
-              : line
-          )
-        }
-
-        const emptyIndex = current.findIndex((line) => !line.product)
-        if (emptyIndex !== -1) {
-          return current.map((line, index) =>
-            index === emptyIndex
-              ? {
-                  ...line,
-                  product: match.name,
-                  productId: match.id,
-                  unitPrice: match.unitPrice,
-                  quantity: line.quantity > 0 ? line.quantity : 1,
-                }
-              : line
-          )
-        }
-
-        return [
-          ...current,
-          {
-            ...emptyLine(),
-            product: match.name,
-            productId: match.id,
-            unitPrice: match.unitPrice,
-            quantity: 1,
-          },
-        ]
-      })
+      setLines((current) => mergeProductIntoProcurementLines(current, match))
     },
     [barcodeMap]
   )
@@ -676,6 +591,11 @@ export function ProcurementOrderModal({
               <p className="text-xs text-muted-foreground">
                 Astuce : utilisez un lecteur ou ouvrez /scan sur un téléphone connecté.
               </p>
+              <ProductSearchPanel
+                products={products}
+                onAddProduct={handleAddProductFromSearch}
+                contextLabel={isDelivery ? "bon de livraison" : "bon de commande"}
+              />
               <div className="rounded-lg border border-border">
                 <div className="overflow-x-auto p-4">
                   <Table className="table-fixed">
@@ -705,155 +625,128 @@ export function ProcurementOrderModal({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {lines.map((line) => {
-                        const selectedProduct = line.productId
-                          ? (productMapById.get(line.productId) ??
-                            productMapByName.get(line.product))
-                          : productMapByName.get(line.product)
-                        const lineTotals = getLineTotals(line, selectedProduct)
-                        return (
-                          <TableRow key={line.id}>
-                            <TableCell
-                              className={
-                                showLineDiscount
-                                  ? "w-48 min-w-0 text-left"
-                                  : "w-56 min-w-0 text-left"
-                              }
-                            >
-                              <Combobox
-                                items={products.map((option) => option.name)}
-                                value={line.product}
-                                onValueChange={(value) => handleProductChange(line.id, value)}
-                              >
-                                <ComboboxInput
-                                  aria-label="Produit"
-                                  placeholder="Chercher ou scanner le code..."
-                                  showClear={Boolean(line.product)}
-                                  showTrigger={false}
-                                  className="bg-popover rounded-md min-w-0"
-                                >
-                                  <InputGroupAddon
-                                    align="inline-end"
-                                    className="text-muted-foreground"
-                                  >
-                                    <Search className="size-4" />
-                                  </InputGroupAddon>
-                                </ComboboxInput>
-                                <ComboboxContent align="start" alignOffset={0}>
-                                  <ComboboxEmpty>Aucun résultat.</ComboboxEmpty>
-                                  <ComboboxList>
-                                    {(item) => (
-                                      <ComboboxItem key={item} value={item}>
-                                        {item}
-                                      </ComboboxItem>
-                                    )}
-                                  </ComboboxList>
-                                </ComboboxContent>
-                              </Combobox>
-                            </TableCell>
-                            <TableCell className="w-16 px-1 text-left">
-                              <Input
-                                aria-label="Quantité"
-                                type="number"
-                                min="0"
-                                placeholder="0"
-                                value={line.quantity}
-                                className="bg-popover"
-                                onChange={(event) =>
-                                  updateLine(line.id, {
-                                    quantity: parseNumber(event.target.value),
-                                  })
+                      {lines.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={showLineDiscount ? 9 : 8}
+                            className="text-center text-muted-foreground"
+                          >
+                            Aucun produit sélectionné. Ajoutez depuis la recherche ci-dessus ou
+                            scannez un code-barres.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        lines.map((line) => {
+                          const selectedProduct = line.productId
+                            ? (productMapById.get(line.productId) ??
+                              productMapByName.get(line.product))
+                            : productMapByName.get(line.product)
+                          const lineTotals = getLineTotals(line, selectedProduct)
+                          return (
+                            <TableRow key={line.id}>
+                              <TableCell
+                                className={
+                                  showLineDiscount
+                                    ? "w-48 min-w-0 text-left"
+                                    : "w-56 min-w-0 text-left"
                                 }
-                              />
-                            </TableCell>
-                            {showLineDiscount ? (
-                              <TableCell className="w-32 px-1 text-left">
-                                <ButtonGroup className="w-full">
-                                  <Select
-                                    value={line.discountType}
-                                    onValueChange={(value) =>
-                                      updateLine(line.id, {
-                                        discountType: value as DiscountType,
-                                      })
-                                    }
-                                  >
-                                    <SelectTrigger
-                                      className={`${dropdownTriggerBaseClassName} w-20`}
-                                    >
-                                      <SelectValue>
-                                        {(value) =>
-                                          (value as DiscountType) === "amount" ? "Montant" : "%"
-                                        }
-                                      </SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {discountOptions.map((option) => (
-                                        <SelectItem key={option.value} value={option.value}>
-                                          {option.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                  <Input
-                                    aria-label="Valeur remise ligne"
-                                    type="number"
-                                    min="0"
-                                    value={line.discountValue}
-                                    className="bg-popover"
-                                    onChange={(event) =>
-                                      updateLine(line.id, {
-                                        discountValue: parseNumber(event.target.value),
-                                      })
-                                    }
-                                  />
-                                </ButtonGroup>
-                              </TableCell>
-                            ) : null}
-                            <TableCell className="w-12 px-1 text-right text-sm text-foreground">
-                              {formatCurrency(lineTotals.unitPrice)}
-                            </TableCell>
-                            <TableCell className="w-12 px-1 text-right text-sm text-foreground">
-                              {formatCurrency(lineTotals.subtotalHt)}
-                            </TableCell>
-                            <TableCell className="w-10 px-1 text-right text-sm text-foreground">
-                              {lineTotals.vatRate}%
-                            </TableCell>
-                            <TableCell className="w-12 px-1 text-right text-sm text-foreground">
-                              {formatCurrency(lineTotals.unitPriceTtc)}
-                            </TableCell>
-                            <TableCell className="w-16 px-1 text-right text-sm font-semibold text-foreground">
-                              {formatCurrency(lineTotals.total)}
-                            </TableCell>
-                            <TableCell className="w-8 px-1 text-right">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                aria-label="Supprimer la ligne"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => handleRemoveLine(line.id)}
-                                disabled={!canManagePurchases}
                               >
-                                <Trash2 className="size-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
+                                <span className="block rounded-md bg-popover px-2.5 py-1.5">
+                                  {line.product}
+                                </span>
+                              </TableCell>
+                              <TableCell className="w-16 px-1 text-left">
+                                <Input
+                                  aria-label="Quantité"
+                                  type="number"
+                                  min="0"
+                                  placeholder="0"
+                                  value={line.quantity}
+                                  className="bg-popover"
+                                  onChange={(event) =>
+                                    updateLine(line.id, {
+                                      quantity: parseNumber(event.target.value),
+                                    })
+                                  }
+                                />
+                              </TableCell>
+                              {showLineDiscount ? (
+                                <TableCell className="w-32 px-1 text-left">
+                                  <ButtonGroup className="w-full">
+                                    <Select
+                                      value={line.discountType}
+                                      onValueChange={(value) =>
+                                        updateLine(line.id, {
+                                          discountType: value as DiscountType,
+                                        })
+                                      }
+                                    >
+                                      <SelectTrigger
+                                        className={`${dropdownTriggerBaseClassName} w-20`}
+                                      >
+                                        <SelectValue>
+                                          {(value) =>
+                                            (value as DiscountType) === "amount" ? "Montant" : "%"
+                                          }
+                                        </SelectValue>
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {discountOptions.map((option) => (
+                                          <SelectItem key={option.value} value={option.value}>
+                                            {option.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <Input
+                                      aria-label="Valeur remise ligne"
+                                      type="number"
+                                      min="0"
+                                      value={line.discountValue}
+                                      className="bg-popover"
+                                      onChange={(event) =>
+                                        updateLine(line.id, {
+                                          discountValue: parseNumber(event.target.value),
+                                        })
+                                      }
+                                    />
+                                  </ButtonGroup>
+                                </TableCell>
+                              ) : null}
+                              <TableCell className="w-12 px-1 text-right text-sm text-foreground">
+                                {formatCurrency(lineTotals.unitPrice)}
+                              </TableCell>
+                              <TableCell className="w-12 px-1 text-right text-sm text-foreground">
+                                {formatCurrency(lineTotals.subtotalHt)}
+                              </TableCell>
+                              <TableCell className="w-10 px-1 text-right text-sm text-foreground">
+                                {lineTotals.vatRate}%
+                              </TableCell>
+                              <TableCell className="w-12 px-1 text-right text-sm text-foreground">
+                                {formatCurrency(lineTotals.unitPriceTtc)}
+                              </TableCell>
+                              <TableCell className="w-16 px-1 text-right text-sm font-semibold text-foreground">
+                                {formatCurrency(lineTotals.total)}
+                              </TableCell>
+                              <TableCell className="w-8 px-1 text-right">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label="Supprimer la ligne"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => handleRemoveLine(line.id)}
+                                  disabled={!canManagePurchases}
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
+                      )}
                     </TableBody>
                   </Table>
-                </div>
-                <div className="flex items-center justify-between border-t border-border px-4 py-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddLine}
-                    disabled={!canAddLine}
-                  >
-                    <Plus className="size-4" />
-                    Ajouter une ligne
-                  </Button>
                 </div>
               </div>
               {showGlobalDiscount ? (

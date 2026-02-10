@@ -44,6 +44,9 @@ const PRODUCTS = [
     sellingPrice: 15,
     vatRate: 7,
     barcode: "900",
+    category: "Médicaments",
+    stockQuantity: 20,
+    lowStockThreshold: 5,
   },
 ]
 
@@ -51,7 +54,7 @@ describe("ProcurementOrderModal", () => {
   beforeEach(() => {
     scanHandlers.length = 0
   })
-  it("blocks adding a line until a product and quantity are set", async () => {
+  it("starts with no product line and adds one from the search panel", async () => {
     const user = userEvent.setup()
 
     render(
@@ -64,13 +67,16 @@ describe("ProcurementOrderModal", () => {
       />
     )
 
-    const addLineButton = screen.getByRole("button", { name: "Ajouter une ligne" })
-    expect(addLineButton).toBeDisabled()
-    expect(screen.getAllByRole("button", { name: "Supprimer la ligne" })).toHaveLength(1)
+    expect(screen.queryByRole("button", { name: "Supprimer la ligne" })).not.toBeInTheDocument()
+    expect(screen.getByText(/Aucun produit sélectionné/i)).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Ajouter" })).not.toBeInTheDocument()
 
-    await user.click(addLineButton)
+    await user.click(screen.getByRole("button", { name: "Afficher la recherche" }))
+    await user.type(screen.getByLabelText("Nom"), "Produit A")
+    await user.click(screen.getByRole("button", { name: "Ajouter" }))
 
     expect(screen.getAllByRole("button", { name: "Supprimer la ligne" })).toHaveLength(1)
+    expect(screen.getByLabelText("Quantité")).toHaveValue(1)
   })
 
   it("shows due date field and summary", () => {
@@ -107,7 +113,7 @@ describe("ProcurementOrderModal", () => {
     expect(screen.queryByText("Remise ligne")).not.toBeInTheDocument()
   })
 
-  it("adds a new line after selecting a product and quantity", async () => {
+  it("adds a new line from the search panel", async () => {
     const user = userEvent.setup()
 
     render(
@@ -120,23 +126,15 @@ describe("ProcurementOrderModal", () => {
       />
     )
 
-    const productInput = screen.getByLabelText("Produit")
-    await user.click(productInput)
-    await user.type(productInput, "Produit A")
-    await user.click(await screen.findByRole("option", { name: "Produit A" }))
+    await user.click(screen.getByRole("button", { name: "Afficher la recherche" }))
+    await user.type(screen.getByLabelText("Nom"), "Produit A")
+    await user.click(screen.getByRole("button", { name: "Ajouter" }))
 
-    const quantityInput = screen.getByLabelText("Quantité")
-    expect(quantityInput).toHaveValue(1)
-
-    const addLineButton = screen.getByRole("button", { name: "Ajouter une ligne" })
-    expect(addLineButton).toBeEnabled()
-
-    await user.click(addLineButton)
-
-    expect(screen.getAllByRole("button", { name: "Supprimer la ligne" })).toHaveLength(2)
+    expect(screen.getAllByRole("button", { name: "Supprimer la ligne" })).toHaveLength(1)
+    expect(screen.getByLabelText("Quantité")).toHaveValue(1)
   })
 
-  it("updates the total after selecting a product", async () => {
+  it("updates the total after adding a product", async () => {
     const user = userEvent.setup()
 
     render(
@@ -149,10 +147,9 @@ describe("ProcurementOrderModal", () => {
       />
     )
 
-    const productInput = screen.getByLabelText("Produit")
-    await user.click(productInput)
-    await user.type(productInput, "Produit A")
-    await user.click(await screen.findByRole("option", { name: "Produit A" }))
+    await user.click(screen.getByRole("button", { name: "Afficher la recherche" }))
+    await user.type(screen.getByLabelText("Nom"), "Produit A")
+    await user.click(screen.getByRole("button", { name: "Ajouter" }))
 
     await waitFor(() => {
       const totalRow = screen.getByText("Total de la commande").parentElement
@@ -177,21 +174,15 @@ describe("ProcurementOrderModal", () => {
       />
     )
 
-    const productInputs = screen.getAllByLabelText("Produit")
-    await user.click(productInputs[0])
-    await user.type(productInputs[0], "Produit A")
-    await user.click(await screen.findByRole("option", { name: "Produit A" }))
+    await user.click(screen.getByRole("button", { name: "Afficher la recherche" }))
+    await user.type(screen.getByLabelText("Nom"), "Produit A")
+    await user.click(screen.getByRole("button", { name: "Ajouter" }))
 
     const quantityInputs = screen.getAllByLabelText("Quantité")
     await user.clear(quantityInputs[0])
     await user.type(quantityInputs[0], "2")
 
-    await user.click(screen.getByRole("button", { name: "Ajouter une ligne" }))
-
-    const nextProductInput = screen.getAllByLabelText("Produit")[1]
-    await user.click(nextProductInput)
-    await user.type(nextProductInput, "Produit A")
-    await user.click(await screen.findByRole("option", { name: "Produit A" }))
+    await user.click(screen.getByRole("button", { name: "Ajouter" }))
 
     await waitFor(() => {
       expect(screen.getAllByRole("button", { name: "Supprimer la ligne" })).toHaveLength(1)
@@ -215,9 +206,7 @@ describe("ProcurementOrderModal", () => {
       scanHandlers[0]?.("900")
     })
 
-    await waitFor(() => {
-      expect(screen.getAllByDisplayValue("Produit A")).not.toHaveLength(0)
-    })
+    expect(await screen.findAllByText("Produit A")).not.toHaveLength(0)
     expect(screen.getByLabelText("Quantité")).toHaveValue(1)
   })
 
@@ -299,10 +288,9 @@ describe("ProcurementOrderModal", () => {
     const orderDateInput = screen.getByLabelText("Date de bon de commande")
     await user.type(orderDateInput, "2026-02-03")
 
-    const productInput = screen.getByLabelText("Produit")
-    await user.click(productInput)
-    await user.type(productInput, "Produit A")
-    await user.click(await screen.findByRole("option", { name: "Produit A" }))
+    await user.click(screen.getByRole("button", { name: "Afficher la recherche" }))
+    await user.type(screen.getByLabelText("Nom"), "Produit A")
+    await user.click(screen.getByRole("button", { name: "Ajouter" }))
 
     await user.click(screen.getByRole("button", { name: "Enregistrer" }))
 
