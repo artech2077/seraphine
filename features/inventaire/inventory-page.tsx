@@ -192,7 +192,7 @@ export function InventoryPage() {
 
   return (
     <PageShell
-      title="Produit"
+      title="Produits"
       description="Ajouter, modifier et organiser votre catalogue produit."
       actions={
         <div className="flex items-center gap-2">

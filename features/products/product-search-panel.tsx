@@ -224,7 +224,7 @@ export function ProductSearchPanel<TProduct extends ProductSearchItem>({
                   onValueChange={(value) =>
                     setFilters((current) => ({
                       ...current,
-                      category: value === "all" ? "" : value,
+                      category: !value || value === "all" ? "" : value,
                     }))
                   }
                 >

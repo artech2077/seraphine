@@ -49,6 +49,7 @@ export function AppSidebar() {
       if (item.href === "/app") return canView("dashboard")
       if (item.href.startsWith("/app/ventes")) return canView("ventes")
       if (item.href.startsWith("/app/produit")) return canView("inventaire")
+      if (item.href.startsWith("/app/inventaire")) return canView("inventaire")
       if (item.href.startsWith("/app/achats")) return canView("achats")
       if (item.href.startsWith("/app/fournisseurs")) return canView("fournisseurs")
       if (item.href.startsWith("/app/clients")) return canView("clients")

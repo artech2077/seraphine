@@ -4,6 +4,7 @@ import {
   HelpCircleIcon,
   LayoutDashboardIcon,
   LineChartIcon,
+  PackageCheckIcon,
   PackageIcon,
   SettingsIcon,
   ShoppingBagIcon,
@@ -32,9 +33,14 @@ export const mainNavItems: NavItem[] = [
     icon: ShoppingBagIcon,
   },
   {
-    title: "Produit",
+    title: "Produits",
     href: `${appBasePath}/produit`,
     icon: PackageIcon,
+  },
+  {
+    title: "Inventaire",
+    href: `${appBasePath}/inventaire`,
+    icon: PackageCheckIcon,
   },
   {
     title: "Achats",

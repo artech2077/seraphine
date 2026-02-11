@@ -1,3 +1,9 @@
+export type ProcurementLotItem = {
+  lotNumber: string
+  expiryDate: string
+  quantity: number
+}
+
 export type ProcurementLineItem = {
   id: string
   productId?: string
@@ -6,6 +12,7 @@ export type ProcurementLineItem = {
   unitPrice: number
   lineDiscountType?: "percent" | "amount"
   lineDiscountValue?: number
+  lots?: ProcurementLotItem[]
 }
 
 export type PurchaseOrderStatus = "Brouillon" | "Commandé"

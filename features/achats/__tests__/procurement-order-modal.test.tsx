@@ -309,4 +309,63 @@ describe("ProcurementOrderModal", () => {
       })
     )
   })
+
+  it("submits lot splits for delivery lines", async () => {
+    const user = userEvent.setup()
+    const handleSubmit = vi.fn()
+
+    render(
+      <ProcurementOrderModal
+        mode="create"
+        variant="delivery"
+        open
+        suppliers={[{ id: "supplier-1", name: "Fournisseur A" }]}
+        products={PRODUCTS}
+        onSubmit={handleSubmit}
+      />
+    )
+
+    const supplierInput = screen.getByLabelText("Fournisseur")
+    await user.click(supplierInput)
+    await user.type(supplierInput, "Fournisseur A")
+    await user.click(await screen.findByRole("option", { name: "Fournisseur A" }))
+
+    const orderDateInput = screen.getByLabelText("Date du bon de livraison")
+    await user.type(orderDateInput, "2026-02-03")
+
+    await user.click(screen.getByRole("button", { name: "Afficher la recherche" }))
+    await user.type(screen.getByLabelText("Nom"), "Produit A")
+    await user.click(screen.getByRole("button", { name: "Ajouter" }))
+
+    await user.click(screen.getByRole("button", { name: "Ajouter lot" }))
+    await user.type(screen.getByLabelText("Numéro de lot"), "LOT-001")
+    await user.type(screen.getByLabelText("Date d'expiration lot"), "2030-12-31")
+
+    const lotQuantityInput = screen.getByLabelText("Quantité lot")
+    await user.clear(lotQuantityInput)
+    await user.type(lotQuantityInput, "1")
+
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }))
+
+    await waitFor(() => {
+      expect(handleSubmit).toHaveBeenCalled()
+    })
+
+    expect(handleSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            productId: "prod-1",
+            lots: [
+              {
+                lotNumber: "LOT-001",
+                expiryDate: "2030-12-31",
+                quantity: 1,
+              },
+            ],
+          }),
+        ],
+      })
+    )
+  })
 })

@@ -21,7 +21,7 @@ import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { toast } from "sonner"
 
 type BatchProductModalProps = {
-  trigger?: React.ReactNode
+  trigger?: React.ReactElement
   onSubmit?: (items: InventoryFormValues[]) => void | Promise<void>
 }
 

@@ -11,9 +11,14 @@ describe("navigation", () => {
     expect(getPageTitle(`${ventes?.href}/detail`)).toBe("Ventes")
   })
 
-  it("matches produit route title", () => {
-    expect(getPageTitle("/app/produit")).toBe("Produit")
-    expect(getPageTitle("/app/produit/nouveau")).toBe("Produit")
+  it("matches produits route title", () => {
+    expect(getPageTitle("/app/produit")).toBe("Produits")
+    expect(getPageTitle("/app/produit/nouveau")).toBe("Produits")
+  })
+
+  it("matches inventaire route title", () => {
+    expect(getPageTitle("/app/inventaire")).toBe("Inventaire")
+    expect(getPageTitle("/app/inventaire/mouvements")).toBe("Inventaire")
   })
 
   it("matches utility navigation routes", () => {

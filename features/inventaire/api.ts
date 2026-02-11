@@ -45,6 +45,116 @@ export type ProductCatalogItem = {
   lowStockThreshold: number
 }
 
+export type StockAdjustmentValues = {
+  productId: string
+  direction: "IN" | "OUT"
+  quantity: number
+  reason: string
+  note?: string
+}
+
+export type ExpiryRiskWindow = 30 | 60 | 90
+
+export type ExpiryRiskSeverity = "EXPIRED" | "CRITICAL" | "WARNING" | "WATCH"
+
+export type ExpiryRiskItem = {
+  lotId: string
+  productId: string
+  productName: string
+  productCategory: string
+  lotNumber: string
+  expiryDate: number
+  daysToExpiry: number
+  quantity: number
+  supplierId: string | null
+  supplierName: string | null
+  severity: ExpiryRiskSeverity
+  recommendedAction: string
+  recommendedPathLabel: string
+  recommendedPathHref: string
+  lotDetailPath: string
+}
+
+export type ExpiryRiskCounts = {
+  total: number
+  expired: number
+  dueIn30Days: number
+  dueIn60Days: number
+  dueIn90Days: number
+}
+
+export type ExpiryRiskFilters = {
+  productIds?: string[]
+  categories?: string[]
+  supplierIds?: string[]
+  severities?: ExpiryRiskSeverity[]
+}
+
+export type LotTraceabilityTimelineEvent = {
+  id: string
+  createdAt: number
+  eventType: "RECEPTION" | "SORTIE" | "RETOUR" | "MOUVEMENT"
+  delta: number
+  reason: string
+  reference: string
+}
+
+export type LotTraceabilityItem = {
+  lotId: string
+  productId: string
+  productName: string
+  productCategory: string
+  lotNumber: string
+  expiryDate: number
+  currentBalance: number
+  receivedQuantity: number
+  soldQuantity: number
+  supplierId: string | null
+  supplierName: string | null
+  recallReportPath: string
+  timeline: LotTraceabilityTimelineEvent[]
+}
+
+export type StocktakeStatus = "DRAFT" | "COUNTING" | "FINALIZED"
+
+export type StocktakeSession = {
+  id: string
+  name: string
+  status: StocktakeStatus
+  createdAt: number
+  startedAt: number | null
+  finalizedAt: number | null
+  itemsCount: number
+  countedCount: number
+  varianceCount: number
+}
+
+export type StocktakeSessionItem = {
+  id: string
+  productId: string
+  productName: string
+  expectedQuantity: number
+  countedQuantity: number | null
+  varianceQuantity: number | null
+  note: string
+}
+
+export type StocktakeDetails = {
+  id: string
+  name: string
+  status: StocktakeStatus
+  createdAt: number
+  startedAt: number | null
+  finalizedAt: number | null
+  items: StocktakeSessionItem[]
+}
+
+export type StocktakeCountInput = {
+  productId: string
+  countedQuantity: number
+  note?: string
+}
+
 type InventoryListFilters = {
   names?: string[]
   barcodes?: string[]
@@ -70,6 +180,80 @@ type InventoryListResponse = {
     suppliers: string[]
     categories: string[]
   }
+}
+
+type ExpiryRiskResponse = {
+  items: Array<{
+    lotId: Id<"stockLots">
+    productId: Id<"products">
+    productName: string
+    productCategory: string
+    lotNumber: string
+    expiryDate: number
+    daysToExpiry: number
+    quantity: number
+    supplierId: Id<"suppliers"> | null
+    supplierName: string | null
+    severity: ExpiryRiskSeverity
+    recommendedAction: string
+    recommendedPathLabel: string
+    recommendedPathHref: string
+    lotDetailPath: string
+  }>
+  counts: ExpiryRiskCounts
+  filterOptions: {
+    products: Array<{ id: Id<"products">; name: string }>
+    categories: string[]
+    suppliers: Array<{ id: Id<"suppliers">; name: string }>
+    severities: ExpiryRiskSeverity[]
+  }
+}
+
+type LotTraceabilityResponse = {
+  lotNumber: string
+  items: Array<{
+    lotId: Id<"stockLots">
+    productId: Id<"products">
+    productName: string
+    productCategory: string
+    lotNumber: string
+    expiryDate: number
+    currentBalance: number
+    receivedQuantity: number
+    soldQuantity: number
+    supplierId: Id<"suppliers"> | null
+    supplierName: string | null
+    recallReportPath: string
+    timeline: Array<{
+      id: string
+      createdAt: number
+      eventType: "RECEPTION" | "SORTIE" | "RETOUR" | "MOUVEMENT"
+      delta: number
+      reason: string
+      reference: string
+    }>
+  }>
+}
+
+const EMPTY_EXPIRY_RISK_RESPONSE: ExpiryRiskResponse = {
+  items: [],
+  counts: {
+    total: 0,
+    expired: 0,
+    dueIn30Days: 0,
+    dueIn60Days: 0,
+    dueIn90Days: 0,
+  },
+  filterOptions: {
+    products: [],
+    categories: [],
+    suppliers: [],
+    severities: ["EXPIRED", "CRITICAL", "WARNING", "WATCH"],
+  },
+}
+
+function isMissingPublicFunctionError(error: unknown) {
+  return error instanceof Error && error.message.includes("Could not find public function")
 }
 
 type InventoryProduct = {
@@ -203,6 +387,7 @@ export function useInventoryItems(options?: InventoryListOptions) {
   const createProductMutation = useMutation(api.products.create)
   const updateProductMutation = useMutation(api.products.update)
   const removeProductMutation = useMutation(api.products.remove)
+  const adjustStockMutation = useMutation(api.products.adjustStock)
 
   const items = React.useMemo(() => {
     const source = mode === "paged" ? pagedResponse?.items : products
@@ -296,6 +481,17 @@ export function useInventoryItems(options?: InventoryListOptions) {
         id: item.id as Id<"products">,
       })
     },
+    async adjustStock(values: StockAdjustmentValues) {
+      if (!orgId) return null
+      return adjustStockMutation({
+        clerkOrgId: orgId,
+        productId: values.productId as Id<"products">,
+        direction: values.direction,
+        quantity: values.quantity,
+        reason: values.reason,
+        note: values.note?.trim() || undefined,
+      })
+    },
   }
 }
 
@@ -324,5 +520,374 @@ export function useProductCatalog() {
   return {
     items,
     isLoading,
+  }
+}
+
+export function useExpiryRiskAlerts(options?: {
+  windowDays?: ExpiryRiskWindow
+  filters?: ExpiryRiskFilters
+}) {
+  const { orgId } = useAuth()
+  const convex = useConvex()
+  const windowDays = options?.windowDays ?? 90
+
+  const filters = React.useMemo(
+    () => ({
+      productIds: options?.filters?.productIds ?? [],
+      categories: options?.filters?.categories ?? [],
+      supplierIds: options?.filters?.supplierIds ?? [],
+      severities: options?.filters?.severities ?? [],
+    }),
+    [
+      options?.filters?.categories,
+      options?.filters?.productIds,
+      options?.filters?.severities,
+      options?.filters?.supplierIds,
+    ]
+  )
+
+  const [response, setResponse] = React.useState<ExpiryRiskResponse | undefined>(undefined)
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [isFetching, setIsFetching] = React.useState(false)
+  const [isUnavailable, setIsUnavailable] = React.useState(false)
+  const hasFetchedRef = React.useRef(false)
+
+  React.useEffect(() => {
+    if (!orgId) {
+      hasFetchedRef.current = false
+      setResponse(undefined)
+      setIsLoading(false)
+      setIsFetching(false)
+      setIsUnavailable(false)
+      return
+    }
+
+    let isCancelled = false
+    if (hasFetchedRef.current) {
+      setIsFetching(true)
+    } else {
+      setIsLoading(true)
+    }
+
+    void convex
+      .query(api.stockLots.listExpiryRisk, {
+        clerkOrgId: orgId,
+        windowDays,
+        filters: {
+          productIds: filters.productIds.map((id) => id as Id<"products">),
+          categories: filters.categories,
+          supplierIds: filters.supplierIds.map((id) => id as Id<"suppliers">),
+          severities: filters.severities,
+        },
+      })
+      .then((next) => {
+        if (isCancelled) return
+        hasFetchedRef.current = true
+        setResponse(next as ExpiryRiskResponse)
+        setIsUnavailable(false)
+      })
+      .catch((error) => {
+        if (isCancelled) return
+        hasFetchedRef.current = true
+        if (isMissingPublicFunctionError(error)) {
+          setResponse(EMPTY_EXPIRY_RISK_RESPONSE)
+          setIsUnavailable(true)
+          return
+        }
+        console.error(error)
+        setResponse(EMPTY_EXPIRY_RISK_RESPONSE)
+      })
+      .finally(() => {
+        if (isCancelled) return
+        setIsLoading(false)
+        setIsFetching(false)
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [convex, filters, orgId, windowDays])
+
+  return {
+    items: (response?.items ?? []).map(
+      (item): ExpiryRiskItem => ({
+        lotId: String(item.lotId),
+        productId: String(item.productId),
+        productName: item.productName,
+        productCategory: item.productCategory,
+        lotNumber: item.lotNumber,
+        expiryDate: item.expiryDate,
+        daysToExpiry: item.daysToExpiry,
+        quantity: item.quantity,
+        supplierId: item.supplierId ? String(item.supplierId) : null,
+        supplierName: item.supplierName,
+        severity: item.severity,
+        recommendedAction: item.recommendedAction,
+        recommendedPathLabel: item.recommendedPathLabel,
+        recommendedPathHref: item.recommendedPathHref,
+        lotDetailPath: item.lotDetailPath,
+      })
+    ),
+    counts: response?.counts ?? {
+      total: 0,
+      expired: 0,
+      dueIn30Days: 0,
+      dueIn60Days: 0,
+      dueIn90Days: 0,
+    },
+    filterOptions: {
+      products: (response?.filterOptions.products ?? []).map((item) => ({
+        id: String(item.id),
+        name: item.name,
+      })),
+      categories: response?.filterOptions.categories ?? [],
+      suppliers: (response?.filterOptions.suppliers ?? []).map((item) => ({
+        id: String(item.id),
+        name: item.name,
+      })),
+      severities: response?.filterOptions.severities ?? [],
+    },
+    isLoading,
+    isFetching,
+    isUnavailable,
+    hasOrg: Boolean(orgId),
+  }
+}
+
+export function useLotTraceabilityReport(lotNumber?: string) {
+  const { orgId } = useAuth()
+  const convex = useConvex()
+  const normalizedLotNumber = lotNumber?.trim() ?? ""
+
+  const [report, setReport] = React.useState<LotTraceabilityResponse | undefined>(undefined)
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [isFetching, setIsFetching] = React.useState(false)
+  const [isUnavailable, setIsUnavailable] = React.useState(false)
+  const hasFetchedRef = React.useRef(false)
+
+  React.useEffect(() => {
+    if (!orgId || !normalizedLotNumber) {
+      hasFetchedRef.current = false
+      setReport(undefined)
+      setIsLoading(false)
+      setIsFetching(false)
+      setIsUnavailable(false)
+      return
+    }
+
+    let isCancelled = false
+    if (hasFetchedRef.current) {
+      setIsFetching(true)
+    } else {
+      setIsLoading(true)
+    }
+
+    void convex
+      .query(api.stockLots.getLotTraceabilityReport, {
+        clerkOrgId: orgId,
+        lotNumber: normalizedLotNumber,
+      })
+      .then((next) => {
+        if (isCancelled) return
+        hasFetchedRef.current = true
+        setReport(next as LotTraceabilityResponse)
+        setIsUnavailable(false)
+      })
+      .catch((error) => {
+        if (isCancelled) return
+        hasFetchedRef.current = true
+        if (isMissingPublicFunctionError(error)) {
+          setReport({
+            lotNumber: normalizedLotNumber.toUpperCase(),
+            items: [],
+          })
+          setIsUnavailable(true)
+          return
+        }
+        console.error(error)
+        setReport({
+          lotNumber: normalizedLotNumber.toUpperCase(),
+          items: [],
+        })
+      })
+      .finally(() => {
+        if (isCancelled) return
+        setIsLoading(false)
+        setIsFetching(false)
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [convex, normalizedLotNumber, orgId])
+
+  return {
+    lotNumber: report?.lotNumber ?? normalizedLotNumber.toUpperCase(),
+    items: (report?.items ?? []).map(
+      (item): LotTraceabilityItem => ({
+        lotId: String(item.lotId),
+        productId: String(item.productId),
+        productName: item.productName,
+        productCategory: item.productCategory,
+        lotNumber: item.lotNumber,
+        expiryDate: item.expiryDate,
+        currentBalance: item.currentBalance,
+        receivedQuantity: item.receivedQuantity,
+        soldQuantity: item.soldQuantity,
+        supplierId: item.supplierId ? String(item.supplierId) : null,
+        supplierName: item.supplierName,
+        recallReportPath: item.recallReportPath,
+        timeline: item.timeline.map((event) => ({
+          id: event.id,
+          createdAt: event.createdAt,
+          eventType: event.eventType,
+          delta: event.delta,
+          reason: event.reason,
+          reference: event.reference,
+        })),
+      })
+    ),
+    isLoading,
+    isFetching,
+    isUnavailable,
+    hasOrg: Boolean(orgId),
+  }
+}
+
+export function useStocktakeSessions(selectedSessionId?: string) {
+  const { orgId } = useAuth()
+  const convex = useConvex()
+  const [sessions, setSessions] = React.useState<StocktakeSession[]>([])
+  const [selectedSession, setSelectedSession] = React.useState<StocktakeDetails | null>(null)
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [isFetching, setIsFetching] = React.useState(false)
+  const [isUnavailable, setIsUnavailable] = React.useState(false)
+  const hasFetchedSessionsRef = React.useRef(false)
+
+  React.useEffect(() => {
+    if (!orgId) {
+      hasFetchedSessionsRef.current = false
+      setSessions([])
+      setSelectedSession(null)
+      setIsLoading(false)
+      setIsFetching(false)
+      setIsUnavailable(false)
+      return
+    }
+
+    let isCancelled = false
+    if (hasFetchedSessionsRef.current) {
+      setIsFetching(true)
+    } else {
+      setIsLoading(true)
+    }
+
+    void convex
+      .query(api.stocktakes.listByOrg, { clerkOrgId: orgId })
+      .then((next) => {
+        if (isCancelled) return
+        hasFetchedSessionsRef.current = true
+        setSessions(next as StocktakeSession[])
+        setIsUnavailable(false)
+      })
+      .catch((error) => {
+        if (isCancelled) return
+        hasFetchedSessionsRef.current = true
+        if (isMissingPublicFunctionError(error)) {
+          setSessions([])
+          setSelectedSession(null)
+          setIsUnavailable(true)
+          return
+        }
+        console.error(error)
+        setSessions([])
+      })
+      .finally(() => {
+        if (isCancelled) return
+        setIsLoading(false)
+        setIsFetching(false)
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [convex, orgId])
+
+  React.useEffect(() => {
+    if (!orgId || !selectedSessionId || isUnavailable) {
+      setSelectedSession(null)
+      return
+    }
+
+    let isCancelled = false
+    setIsFetching(true)
+
+    void convex
+      .query(api.stocktakes.getById, {
+        clerkOrgId: orgId,
+        id: selectedSessionId as Id<"stocktakes">,
+      })
+      .then((next) => {
+        if (isCancelled) return
+        setSelectedSession((next as StocktakeDetails | null) ?? null)
+        setIsUnavailable(false)
+      })
+      .catch((error) => {
+        if (isCancelled) return
+        if (isMissingPublicFunctionError(error)) {
+          setSelectedSession(null)
+          setIsUnavailable(true)
+          return
+        }
+        console.error(error)
+        setSelectedSession(null)
+      })
+      .finally(() => {
+        if (isCancelled) return
+        setIsFetching(false)
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [convex, isUnavailable, orgId, selectedSessionId])
+
+  const createMutation = useMutation(api.stocktakes.createSession)
+  const startMutation = useMutation(api.stocktakes.startSession)
+  const finalizeMutation = useMutation(api.stocktakes.finalizeSession)
+
+  return {
+    sessions,
+    selectedSession,
+    isLoading,
+    isFetching,
+    isUnavailable,
+    hasOrg: Boolean(orgId),
+    async createSession(name?: string) {
+      if (!orgId) return null
+      return createMutation({
+        clerkOrgId: orgId,
+        name: name?.trim() || undefined,
+      })
+    },
+    async startSession(id: string) {
+      if (!orgId) return
+      await startMutation({
+        clerkOrgId: orgId,
+        id: id as Id<"stocktakes">,
+      })
+    },
+    async finalizeSession(id: string, counts: StocktakeCountInput[]) {
+      if (!orgId) return null
+      return finalizeMutation({
+        clerkOrgId: orgId,
+        id: id as Id<"stocktakes">,
+        counts: counts.map((item) => ({
+          productId: item.productId as Id<"products">,
+          countedQuantity: item.countedQuantity,
+          note: item.note?.trim() || undefined,
+        })),
+      })
+    },
   }
 }

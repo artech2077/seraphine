@@ -1,5 +1,6 @@
 import { act, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { toast } from "sonner"
 
 import { SalesPos } from "@/features/ventes/sales-pos"
 import { useSalesHistory } from "@/features/ventes/api"
@@ -67,6 +68,7 @@ vi.mock("@clerk/nextjs", () => ({
 
 describe("SalesPos", () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     scanHandlers.length = 0
   })
   it("adds a new line from the search panel", async () => {
@@ -160,5 +162,51 @@ describe("SalesPos", () => {
 
     expect(await screen.findAllByText("Café")).not.toHaveLength(0)
     expect(screen.getByLabelText("Quantité")).toHaveValue(1)
+  })
+
+  it("shows explicit FEFO stock error when backend rejects allocation", async () => {
+    const user = userEvent.setup()
+    const updateSale = vi.fn().mockRejectedValue(new Error("Stock lot insuffisant pour Café"))
+    vi.mocked(useSalesHistory).mockReturnValue({
+      createSale: vi.fn(),
+      updateSale,
+    } as ReturnType<typeof useSalesHistory>)
+
+    render(
+      <SalesPos
+        editingSale={{
+          id: "sale-2",
+          saleNumber: "FAC-02",
+          date: "03 janv. 2026",
+          client: "Client A",
+          seller: "Nora",
+          paymentMethod: "Espèce",
+          paymentMethodValue: "cash",
+          globalDiscount: "-",
+          globalDiscountType: "percent",
+          globalDiscountValue: 0,
+          amountTtc: 120,
+          items: [
+            {
+              id: "line-2",
+              productId: "prod-1",
+              product: "Café",
+              quantity: 1,
+              unitPriceHt: 10,
+              vatRate: 20,
+              discountType: "percent",
+              discountValue: 0,
+              discount: "-",
+              totalTtc: 12,
+            },
+          ],
+        }}
+      />
+    )
+
+    await user.click(screen.getByRole("button", { name: "Mettre à jour la vente" }))
+
+    expect(updateSale).toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith("Stock lot insuffisant pour Café")
   })
 })

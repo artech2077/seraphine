@@ -21,7 +21,7 @@ describe("convex/sales", () => {
     ])
   })
 
-  it("creates sale, user, and line items", async () => {
+  it("creates sale, user, line items, and stock movement", async () => {
     const ctx = buildContext({ existingUser: null })
 
     const handler = getHandler(create) as ConvexHandler<{
@@ -80,10 +80,265 @@ describe("convex/sales", () => {
         saleSequence: 2,
       })
     )
+    expect(ctx.db.patch).toHaveBeenCalledWith(
+      "product-1",
+      expect.objectContaining({
+        stockQuantity: 4,
+      })
+    )
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "stockMovements",
+      expect.objectContaining({
+        pharmacyId: "pharmacy-1",
+        productId: "product-1",
+        productNameSnapshot: "Produit A",
+        delta: -1,
+        movementType: "SALE_STOCK_SYNC",
+        reason: "Création de vente",
+        sourceId: "sale-1",
+      })
+    )
     expect(ctx.db.insert).toHaveBeenCalledWith(
       "saleItems",
       expect.objectContaining({ pharmacyId: "pharmacy-1", productId: "product-1" })
     )
+  })
+
+  it("blocks sale creation when stock would go negative", async () => {
+    const ctx = buildContext({ productStocks: { "product-1": 0 } })
+
+    const handler = getHandler(create) as ConvexHandler<{
+      clerkOrgId: string
+      saleDate: number
+      paymentMethod: string
+      totalAmountHt: number
+      totalAmountTtc: number
+      items: Array<{
+        productId: string
+        productNameSnapshot: string
+        quantity: number
+        unitPriceHt: number
+        vatRate: number
+        totalLineTtc: number
+      }>
+    }>
+
+    await expect(
+      handler(ctx, {
+        clerkOrgId: "org-1",
+        saleDate: 123,
+        paymentMethod: "CASH",
+        totalAmountHt: 100,
+        totalAmountTtc: 110,
+        items: [
+          {
+            productId: "product-1",
+            productNameSnapshot: "Produit A",
+            quantity: 1,
+            unitPriceHt: 100,
+            vatRate: 10,
+            totalLineTtc: 110,
+          },
+        ],
+      })
+    ).rejects.toThrow("Stock insuffisant pour Produit A")
+
+    expect(ctx.db.patch).not.toHaveBeenCalledWith(
+      "product-1",
+      expect.objectContaining({ stockQuantity: expect.any(Number) })
+    )
+    expect(ctx.db.insert).not.toHaveBeenCalledWith("stockMovements", expect.anything())
+  })
+
+  it("allocates a sale from a single lot when stock lots exist", async () => {
+    const ctx = buildContext({
+      stockLots: [
+        {
+          _id: "lot-1",
+          pharmacyId: "pharmacy-1",
+          productId: "product-1",
+          lotNumber: "LOT-001",
+          expiryDate: Date.parse("2030-01-01"),
+          quantity: 5,
+        },
+      ],
+    })
+
+    const handler = getHandler(create) as ConvexHandler<{
+      clerkOrgId: string
+      saleDate: number
+      paymentMethod: string
+      totalAmountHt: number
+      totalAmountTtc: number
+      items: Array<{
+        productId: string
+        productNameSnapshot: string
+        quantity: number
+        unitPriceHt: number
+        vatRate: number
+        totalLineTtc: number
+      }>
+    }>
+
+    await handler(ctx, {
+      clerkOrgId: "org-1",
+      saleDate: 123,
+      paymentMethod: "CASH",
+      totalAmountHt: 100,
+      totalAmountTtc: 110,
+      items: [
+        {
+          productId: "product-1",
+          productNameSnapshot: "Produit A",
+          quantity: 2,
+          unitPriceHt: 100,
+          vatRate: 10,
+          totalLineTtc: 110,
+        },
+      ],
+    })
+
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "saleItemLots",
+      expect.objectContaining({
+        saleId: "sale-1",
+        productId: "product-1",
+        lotNumber: "LOT-001",
+        quantity: 2,
+      })
+    )
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "stockMovements",
+      expect.objectContaining({
+        productId: "product-1",
+        delta: -2,
+        lotNumber: "LOT-001",
+        movementType: "SALE_STOCK_SYNC",
+      })
+    )
+  })
+
+  it("allocates from earliest expiry first across multiple lots", async () => {
+    const ctx = buildContext({
+      stockLots: [
+        {
+          _id: "lot-late",
+          pharmacyId: "pharmacy-1",
+          productId: "product-1",
+          lotNumber: "LOT-999",
+          expiryDate: Date.parse("2031-01-01"),
+          quantity: 2,
+        },
+        {
+          _id: "lot-early",
+          pharmacyId: "pharmacy-1",
+          productId: "product-1",
+          lotNumber: "LOT-001",
+          expiryDate: Date.parse("2030-01-01"),
+          quantity: 1,
+        },
+      ],
+    })
+
+    const handler = getHandler(create) as ConvexHandler<{
+      clerkOrgId: string
+      saleDate: number
+      paymentMethod: string
+      totalAmountHt: number
+      totalAmountTtc: number
+      items: Array<{
+        productId: string
+        productNameSnapshot: string
+        quantity: number
+        unitPriceHt: number
+        vatRate: number
+        totalLineTtc: number
+      }>
+    }>
+
+    await handler(ctx, {
+      clerkOrgId: "org-1",
+      saleDate: 123,
+      paymentMethod: "CASH",
+      totalAmountHt: 100,
+      totalAmountTtc: 110,
+      items: [
+        {
+          productId: "product-1",
+          productNameSnapshot: "Produit A",
+          quantity: 2,
+          unitPriceHt: 100,
+          vatRate: 10,
+          totalLineTtc: 110,
+        },
+      ],
+    })
+
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "saleItemLots",
+      expect.objectContaining({
+        lotNumber: "LOT-001",
+        quantity: 1,
+      })
+    )
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "saleItemLots",
+      expect.objectContaining({
+        lotNumber: "LOT-999",
+        quantity: 1,
+      })
+    )
+  })
+
+  it("returns explicit error when lots are insufficient", async () => {
+    const ctx = buildContext({
+      stockLots: [
+        {
+          _id: "lot-1",
+          pharmacyId: "pharmacy-1",
+          productId: "product-1",
+          lotNumber: "LOT-001",
+          expiryDate: Date.parse("2030-01-01"),
+          quantity: 1,
+        },
+      ],
+    })
+
+    const handler = getHandler(create) as ConvexHandler<{
+      clerkOrgId: string
+      saleDate: number
+      paymentMethod: string
+      totalAmountHt: number
+      totalAmountTtc: number
+      items: Array<{
+        productId: string
+        productNameSnapshot: string
+        quantity: number
+        unitPriceHt: number
+        vatRate: number
+        totalLineTtc: number
+      }>
+    }>
+
+    await expect(
+      handler(ctx, {
+        clerkOrgId: "org-1",
+        saleDate: 123,
+        paymentMethod: "CASH",
+        totalAmountHt: 100,
+        totalAmountTtc: 110,
+        items: [
+          {
+            productId: "product-1",
+            productNameSnapshot: "Produit A",
+            quantity: 2,
+            unitPriceHt: 100,
+            vatRate: 10,
+            totalLineTtc: 110,
+          },
+        ],
+      })
+    ).rejects.toThrow("Stock lot insuffisant pour Produit A")
   })
 
   it("paginates sales for the org", async () => {
@@ -109,18 +364,78 @@ describe("convex/sales", () => {
     expect(result.filterOptions.clients).toEqual(["Client A"])
   })
 
-  it("removes a sale and its items", async () => {
+  it("removes a sale, restores stock, and writes a movement", async () => {
     const ctx = buildContext()
 
     const handler = getHandler(remove) as ConvexHandler<{ clerkOrgId: string; id: string }>
 
     await handler(ctx, { clerkOrgId: "org-1", id: "sale-1" })
 
+    expect(ctx.db.patch).toHaveBeenCalledWith(
+      "product-1",
+      expect.objectContaining({
+        stockQuantity: 6,
+      })
+    )
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "stockMovements",
+      expect.objectContaining({
+        productId: "product-1",
+        delta: 1,
+        movementType: "SALE_STOCK_SYNC",
+        reason: "Suppression de vente",
+        sourceId: "sale-1",
+      })
+    )
     expect(ctx.db.delete).toHaveBeenCalledWith("item-1")
     expect(ctx.db.delete).toHaveBeenCalledWith("sale-1")
   })
 
-  it("updates a sale and replaces its items", async () => {
+  it("restores lot quantities when reversing a sale", async () => {
+    const ctx = buildContext({
+      stockLots: [
+        {
+          _id: "lot-1",
+          pharmacyId: "pharmacy-1",
+          productId: "product-1",
+          lotNumber: "LOT-001",
+          expiryDate: Date.parse("2030-01-01"),
+          quantity: 0,
+        },
+      ],
+      saleItemLots: [
+        {
+          _id: "sale-lot-1",
+          saleId: "sale-1",
+          saleItemId: "item-1",
+          productId: "product-1",
+          lotNumber: "LOT-001",
+          expiryDate: Date.parse("2030-01-01"),
+          quantity: 1,
+        },
+      ],
+    })
+
+    const handler = getHandler(remove) as ConvexHandler<{ clerkOrgId: string; id: string }>
+    await handler(ctx, { clerkOrgId: "org-1", id: "sale-1" })
+
+    expect(ctx.db.patch).toHaveBeenCalledWith(
+      "lot-1",
+      expect.objectContaining({
+        quantity: 1,
+      })
+    )
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "stockMovements",
+      expect.objectContaining({
+        productId: "product-1",
+        delta: 1,
+        lotNumber: "LOT-001",
+      })
+    )
+  })
+
+  it("updates a sale, applies stock delta, and replaces its items", async () => {
     const ctx = buildContext()
 
     const handler = getHandler(update) as ConvexHandler<{
@@ -175,6 +490,38 @@ describe("convex/sales", () => {
         totalAmountTtc: 210,
       })
     )
+    expect(ctx.db.patch).toHaveBeenCalledWith(
+      "product-1",
+      expect.objectContaining({
+        stockQuantity: 6,
+      })
+    )
+    expect(ctx.db.patch).toHaveBeenCalledWith(
+      "product-2",
+      expect.objectContaining({
+        stockQuantity: 8,
+      })
+    )
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "stockMovements",
+      expect.objectContaining({
+        productId: "product-1",
+        delta: 1,
+        movementType: "SALE_STOCK_SYNC",
+        reason: "Annulation avant mise à jour de vente",
+        sourceId: "sale-1",
+      })
+    )
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "stockMovements",
+      expect.objectContaining({
+        productId: "product-2",
+        delta: -2,
+        movementType: "SALE_STOCK_SYNC",
+        reason: "Mise à jour de vente",
+        sourceId: "sale-1",
+      })
+    )
     expect(ctx.db.delete).toHaveBeenCalledWith("item-1")
     expect(ctx.db.insert).toHaveBeenCalledWith(
       "saleItems",
@@ -185,6 +532,24 @@ describe("convex/sales", () => {
 
 type BuildContextOptions = {
   existingUser?: { _id: string } | null
+  productStocks?: Record<string, number>
+  stockLots?: Array<{
+    _id: string
+    pharmacyId: string
+    productId: string
+    lotNumber: string
+    expiryDate: number
+    quantity: number
+  }>
+  saleItemLots?: Array<{
+    _id: string
+    saleId: string
+    saleItemId: string
+    productId: string
+    lotNumber: string
+    expiryDate: number
+    quantity: number
+  }>
 }
 
 function buildContext(options: BuildContextOptions = {}) {
@@ -202,11 +567,16 @@ function buildContext(options: BuildContextOptions = {}) {
     saleDate: 1700000000000,
     paymentMethod: "CASH",
   }
-  const item = {
+  const saleItem = {
     _id: "item-1",
     saleId: "sale-1",
     pharmacyId: "pharmacy-1",
+    productId: "product-1",
     productNameSnapshot: "Produit A",
+    quantity: 1,
+    unitPriceHt: 100,
+    vatRate: 10,
+    totalLineTtc: 110,
   }
   const client = {
     _id: "client-1",
@@ -219,6 +589,29 @@ function buildContext(options: BuildContextOptions = {}) {
   }
   const existingUser =
     options.existingUser === undefined ? { _id: "seller-1" } : options.existingUser
+  const productStocks = options.productStocks ?? {}
+  const productsById: Record<
+    string,
+    { _id: string; pharmacyId: string; name: string; stockQuantity: number }
+  > = {
+    "product-1": {
+      _id: "product-1",
+      pharmacyId: "pharmacy-1",
+      name: "Produit A",
+      stockQuantity: productStocks["product-1"] ?? 5,
+    },
+    "product-2": {
+      _id: "product-2",
+      pharmacyId: "pharmacy-1",
+      name: "Produit B",
+      stockQuantity: productStocks["product-2"] ?? 10,
+    },
+  }
+  const stockLotsById = new Map(
+    (options.stockLots ?? []).map((lot) => [lot._id, { ...lot, updatedAt: 0 }])
+  )
+  const saleItemLots = options.saleItemLots ?? []
+  let saleItemInsertCount = 0
 
   const db = {
     query: vi.fn((table: string) => {
@@ -239,7 +632,21 @@ function buildContext(options: BuildContextOptions = {}) {
       if (table === "saleItems") {
         return {
           withIndex: () => ({
-            collect: async () => [item],
+            collect: async () => [saleItem],
+          }),
+        }
+      }
+      if (table === "saleItemLots") {
+        return {
+          withIndex: () => ({
+            collect: async () => saleItemLots,
+          }),
+        }
+      }
+      if (table === "stockLots") {
+        return {
+          withIndex: () => ({
+            collect: async () => Array.from(stockLotsById.values()),
           }),
         }
       }
@@ -275,6 +682,9 @@ function buildContext(options: BuildContextOptions = {}) {
       if (id === "sale-1") {
         return sale
       }
+      if (id in productsById) {
+        return productsById[id]
+      }
       return null
     }),
     insert: vi.fn(async (table: string) => {
@@ -284,10 +694,32 @@ function buildContext(options: BuildContextOptions = {}) {
       if (table === "sales") {
         return "sale-1"
       }
-      return "item-1"
+      if (table === "saleItems") {
+        saleItemInsertCount += 1
+        return `item-created-${saleItemInsertCount}`
+      }
+      if (table === "stockMovements") {
+        return "movement-1"
+      }
+      if (table === "saleItemLots") {
+        return "sale-item-lot-1"
+      }
+      return "id-1"
     }),
     delete: vi.fn(async () => {}),
-    patch: vi.fn(async () => {}),
+    patch: vi.fn(async (id: string, value: { stockQuantity?: number }) => {
+      if (id in productsById && typeof value.stockQuantity === "number") {
+        productsById[id].stockQuantity = value.stockQuantity
+      }
+      if (stockLotsById.has(id) && typeof (value as { quantity?: number }).quantity === "number") {
+        const lot = stockLotsById.get(id)
+        if (!lot) return
+        stockLotsById.set(id, {
+          ...lot,
+          quantity: (value as { quantity: number }).quantity,
+        })
+      }
+    }),
   }
 
   return {

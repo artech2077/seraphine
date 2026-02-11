@@ -79,7 +79,7 @@ const paymentOptions = [
   { value: "credit", label: "Crédit" },
 ]
 
-function mergeProductIntoLines(current: SaleLine[], product: Product) {
+function mergeProductIntoLines(current: SaleLine[], product: Product): SaleLine[] {
   const existingIndex = current.findIndex(
     (line) => line.productId === product.id || line.productName === product.name
   )
@@ -96,17 +96,16 @@ function mergeProductIntoLines(current: SaleLine[], product: Product) {
     )
   }
 
-  return [
-    ...current,
-    {
-      id: `line-${Date.now()}-${Math.round(Math.random() * 1000)}`,
-      productId: product.id,
-      productName: product.name,
-      quantity: 1,
-      discountType: "percent",
-      discountValue: 0,
-    },
-  ]
+  const nextLine: SaleLine = {
+    id: `line-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+    productId: product.id,
+    productName: product.name,
+    quantity: 1,
+    discountType: "percent",
+    discountValue: 0,
+  }
+
+  return [...current, nextLine]
 }
 
 const dropdownTriggerBaseClassName = "bg-popover rounded-md min-w-0"
@@ -123,6 +122,17 @@ function formatCurrency(value: number) {
 function parseNumericInput(value: string) {
   const parsed = Number.parseFloat(value)
   return Number.isNaN(parsed) ? 0 : parsed
+}
+
+function getSaleSaveErrorMessage(error: unknown, isEditing: boolean) {
+  if (error instanceof Error) {
+    const message = error.message.trim()
+    if (message.startsWith("Stock insuffisant") || message.startsWith("Stock lot insuffisant")) {
+      return message
+    }
+  }
+
+  return isEditing ? "Impossible de modifier la vente." : "Impossible d'enregistrer la vente."
 }
 
 function isPercentDiscount(type: DiscountType) {
@@ -382,10 +392,8 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
 
       toast.success("Vente enregistrée.")
       resetForm()
-    } catch {
-      toast.error(
-        isEditing ? "Impossible de modifier la vente." : "Impossible d'enregistrer la vente."
-      )
+    } catch (error) {
+      toast.error(getSaleSaveErrorMessage(error, isEditing))
     }
   }
 
