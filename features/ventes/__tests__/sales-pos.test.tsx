@@ -79,7 +79,6 @@ describe("SalesPos", () => {
     expect(screen.getByText(/Aucun produit sélectionné/i)).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Ajouter" })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole("button", { name: "Afficher la recherche" }))
     await user.type(screen.getByLabelText("Nom"), "Café")
     await user.click(screen.getByRole("button", { name: "Ajouter" }))
 
@@ -91,7 +90,6 @@ describe("SalesPos", () => {
     const user = userEvent.setup()
     render(<SalesPos />)
 
-    await user.click(screen.getByRole("button", { name: "Afficher la recherche" }))
     await user.type(screen.getByLabelText("Nom"), "Café")
     await user.click(screen.getByRole("button", { name: "Ajouter" }))
     await user.click(screen.getByRole("button", { name: "Ajouter" }))

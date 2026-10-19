@@ -398,315 +398,335 @@ export function SalesPos({ editingSale = null, onEditComplete, onCancelEdit }: S
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center">
-          <CardTitle className="text-base">
-            {isEditing ? "Modifier la vente" : "Point de vente"}
-          </CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <p className="text-xs text-muted-foreground">
-          Astuce : vous pouvez scanner avec un lecteur ou ouvrir /scan sur un téléphone connecté.
-        </p>
-        <div className="space-y-3">
-          <ProductSearchPanel
-            products={products}
-            onAddProduct={handleAddProductFromSearch}
-            contextLabel="POS"
-          />
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Produit</TableHead>
-                <TableHead>Quantité</TableHead>
-                <TableHead>PPH</TableHead>
-                <TableHead>TVA</TableHead>
-                <TableHead>PPV</TableHead>
-                <TableHead>Remise</TableHead>
-                <TableHead>Total ligne</TableHead>
-                <TableHead className="text-right"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {lines.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
-                    Aucun produit sélectionné. Ajoutez depuis la recherche ci-dessus ou scannez un
-                    code-barres.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                lines.map((line, index) => {
-                  const linePricing = pricing[index]
-                  return (
-                    <TableRow key={line.id}>
-                      <TableCell className="min-w-64">
-                        <span
-                          className="block rounded-md bg-popover px-3 py-2"
-                          aria-invalid={showValidation && !line.productName}
-                        >
-                          {line.productName}
-                        </span>
-                      </TableCell>
-                      <TableCell className="w-28">
-                        <Input
-                          aria-label="Quantité"
-                          type="number"
-                          min={0}
-                          value={line.quantity}
-                          className="bg-popover"
-                          aria-invalid={showValidation && line.quantity <= 0}
-                          onChange={(event) =>
-                            updateLine(line.id, {
-                              quantity: parseNumericInput(event.target.value),
-                            })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell className="w-28">
-                        <span className="text-foreground">
-                          {formatCurrency(linePricing.unitPriceHt)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="w-20">
-                        <span className="text-foreground">{linePricing.vatRate}%</span>
-                      </TableCell>
-                      <TableCell className="w-28">
-                        <span className="text-foreground">
-                          {formatCurrency(linePricing.unitPriceTtc)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="w-40">
-                        <ButtonGroup className="w-full">
-                          <Select
-                            value={line.discountType}
-                            onValueChange={(value) =>
-                              updateLine(line.id, {
-                                discountType: value as DiscountType,
-                              })
-                            }
-                          >
-                            <SelectTrigger className={`${dropdownTriggerBaseClassName} w-24`}>
-                              <SelectValue>
-                                {(value) => getDiscountLabel((value as DiscountType) ?? "percent")}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {discountOptions.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            aria-label="Valeur de remise"
-                            type="number"
-                            min={0}
-                            value={line.discountValue}
-                            className="bg-popover"
-                            onChange={(event) =>
-                              updateLine(line.id, {
-                                discountValue: parseNumericInput(event.target.value),
-                              })
-                            }
-                          />
-                        </ButtonGroup>
-                      </TableCell>
-                      <TableCell className="w-32">
-                        <span className="text-foreground font-semibold">
-                          {formatCurrency(linePricing.lineTotal)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Supprimer la ligne"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleRemoveLine(line.id)}
-                          disabled={!canManageSales}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+    <div className="space-y-6">
+      <p className="text-xs text-muted-foreground">
+        Astuce : vous pouvez scanner avec un lecteur ou ouvrir /scan sur un téléphone connecté.
+      </p>
+
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+        <Card className="h-fit">
+          <CardHeader>
+            <CardTitle className="text-base">Recherche rapide</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Recherchez un produit pour l&apos;ajouter directement au point de vente.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ProductSearchPanel
+              products={products}
+              onAddProduct={handleAddProductFromSearch}
+              contextLabel="POS"
+              variant="embedded"
+              showToggle={false}
+              defaultExpanded
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {isEditing ? "Modifier la vente" : "Point de vente"}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Vérifiez les lignes du ticket, ajustez les quantités et les remises puis validez.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produit</TableHead>
+                    <TableHead>Quantité</TableHead>
+                    <TableHead>PPH</TableHead>
+                    <TableHead>TVA</TableHead>
+                    <TableHead>PPV</TableHead>
+                    <TableHead>Remise</TableHead>
+                    <TableHead>Total ligne</TableHead>
+                    <TableHead className="text-right"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {lines.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-muted-foreground">
+                        Aucun produit sélectionné. Ajoutez depuis la recherche à gauche ou scannez
+                        un code-barres.
                       </TableCell>
                     </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-            <div className="flex items-center">
-              <span className="font-medium text-foreground">Total TTC</span>
-              <span className="ml-2 font-semibold text-foreground">
-                {formatCurrency(totalAfterLineDiscounts)}
-              </span>
+                  ) : (
+                    lines.map((line, index) => {
+                      const linePricing = pricing[index]
+                      return (
+                        <TableRow key={line.id}>
+                          <TableCell className="min-w-64">
+                            <span
+                              className="block rounded-md bg-popover px-3 py-2"
+                              aria-invalid={showValidation && !line.productName}
+                            >
+                              {line.productName}
+                            </span>
+                          </TableCell>
+                          <TableCell className="w-28">
+                            <Input
+                              aria-label="Quantité"
+                              type="number"
+                              min={0}
+                              value={line.quantity}
+                              className="bg-popover"
+                              aria-invalid={showValidation && line.quantity <= 0}
+                              onChange={(event) =>
+                                updateLine(line.id, {
+                                  quantity: parseNumericInput(event.target.value),
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="w-28">
+                            <span className="text-foreground">
+                              {formatCurrency(linePricing.unitPriceHt)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="w-20">
+                            <span className="text-foreground">{linePricing.vatRate}%</span>
+                          </TableCell>
+                          <TableCell className="w-28">
+                            <span className="text-foreground">
+                              {formatCurrency(linePricing.unitPriceTtc)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="w-40">
+                            <ButtonGroup className="w-full">
+                              <Select
+                                value={line.discountType}
+                                onValueChange={(value) =>
+                                  updateLine(line.id, {
+                                    discountType: value as DiscountType,
+                                  })
+                                }
+                              >
+                                <SelectTrigger className={`${dropdownTriggerBaseClassName} w-24`}>
+                                  <SelectValue>
+                                    {(value) =>
+                                      getDiscountLabel((value as DiscountType) ?? "percent")
+                                    }
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {discountOptions.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                aria-label="Valeur de remise"
+                                type="number"
+                                min={0}
+                                value={line.discountValue}
+                                className="bg-popover"
+                                onChange={(event) =>
+                                  updateLine(line.id, {
+                                    discountValue: parseNumericInput(event.target.value),
+                                  })
+                                }
+                              />
+                            </ButtonGroup>
+                          </TableCell>
+                          <TableCell className="w-32">
+                            <span className="text-foreground font-semibold">
+                              {formatCurrency(linePricing.lineTotal)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Supprimer la ligne"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleRemoveLine(line.id)}
+                              disabled={!canManageSales}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
+                </TableBody>
+              </Table>
             </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="space-y-4 lg:col-span-2">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Remise globale</Label>
-                <ButtonGroup className="w-full">
-                  <Select
-                    value={globalDiscountType}
-                    onValueChange={(value) => setGlobalDiscountType(value as DiscountType)}
-                  >
-                    <SelectTrigger className={`${dropdownTriggerBaseClassName} w-24`}>
-                      <SelectValue>
-                        {(value) => getDiscountLabel((value as DiscountType) ?? "percent")}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {discountOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    aria-label="Valeur remise globale"
-                    type="number"
-                    min={0}
-                    value={globalDiscountValue}
-                    className="bg-popover"
-                    onChange={(event) =>
-                      setGlobalDiscountValue(parseNumericInput(event.target.value))
-                    }
-                  />
-                </ButtonGroup>
-              </div>
-              <div className="space-y-2">
-                <Label>Mode de paiement</Label>
-                <Select
-                  value={paymentMethod}
-                  onValueChange={(value) => setPaymentMethod(value ?? "")}
-                >
-                  <SelectTrigger className={`${dropdownTriggerBaseClassName} w-full`}>
-                    <SelectValue>{(value) => getPaymentLabel(value)}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paymentOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Client</Label>
-                <Combobox
-                  items={clientOptions}
-                  value={clientName}
-                  onValueChange={(value) => {
-                    const nextValue = value ?? ""
-                    setClientName(nextValue)
-                    setClientId(clients.find((client) => client.name === nextValue)?.id)
-                  }}
-                >
-                  <ComboboxInput
-                    placeholder="Sélectionner un client"
-                    showClear={Boolean(clientName)}
-                    showTrigger={false}
-                    className="bg-popover rounded-md min-w-0"
-                  >
-                    <InputGroupAddon align="inline-end" className="text-muted-foreground">
-                      <Search className="size-4" />
-                    </InputGroupAddon>
-                  </ComboboxInput>
-                  <ComboboxContent align="start" alignOffset={0}>
-                    <ComboboxEmpty>Aucun client.</ComboboxEmpty>
-                    <ComboboxList>
-                      {(item) => (
-                        <ComboboxItem key={item} value={item}>
-                          {item}
-                        </ComboboxItem>
-                      )}
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Notes</Label>
-                <Textarea
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  className="bg-popover"
-                  placeholder="Ajouter une note de livraison ou de préparation."
-                />
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+              <div className="flex items-center">
+                <span className="font-medium text-foreground">Total TTC</span>
+                <span className="ml-2 font-semibold text-foreground">
+                  {formatCurrency(totalAfterLineDiscounts)}
+                </span>
               </div>
             </div>
-          </div>
-
-          <Card size="sm" className="h-fit">
-            <CardContent className="space-y-3 pt-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Sous-total HT</span>
-                <span>{formatCurrency(subtotalHt)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Sous-total TTC</span>
-                <span>{formatCurrency(subtotalTtc)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Remise</span>
-                <span>{formatCurrency(lineDiscountTotal + globalDiscount)}</span>
-              </div>
-              <Separator />
-              <div className="rounded-lg bg-muted/40 p-3">
-                <div className="flex items-center justify-between text-sm font-medium">
-                  <span>Total à encaisser</span>
-                  <span>{formatCurrency(totalToCollect)}</span>
+            <Separator />
+            <div className="grid gap-4 lg:grid-cols-3">
+              <div className="space-y-4 lg:col-span-2">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Remise globale</Label>
+                    <ButtonGroup className="w-full">
+                      <Select
+                        value={globalDiscountType}
+                        onValueChange={(value) => setGlobalDiscountType(value as DiscountType)}
+                      >
+                        <SelectTrigger className={`${dropdownTriggerBaseClassName} w-24`}>
+                          <SelectValue>
+                            {(value) => getDiscountLabel((value as DiscountType) ?? "percent")}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {discountOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        aria-label="Valeur remise globale"
+                        type="number"
+                        min={0}
+                        value={globalDiscountValue}
+                        className="bg-popover"
+                        onChange={(event) =>
+                          setGlobalDiscountValue(parseNumericInput(event.target.value))
+                        }
+                      />
+                    </ButtonGroup>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Mode de paiement</Label>
+                    <Select
+                      value={paymentMethod}
+                      onValueChange={(value) => setPaymentMethod(value ?? "")}
+                    >
+                      <SelectTrigger className={`${dropdownTriggerBaseClassName} w-full`}>
+                        <SelectValue>{(value) => getPaymentLabel(value)}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {paymentOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Client</Label>
+                    <Combobox
+                      items={clientOptions}
+                      value={clientName}
+                      onValueChange={(value) => {
+                        const nextValue = value ?? ""
+                        setClientName(nextValue)
+                        setClientId(clients.find((client) => client.name === nextValue)?.id)
+                      }}
+                    >
+                      <ComboboxInput
+                        placeholder="Sélectionner un client"
+                        showClear={Boolean(clientName)}
+                        showTrigger={false}
+                        className="bg-popover rounded-md min-w-0"
+                      >
+                        <InputGroupAddon align="inline-end" className="text-muted-foreground">
+                          <Search className="size-4" />
+                        </InputGroupAddon>
+                      </ComboboxInput>
+                      <ComboboxContent align="start" alignOffset={0}>
+                        <ComboboxEmpty>Aucun client.</ComboboxEmpty>
+                        <ComboboxList>
+                          {(item) => (
+                            <ComboboxItem key={item} value={item}>
+                              {item}
+                            </ComboboxItem>
+                          )}
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </Combobox>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Notes</Label>
+                    <Textarea
+                      value={notes}
+                      onChange={(event) => setNotes(event.target.value)}
+                      className="bg-popover"
+                      placeholder="Ajouter une note de livraison ou de préparation."
+                    />
+                  </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </CardContent>
-      <CardFooter className="flex flex-wrap items-center gap-3">
-        {showValidation ? (
-          <p className="text-destructive text-xs">
-            Ajoutez un produit et une quantité supérieure à 0 avant d&apos;enregistrer.
-          </p>
-        ) : null}
-        <div className="ml-auto flex items-center gap-2">
-          {isEditing ? (
-            <Button variant="outline" onClick={handleCancelEdit}>
-              Annuler la modification
-            </Button>
-          ) : null}
-          <div className="relative">
-            {!canSave && canManageSales ? (
-              <span
-                role="button"
-                tabIndex={0}
-                aria-label="Valider la vente"
-                className="absolute inset-0 cursor-not-allowed rounded-lg"
-                onClick={() => setSubmitAttempted(true)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    setSubmitAttempted(true)
-                  }
-                }}
-              />
+
+              <Card size="sm" className="h-fit">
+                <CardContent className="space-y-3 pt-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Sous-total HT</span>
+                    <span>{formatCurrency(subtotalHt)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Sous-total TTC</span>
+                    <span>{formatCurrency(subtotalTtc)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Remise</span>
+                    <span>{formatCurrency(lineDiscountTotal + globalDiscount)}</span>
+                  </div>
+                  <Separator />
+                  <div className="rounded-lg bg-muted/40 p-3">
+                    <div className="flex items-center justify-between text-sm font-medium">
+                      <span>Total à encaisser</span>
+                      <span>{formatCurrency(totalToCollect)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-wrap items-center gap-3">
+            {showValidation ? (
+              <p className="text-destructive text-xs">
+                Ajoutez un produit et une quantité supérieure à 0 avant d&apos;enregistrer.
+              </p>
             ) : null}
-            <Button disabled={!canSave} onClick={handleSaveSale}>
-              {isEditing ? "Mettre à jour la vente" : "Enregistrer la vente"}
-            </Button>
-          </div>
-        </div>
-      </CardFooter>
-    </Card>
+            <div className="ml-auto flex items-center gap-2">
+              {isEditing ? (
+                <Button variant="outline" onClick={handleCancelEdit}>
+                  Annuler la modification
+                </Button>
+              ) : null}
+              <div className="relative">
+                {!canSave && canManageSales ? (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Valider la vente"
+                    className="absolute inset-0 cursor-not-allowed rounded-lg"
+                    onClick={() => setSubmitAttempted(true)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        setSubmitAttempted(true)
+                      }
+                    }}
+                  />
+                ) : null}
+                <Button disabled={!canSave} onClick={handleSaveSale}>
+                  {isEditing ? "Mettre à jour la vente" : "Enregistrer la vente"}
+                </Button>
+              </div>
+            </div>
+          </CardFooter>
+        </Card>
+      </div>
+    </div>
   )
 }

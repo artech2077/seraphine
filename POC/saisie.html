@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Saisie | Seraphine Trésorerie</title>
+    <link rel="icon" href="assets/seraphine.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="main.mjs"></script>
+  </head>
+  <body data-page="entry">
+    <a class="skip" href="#main">Aller au contenu</a>
+    <div id="shell"></div>
+    <main id="main" class="main form-main" tabindex="-1">
+      <h1 class="sr-only">Saisie trésorerie</h1>
+      <div class="entry-layout">
+        <div>
+          <section class="card date-card" aria-label="Choix de date">
+            <div class="date-line">
+              <div class="field">
+                <label for="date">Date de la saisie</label
+                ><input id="date" type="date" min="1900-01-01" max="2100-12-31" required />
+              </div>
+              <button type="button" class="button secondary" id="today">Aujourd’hui</button>
+            </div>
+          </section>
+          <div class="section-tabs" role="group" aria-label="Section à saisir">
+            <button type="button" data-section="daily">Caisse principale</button
+            ><button type="button" data-section="tmz">Trésorerie TMZ</button
+            ><button type="button" data-section="suppliers">Fournisseurs</button>
+          </div>
+          <section id="editor" class="card" aria-label="Saisie des montants"></section>
+          <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+        </div>
+      </div>
+      <footer class="page-footer">
+        <button type="button" class="text-button reset">
+          Réinitialiser les données de démonstration
+        </button>
+      </footer>
+    </main>
+  </body>
+</html>

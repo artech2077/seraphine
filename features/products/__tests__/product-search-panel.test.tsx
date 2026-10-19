@@ -25,6 +25,25 @@ const PRODUCTS = [
 ]
 
 describe("ProductSearchPanel", () => {
+  it("keeps embedded search available without an expand toggle", async () => {
+    const user = userEvent.setup()
+    const onAddProduct = vi.fn()
+
+    render(
+      <ProductSearchPanel
+        products={PRODUCTS}
+        onAddProduct={onAddProduct}
+        contextLabel="POS"
+        variant="embedded"
+        showToggle={false}
+      />
+    )
+
+    expect(screen.queryByRole("button", { name: "Afficher la recherche" })).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText("Nom"), "Vitamine{enter}")
+    expect(onAddProduct).toHaveBeenCalledWith(expect.objectContaining({ id: "prod-2" }))
+  })
+
   it("is collapsed by default and shows empty state when expanded without query", async () => {
     const user = userEvent.setup()
 

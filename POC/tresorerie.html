@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Trésorerie mensuelle | Seraphine</title>
+    <link rel="icon" href="assets/seraphine.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="main.mjs"></script>
+  </head>
+  <body data-page="dashboard">
+    <a class="skip" href="#main">Aller au contenu</a>
+    <div id="shell"></div>
+    <main id="main" class="main dashboard-main" tabindex="-1">
+      <div class="page-heading">
+        <h1>Trésorerie mensuelle</h1>
+        <a id="entry-link" class="button primary" href="saisie.html"
+          ><span aria-hidden="true">＋</span> Nouvelle saisie</a
+        >
+      </div>
+      <div class="month-toolbar">
+        <div class="month-navigation">
+          <button class="icon-button" id="prev-month" aria-label="Mois précédent">←</button
+          ><label class="sr-only" for="month">Mois et année</label>
+          <div class="month-picker">
+            <span id="month-display" aria-hidden="true"></span
+            ><input type="month" id="month" min="1900-01" max="2100-12" />
+          </div>
+          <button class="icon-button" id="next-month" aria-label="Mois suivant">→</button
+          ><button class="text-button" id="current-month">Ce mois-ci</button>
+        </div>
+        <span id="month-state" class="badge"></span>
+      </div>
+      <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+      <section id="metrics" class="metrics" aria-label="Indicateurs du mois"></section>
+      <div class="table-guide">
+        <div class="legend">
+          <span><i class="swatch entered"></i>Montant saisi</span
+          ><span><i class="swatch calculated"></i>Valeur calculée</span
+          ><span><i class="swatch demo"></i>Valeur de démonstration*</span>
+        </div>
+      </div>
+      <div class="ledger-layout">
+        <section id="daily-table" class="card ledger" aria-label="Caisse principale"></section>
+        <div class="ledger-aside">
+          <section id="tmz-table" class="card ledger" aria-label="Bilan Trésorerie TMZ"></section>
+          <section id="supplier-table" class="card ledger" aria-label="Fournisseurs"></section>
+          <section
+            id="monthly-summary"
+            class="card ledger"
+            aria-label="Synthèse mensuelle"
+          ></section>
+          <section id="stock-summary" class="card ledger" aria-label="Stock"></section>
+        </div>
+      </div>
+      <details class="calculation-notes">
+        <summary>Comprendre les calculs et les données de démonstration</summary>
+        <div>
+          <p>
+            <strong>Caisse principale :</strong> fonds du jour + CA + crédits payés − crédits non
+            payés − frais − remises − fonds du prochain jour travaillé.
+          </p>
+          <p>
+            <strong>TMZ :</strong> fond du jour + caisse/ventes − frais − remises − fond du prochain
+            jour travaillé.
+          </p>
+          <p>
+            Les jours fériés sont exclus. Les dimanches enregistrés sont inclus. Au dernier jour
+            travaillé du mois, le solde FCMF remplace le fonds du jour suivant. Si une valeur
+            nécessaire manque, le résultat affiche « … ». Les totaux calculés incomplets portent
+            cette mention.
+          </p>
+          <p>
+            <strong>Brut mensuel :</strong> recettes saisies des deux caisses − cumul fournisseurs
+            (les deux périodes Sorepha comprises) − traites du mois. Les totaux additionnent les
+            montants renseignés ; les ratios à dénominateur nul affichent 0 %.
+          </p>
+          <p>
+            <strong>* Données fictives :</strong> CA, crédits, frais et remises de la caisse
+            principale, soldes FCMF et stocks sont fournis uniquement pour illustrer le tableau. Un
+            nouveau mois les laisse vides. « CA ? », ARDM et marge brute restent à préciser : aucune
+            règle supplémentaire n’est appliquée.
+          </p>
+        </div>
+      </details>
+      <footer class="page-footer">
+        <span>Montants en MAD · Seraphine · Données conservées dans ce navigateur</span
+        ><button type="button" class="text-button reset">
+          Réinitialiser les données de démonstration
+        </button>
+      </footer>
+    </main>
+  </body>
+</html>
