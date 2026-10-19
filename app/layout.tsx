@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { Geist, Geist_Mono, Inter } from "next/font/google"
 import { ClerkProvider } from "@clerk/nextjs"
+import Script from "next/script"
 
 import { QaBanner } from "@/components/layout/qa-banner"
 import { ThemeProvider } from "@/components/layout/theme-provider"
@@ -48,6 +49,12 @@ export default function RootLayout({
               <QaBanner environment={env.NEXT_PUBLIC_APP_ENV} />
               {children}
               <Toaster />
+              {env.NEXT_PUBLIC_APP_ENV === "development" ? (
+                <Script
+                  src="https://mcp.figma.com/mcp/html-to-design/capture.js"
+                  strategy="afterInteractive"
+                />
+              ) : null}
             </ThemeProvider>
           </ConvexProvider>
         </body>

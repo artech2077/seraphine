@@ -8,6 +8,7 @@ const isAccountRoute = createRouteMatcher(["/app/account(.*)"])
 
 const moduleRoutes: Array<{ prefix: string; module: ModuleKey }> = [
   { prefix: "/app/ventes", module: "ventes" },
+  { prefix: "/app/produit", module: "inventaire" },
   { prefix: "/app/inventaire", module: "inventaire" },
   { prefix: "/app/achats", module: "achats" },
   { prefix: "/app/fournisseurs", module: "fournisseurs" },

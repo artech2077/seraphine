@@ -1,6 +1,13 @@
 import { vi } from "vitest"
 
-import { create, listByOrg, listByOrgPaginated, remove, update } from "@/convex/products"
+import {
+  adjustStock,
+  create,
+  listByOrg,
+  listByOrgPaginated,
+  remove,
+  update,
+} from "@/convex/products"
 import { getHandler, type ConvexHandler } from "@/convex/__tests__/test_utils"
 
 describe("convex/products", () => {
@@ -66,6 +73,15 @@ describe("convex/products", () => {
         lowStockThreshold: 2,
         dosageForm: "Comprime",
         internalNotes: undefined,
+      })
+    )
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "stockMovements",
+      expect.objectContaining({
+        pharmacyId: "pharmacy-1",
+        productNameSnapshot: "Doliprane",
+        delta: 4,
+        movementType: "PRODUCT_INITIAL_STOCK",
       })
     )
   })
@@ -138,6 +154,117 @@ describe("convex/products", () => {
       dosageForm: "Comprime",
       internalNotes: "note",
     })
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "stockMovements",
+      expect.objectContaining({
+        pharmacyId: "pharmacy-1",
+        productId: "product-1",
+        productNameSnapshot: "New Name",
+        delta: 1,
+        movementType: "PRODUCT_STOCK_EDIT",
+      })
+    )
+  })
+
+  it("applies manual stock adjustment and records movement", async () => {
+    const ctx = buildContext()
+
+    const handler = getHandler(adjustStock) as ConvexHandler<{
+      clerkOrgId: string
+      productId: string
+      direction: "IN" | "OUT"
+      quantity: number
+      reason: string
+      note?: string
+    }>
+
+    const result = await handler(ctx, {
+      clerkOrgId: "org-1",
+      productId: "product-1",
+      direction: "OUT",
+      quantity: 2,
+      reason: "Casse",
+      note: "Boite abimee",
+    })
+
+    expect(ctx.db.patch).toHaveBeenCalledWith("product-1", {
+      stockQuantity: 2,
+    })
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "stockMovements",
+      expect.objectContaining({
+        pharmacyId: "pharmacy-1",
+        productId: "product-1",
+        productNameSnapshot: "Doliprane",
+        delta: -2,
+        movementType: "MANUAL_STOCK_ADJUSTMENT",
+        reason: "Casse (Boite abimee)",
+      })
+    )
+    expect(result).toEqual(
+      expect.objectContaining({
+        productId: "product-1",
+        previousStock: 4,
+        nextStock: 2,
+        delta: -2,
+      })
+    )
+  })
+
+  it("blocks invalid stock adjustment payloads", async () => {
+    const ctx = buildContext()
+
+    const handler = getHandler(adjustStock) as ConvexHandler<{
+      clerkOrgId: string
+      productId: string
+      direction: "IN" | "OUT"
+      quantity: number
+      reason: string
+      note?: string
+    }>
+
+    await expect(
+      handler(ctx, {
+        clerkOrgId: "org-1",
+        productId: "product-1",
+        direction: "IN",
+        quantity: 0,
+        reason: "Correction",
+      })
+    ).rejects.toThrow("Adjustment quantity must be greater than 0")
+
+    await expect(
+      handler(ctx, {
+        clerkOrgId: "org-1",
+        productId: "product-1",
+        direction: "IN",
+        quantity: 1,
+        reason: "   ",
+      })
+    ).rejects.toThrow("Adjustment reason is required")
+  })
+
+  it("blocks manual adjustment when stock would go negative", async () => {
+    const ctx = buildContext()
+
+    const handler = getHandler(adjustStock) as ConvexHandler<{
+      clerkOrgId: string
+      productId: string
+      direction: "IN" | "OUT"
+      quantity: number
+      reason: string
+      note?: string
+    }>
+
+    await expect(
+      handler(ctx, {
+        clerkOrgId: "org-1",
+        productId: "product-1",
+        direction: "OUT",
+        quantity: 10,
+        reason: "Perte",
+      })
+    ).rejects.toThrow("Stock insuffisant pour Doliprane")
   })
 
   it("removes products in the same pharmacy", async () => {

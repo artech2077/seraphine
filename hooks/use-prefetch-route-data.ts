@@ -45,7 +45,7 @@ export function usePrefetchRouteData() {
           tasks.push(convex.query(api.products.listByOrg, { clerkOrgId: orgId }))
           break
         }
-        case "/app/inventaire": {
+        case "/app/produit": {
           tasks.push(
             convex.query(api.products.listByOrgPaginated, {
               clerkOrgId: orgId,
@@ -60,6 +60,10 @@ export function usePrefetchRouteData() {
               },
             })
           )
+          break
+        }
+        case "/app/inventaire": {
+          tasks.push(convex.query(api.products.listByOrg, { clerkOrgId: orgId }))
           break
         }
         case "/app/achats": {

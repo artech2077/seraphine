@@ -2,6 +2,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { v } from "convex/values"
 import { assertOrgAccess, getAuthOrgId } from "./auth"
 import type { Id } from "./_generated/dataModel"
+import { recordStockMovement, type StockMovementType } from "./stockMovements"
 
 const ORDER_PREFIXES = {
   PURCHASE_ORDER: "BC-",
@@ -47,6 +48,29 @@ type ProcurementItemRecord = {
   lineDiscountType?: "PERCENT" | "AMOUNT" | null
   lineDiscountValue?: number | null
   lineTotal?: number | null
+}
+
+type ProcurementItemLotRecord = {
+  _id: Id<"procurementItemLots">
+  orderId: Id<"procurementOrders">
+  procurementItemId: Id<"procurementItems">
+  productId: Id<"products">
+  lotNumber: string
+  expiryDate: number
+  quantity: number
+  createdAt: number
+}
+
+type ProcurementMutationLotInput = {
+  lotNumber: string
+  expiryDate: number
+  quantity: number
+}
+
+type NormalizedProcurementMutationLotInput = {
+  lotNumber: string
+  expiryDate: number
+  quantity: number
 }
 
 function formatOrderNumber(prefix: string, sequence: number) {
@@ -102,6 +126,7 @@ type ProcurementMutationItemInput = {
   unitPrice: number
   lineDiscountType?: "PERCENT" | "AMOUNT"
   lineDiscountValue?: number
+  lots?: ProcurementMutationLotInput[]
 }
 
 type ProcurementMutationArgs = {
@@ -126,7 +151,14 @@ type NormalizedProcurementArgs = {
   globalDiscountType?: "PERCENT" | "AMOUNT"
   globalDiscountValue?: number
   externalReference?: string
-  items: ProcurementMutationItemInput[]
+  items: Array<{
+    productId: Id<"products">
+    quantity: number
+    unitPrice: number
+    lineDiscountType?: "PERCENT" | "AMOUNT"
+    lineDiscountValue?: number
+    lots?: NormalizedProcurementMutationLotInput[]
+  }>
 }
 
 function assertStatusAllowedForType(type: ProcurementOrderType, status: ProcurementStatus) {
@@ -154,6 +186,7 @@ function normalizeProcurementArgs(args: ProcurementMutationArgs): NormalizedProc
         unitPrice: item.unitPrice,
         lineDiscountType: undefined,
         lineDiscountValue: 0,
+        lots: undefined,
       })),
     }
   }
@@ -173,6 +206,11 @@ function normalizeProcurementArgs(args: ProcurementMutationArgs): NormalizedProc
       unitPrice: item.unitPrice,
       lineDiscountType: item.lineDiscountType,
       lineDiscountValue: item.lineDiscountValue,
+      lots: item.lots?.map((lot) => ({
+        lotNumber: lot.lotNumber,
+        expiryDate: lot.expiryDate,
+        quantity: lot.quantity,
+      })),
     })),
   }
 }
@@ -193,11 +231,191 @@ function aggregateQuantitiesByProduct(
   return quantities
 }
 
+type LotAggregate = {
+  productId: Id<"products">
+  lotNumber: string
+  expiryDate: number
+  quantity: number
+  sourceItemId?: Id<"procurementItems">
+}
+
+function normalizeLotNumber(value: string) {
+  return value.trim().toLocaleUpperCase("fr")
+}
+
+function normalizeExpiryDate(value: number) {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("Invalid lot expiry date")
+  }
+  parsed.setHours(0, 0, 0, 0)
+  return parsed.getTime()
+}
+
+function getTodayStart() {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  return now.getTime()
+}
+
+function normalizeAndValidateItemLots(
+  item: {
+    quantity: number
+    lots?: NormalizedProcurementMutationLotInput[]
+  },
+  options: { requireLots: boolean }
+) {
+  const lots = item.lots ?? []
+  if (lots.length === 0) {
+    if (options.requireLots) {
+      throw new Error("Lots are required when marking a delivery note as delivered")
+    }
+    return []
+  }
+
+  const seenLotNumbers = new Set<string>()
+  const todayStart = getTodayStart()
+  const normalizedLots = lots.map((lot) => {
+    const lotNumber = normalizeLotNumber(lot.lotNumber)
+    if (!lotNumber) {
+      throw new Error("Lot number is required")
+    }
+    if (seenLotNumbers.has(lotNumber)) {
+      throw new Error(`Duplicate lot number for line item: ${lotNumber}`)
+    }
+    seenLotNumbers.add(lotNumber)
+
+    if (!Number.isFinite(lot.quantity) || lot.quantity <= 0) {
+      throw new Error(`Invalid quantity for lot ${lotNumber}`)
+    }
+
+    const expiryDate = normalizeExpiryDate(lot.expiryDate)
+    if (expiryDate < todayStart) {
+      throw new Error(`Expiry date must be in the future for lot ${lotNumber}`)
+    }
+
+    return {
+      lotNumber,
+      expiryDate,
+      quantity: lot.quantity,
+    }
+  })
+
+  const totalLotQuantity = normalizedLots.reduce((sum, lot) => sum + lot.quantity, 0)
+  if (Math.abs(totalLotQuantity - item.quantity) > 0.0001) {
+    throw new Error("Lot quantities must match the line quantity")
+  }
+
+  return normalizedLots
+}
+
+function aggregateLotsByProductAndLot(lots: LotAggregate[]) {
+  const aggregates = new Map<string, LotAggregate>()
+
+  lots.forEach((lot) => {
+    const key = `${String(lot.productId)}::${lot.lotNumber}`
+    const existing = aggregates.get(key)
+    if (!existing) {
+      aggregates.set(key, { ...lot })
+      return
+    }
+    if (existing.expiryDate !== lot.expiryDate) {
+      throw new Error(`Duplicate lot collision for product lot ${lot.lotNumber}`)
+    }
+    existing.quantity += lot.quantity
+    if (!existing.sourceItemId && lot.sourceItemId) {
+      existing.sourceItemId = lot.sourceItemId
+    }
+  })
+
+  return aggregates
+}
+
+async function applyLotDelta(
+  ctx: MutationCtx,
+  pharmacyId: Id<"pharmacies">,
+  before: Map<string, LotAggregate>,
+  after: Map<string, LotAggregate>,
+  sourceOrderId: Id<"procurementOrders">
+) {
+  const lotKeys = new Set([...before.keys(), ...after.keys()])
+
+  await Promise.all(
+    Array.from(lotKeys).map(async (lotKey) => {
+      const nextLot = after.get(lotKey)
+      const previousLot = before.get(lotKey)
+      const delta = (nextLot?.quantity ?? 0) - (previousLot?.quantity ?? 0)
+      if (!delta) return
+
+      const baseLot = nextLot ?? previousLot
+      if (!baseLot) return
+
+      const product = await ctx.db.get(baseLot.productId)
+      if (!product || product.pharmacyId !== pharmacyId) {
+        throw new Error("Unauthorized")
+      }
+
+      const existingLots = await ctx.db
+        .query("stockLots")
+        .withIndex("by_pharmacyId_productId_lotNumber", (q) =>
+          q
+            .eq("pharmacyId", pharmacyId)
+            .eq("productId", baseLot.productId)
+            .eq("lotNumber", baseLot.lotNumber)
+        )
+        .collect()
+
+      const expiryMatch = existingLots.find((lot) => lot.expiryDate === baseLot.expiryDate)
+      const hasCollision = existingLots.some((lot) => lot.expiryDate !== baseLot.expiryDate)
+      if (hasCollision) {
+        throw new Error(
+          `Duplicate lot collision for ${product.name}: ${baseLot.lotNumber} has a different expiry date`
+        )
+      }
+
+      if (!expiryMatch) {
+        if (delta < 0) {
+          throw new Error(`Lot underflow for ${product.name} (${baseLot.lotNumber})`)
+        }
+        const timestamp = Date.now()
+        await ctx.db.insert("stockLots", {
+          pharmacyId,
+          productId: baseLot.productId,
+          lotNumber: baseLot.lotNumber,
+          expiryDate: baseLot.expiryDate,
+          quantity: delta,
+          sourceType: "DELIVERY_NOTE",
+          sourceOrderId,
+          sourceItemId: nextLot?.sourceItemId,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        })
+        return
+      }
+
+      const nextQuantity = expiryMatch.quantity + delta
+      if (nextQuantity < 0) {
+        throw new Error(`Lot underflow for ${product.name} (${baseLot.lotNumber})`)
+      }
+      await ctx.db.patch(expiryMatch._id, {
+        quantity: nextQuantity,
+        updatedAt: Date.now(),
+      })
+    })
+  )
+}
+
 async function applyStockDelta(
   ctx: MutationCtx,
   pharmacyId: Id<"pharmacies">,
   before: Map<string, number>,
-  after: Map<string, number>
+  after: Map<string, number>,
+  movement: {
+    movementType: StockMovementType
+    reason: string
+    sourceId: string
+    createdByClerkUserId?: string
+  }
 ) {
   const productKeys = new Set([...before.keys(), ...after.keys()])
 
@@ -213,6 +431,17 @@ async function applyStockDelta(
 
       await ctx.db.patch(product._id, {
         stockQuantity: product.stockQuantity + delta,
+      })
+
+      await recordStockMovement(ctx, {
+        pharmacyId,
+        productId: product._id,
+        productNameSnapshot: product.name,
+        delta,
+        movementType: movement.movementType,
+        reason: movement.reason,
+        sourceId: movement.sourceId,
+        createdByClerkUserId: movement.createdByClerkUserId,
       })
     })
   )
@@ -331,7 +560,7 @@ export const listByOrg = query({
       return []
     }
 
-    const [suppliers, items, products] = await Promise.all([
+    const [suppliers, items, products, itemLots] = await Promise.all([
       ctx.db
         .query("suppliers")
         .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
@@ -344,10 +573,21 @@ export const listByOrg = query({
         .query("products")
         .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
         .collect(),
+      ctx.db
+        .query("procurementItemLots")
+        .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+        .collect(),
     ])
 
     const suppliersById = new Map(suppliers.map((supplier) => [supplier._id, supplier]))
     const productsById = new Map(products.map((product) => [product._id, product]))
+    const lotsByItemId = new Map<string, ProcurementItemLotRecord[]>()
+    ;(itemLots as ProcurementItemLotRecord[]).forEach((lot) => {
+      const key = String(lot.procurementItemId)
+      const current = lotsByItemId.get(key) ?? []
+      current.push(lot)
+      lotsByItemId.set(key, current)
+    })
 
     const itemsByOrder = new Map<string, typeof items>()
     items.forEach((item) => {
@@ -380,6 +620,13 @@ export const listByOrg = query({
       const supplier = suppliersById.get(order.supplierId)
       const mappedItems = (itemsByOrder.get(order._id) ?? []).map((item) => {
         const product = productsById.get(item.productId)
+        const lots = (lotsByItemId.get(String(item._id)) ?? [])
+          .map((lot) => ({
+            lotNumber: lot.lotNumber,
+            expiryDate: lot.expiryDate,
+            quantity: lot.quantity,
+          }))
+          .sort((left, right) => left.expiryDate - right.expiryDate)
         return {
           id: item._id,
           productId: item.productId,
@@ -389,6 +636,7 @@ export const listByOrg = query({
           lineDiscountType: item.lineDiscountType ?? null,
           lineDiscountValue: item.lineDiscountValue ?? null,
           lineTotal: item.lineTotal ?? null,
+          lots,
         }
       })
 
@@ -423,6 +671,13 @@ const procurementItemValidator = v.object({
   lineDiscountType: v.union(v.literal("PERCENT"), v.literal("AMOUNT"), v.null()),
   lineDiscountValue: v.union(v.number(), v.null()),
   lineTotal: v.union(v.number(), v.null()),
+  lots: v.array(
+    v.object({
+      lotNumber: v.string(),
+      expiryDate: v.number(),
+      quantity: v.number(),
+    })
+  ),
 })
 
 const procurementOrderValidator = v.object({
@@ -471,7 +726,7 @@ export const getById = query({
       return null
     }
 
-    const [supplier, items, products] = await Promise.all([
+    const [supplier, items, products, itemLots] = await Promise.all([
       ctx.db.get(order.supplierId),
       ctx.db
         .query("procurementItems")
@@ -481,12 +736,30 @@ export const getById = query({
         .query("products")
         .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
         .collect(),
+      ctx.db
+        .query("procurementItemLots")
+        .withIndex("by_orderId", (q) => q.eq("orderId", order._id))
+        .collect(),
     ])
 
     const productsById = new Map(products.map((product) => [product._id, product]))
+    const lotsByItemId = new Map<string, ProcurementItemLotRecord[]>()
+    ;(itemLots as ProcurementItemLotRecord[]).forEach((lot) => {
+      const key = String(lot.procurementItemId)
+      const current = lotsByItemId.get(key) ?? []
+      current.push(lot)
+      lotsByItemId.set(key, current)
+    })
 
     const mappedItems = items.map((item) => {
       const product = productsById.get(item.productId)
+      const lots = (lotsByItemId.get(String(item._id)) ?? [])
+        .map((lot) => ({
+          lotNumber: lot.lotNumber,
+          expiryDate: lot.expiryDate,
+          quantity: lot.quantity,
+        }))
+        .sort((left, right) => left.expiryDate - right.expiryDate)
       return {
         id: item._id,
         productId: item.productId,
@@ -496,6 +769,7 @@ export const getById = query({
         lineDiscountType: item.lineDiscountType ?? null,
         lineDiscountValue: item.lineDiscountValue ?? null,
         lineTotal: item.lineTotal ?? null,
+        lots,
       }
     })
 
@@ -584,7 +858,7 @@ export const listByOrgPaginated = query({
       }
     }
 
-    const [suppliers, items, products] = await Promise.all([
+    const [suppliers, items, products, itemLots] = await Promise.all([
       ctx.db
         .query("suppliers")
         .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
@@ -597,10 +871,21 @@ export const listByOrgPaginated = query({
         .query("products")
         .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
         .collect(),
+      ctx.db
+        .query("procurementItemLots")
+        .withIndex("by_pharmacyId", (q) => q.eq("pharmacyId", pharmacy._id))
+        .collect(),
     ])
 
     const suppliersById = new Map(suppliers.map((supplier) => [String(supplier._id), supplier]))
     const productsById = new Map(products.map((product) => [String(product._id), product]))
+    const lotsByItemId = new Map<string, ProcurementItemLotRecord[]>()
+    ;(itemLots as ProcurementItemLotRecord[]).forEach((lot) => {
+      const key = String(lot.procurementItemId)
+      const current = lotsByItemId.get(key) ?? []
+      current.push(lot)
+      lotsByItemId.set(key, current)
+    })
 
     const itemsByOrder = new Map<string, ProcurementItemRecord[]>()
     ;(items as ProcurementItemRecord[]).forEach((item) => {
@@ -633,6 +918,13 @@ export const listByOrgPaginated = query({
       const supplier = suppliersById.get(String(order.supplierId))
       const mappedItems = (itemsByOrder.get(String(order._id)) ?? []).map((item) => {
         const product = productsById.get(String(item.productId))
+        const lots = (lotsByItemId.get(String(item._id)) ?? [])
+          .map((lot) => ({
+            lotNumber: lot.lotNumber,
+            expiryDate: lot.expiryDate,
+            quantity: lot.quantity,
+          }))
+          .sort((left, right) => left.expiryDate - right.expiryDate)
         return {
           id: item._id,
           productId: item.productId,
@@ -642,6 +934,7 @@ export const listByOrgPaginated = query({
           lineDiscountType: item.lineDiscountType ?? null,
           lineDiscountValue: item.lineDiscountValue ?? null,
           lineTotal: item.lineTotal ?? null,
+          lots,
         }
       })
 
@@ -759,6 +1052,15 @@ export const create = mutation({
         unitPrice: v.number(),
         lineDiscountType: v.optional(v.union(v.literal("PERCENT"), v.literal("AMOUNT"))),
         lineDiscountValue: v.optional(v.number()),
+        lots: v.optional(
+          v.array(
+            v.object({
+              lotNumber: v.string(),
+              expiryDate: v.number(),
+              quantity: v.number(),
+            })
+          )
+        ),
       })
     ),
   },
@@ -792,6 +1094,10 @@ export const create = mutation({
 
     const { orderNumber, orderSequence } = await getNextOrderNumber(ctx, pharmacy._id, args.type)
     const normalizedArgs = normalizeProcurementArgs(args)
+    const requiresLots = isStockApplied(args.type, normalizedArgs.status)
+    const normalizedLotsByItem = normalizedArgs.items.map((item) =>
+      normalizeAndValidateItemLots(item, { requireLots: requiresLots })
+    )
 
     const totalAmount = calculateOrderTotal(
       normalizedArgs.items,
@@ -816,9 +1122,9 @@ export const create = mutation({
       createdAt: Date.now(),
     })
 
-    await Promise.all(
-      normalizedArgs.items.map((item) =>
-        ctx.db.insert("procurementItems", {
+    const createdItems = await Promise.all(
+      normalizedArgs.items.map(async (item, index) => {
+        const procurementItemId = await ctx.db.insert("procurementItems", {
           pharmacyId: pharmacy._id,
           orderId,
           productId: item.productId,
@@ -828,15 +1134,65 @@ export const create = mutation({
           lineDiscountValue: item.lineDiscountValue,
           lineTotal: calculateLineTotal(item),
         })
-      )
+        const lots = normalizedLotsByItem[index] ?? []
+
+        if (lots.length > 0) {
+          await Promise.all(
+            lots.map((lot) =>
+              ctx.db.insert("procurementItemLots", {
+                pharmacyId: pharmacy._id,
+                orderId,
+                procurementItemId,
+                productId: item.productId,
+                lotNumber: lot.lotNumber,
+                expiryDate: lot.expiryDate,
+                quantity: lot.quantity,
+                createdAt: Date.now(),
+              })
+            )
+          )
+        }
+
+        return {
+          procurementItemId,
+          productId: item.productId,
+          lots,
+        }
+      })
     )
 
-    if (isStockApplied(args.type, normalizedArgs.status)) {
+    if (requiresLots) {
+      const afterLotQuantities = aggregateLotsByProductAndLot(
+        createdItems.flatMap((item) =>
+          item.lots.map((lot) => ({
+            productId: item.productId,
+            lotNumber: lot.lotNumber,
+            expiryDate: lot.expiryDate,
+            quantity: lot.quantity,
+            sourceItemId: item.procurementItemId,
+          }))
+        )
+      )
+
       await applyStockDelta(
         ctx,
         pharmacy._id,
         new Map<string, number>(),
-        aggregateQuantitiesByProduct(normalizedArgs.items)
+        aggregateQuantitiesByProduct(normalizedArgs.items),
+        {
+          movementType: "DELIVERY_NOTE_STOCK_SYNC",
+          reason: "Bon de livraison marqué livré",
+          sourceId: String(orderId),
+          createdByClerkUserId: identity.subject,
+        }
+      )
+
+      await applyLotDelta(
+        ctx,
+        pharmacy._id,
+        new Map<string, LotAggregate>(),
+        afterLotQuantities,
+        orderId
       )
     }
 
@@ -864,6 +1220,15 @@ export const update = mutation({
         unitPrice: v.number(),
         lineDiscountType: v.optional(v.union(v.literal("PERCENT"), v.literal("AMOUNT"))),
         lineDiscountValue: v.optional(v.number()),
+        lots: v.optional(
+          v.array(
+            v.object({
+              lotNumber: v.string(),
+              expiryDate: v.number(),
+              quantity: v.number(),
+            })
+          )
+        ),
       })
     ),
   },
@@ -874,6 +1239,9 @@ export const update = mutation({
     const order = (await ctx.db.get(args.id)) as ProcurementOrderRecord | null
     if (!order) {
       throw new Error("Order not found")
+    }
+    if (order.type === "DELIVERY_NOTE" && order.status === "DELIVERED") {
+      throw new Error("Delivered delivery notes cannot be edited")
     }
 
     const pharmacy = await ctx.db
@@ -912,15 +1280,36 @@ export const update = mutation({
       externalReference: args.externalReference,
       items: args.items,
     })
+    const requiresLots = isStockApplied(order.type, normalizedArgs.status)
+    const normalizedLotsByItem = normalizedArgs.items.map((item) =>
+      normalizeAndValidateItemLots(item, { requireLots: requiresLots })
+    )
 
-    const existingItems = await ctx.db
-      .query("procurementItems")
-      .withIndex("by_orderId", (q) => q.eq("orderId", args.id))
-      .collect()
+    const [existingItems, existingItemLots] = await Promise.all([
+      ctx.db
+        .query("procurementItems")
+        .withIndex("by_orderId", (q) => q.eq("orderId", args.id))
+        .collect(),
+      ctx.db
+        .query("procurementItemLots")
+        .withIndex("by_orderId", (q) => q.eq("orderId", args.id))
+        .collect(),
+    ])
 
     const beforeStockQuantities = isStockApplied(order.type, order.status)
       ? aggregateQuantitiesByProduct(existingItems)
       : new Map<string, number>()
+    const beforeLotQuantities = isStockApplied(order.type, order.status)
+      ? aggregateLotsByProductAndLot(
+          (existingItemLots as ProcurementItemLotRecord[]).map((lot) => ({
+            productId: lot.productId,
+            lotNumber: lot.lotNumber,
+            expiryDate: lot.expiryDate,
+            quantity: lot.quantity,
+            sourceItemId: lot.procurementItemId,
+          }))
+        )
+      : new Map<string, LotAggregate>()
     const afterStockQuantities = isStockApplied(order.type, normalizedArgs.status)
       ? aggregateQuantitiesByProduct(normalizedArgs.items)
       : new Map<string, number>()
@@ -943,11 +1332,12 @@ export const update = mutation({
       totalAmount,
     })
 
+    await Promise.all(existingItemLots.map((lot) => ctx.db.delete(lot._id)))
     await Promise.all(existingItems.map((item) => ctx.db.delete(item._id)))
 
-    await Promise.all(
-      normalizedArgs.items.map((item) =>
-        ctx.db.insert("procurementItems", {
+    const createdItems = await Promise.all(
+      normalizedArgs.items.map(async (item, index) => {
+        const procurementItemId = await ctx.db.insert("procurementItems", {
           pharmacyId: pharmacy._id,
           orderId: args.id,
           productId: item.productId,
@@ -957,10 +1347,53 @@ export const update = mutation({
           lineDiscountValue: item.lineDiscountValue,
           lineTotal: calculateLineTotal(item),
         })
-      )
-    )
+        const lots = normalizedLotsByItem[index] ?? []
 
-    await applyStockDelta(ctx, pharmacy._id, beforeStockQuantities, afterStockQuantities)
+        if (lots.length > 0) {
+          await Promise.all(
+            lots.map((lot) =>
+              ctx.db.insert("procurementItemLots", {
+                pharmacyId: pharmacy._id,
+                orderId: args.id,
+                procurementItemId,
+                productId: item.productId,
+                lotNumber: lot.lotNumber,
+                expiryDate: lot.expiryDate,
+                quantity: lot.quantity,
+                createdAt: Date.now(),
+              })
+            )
+          )
+        }
+
+        return {
+          procurementItemId,
+          productId: item.productId,
+          lots,
+        }
+      })
+    )
+    const afterLotQuantities = isStockApplied(order.type, normalizedArgs.status)
+      ? aggregateLotsByProductAndLot(
+          createdItems.flatMap((item) =>
+            item.lots.map((lot) => ({
+              productId: item.productId,
+              lotNumber: lot.lotNumber,
+              expiryDate: lot.expiryDate,
+              quantity: lot.quantity,
+              sourceItemId: item.procurementItemId,
+            }))
+          )
+        )
+      : new Map<string, LotAggregate>()
+
+    await applyStockDelta(ctx, pharmacy._id, beforeStockQuantities, afterStockQuantities, {
+      movementType: "DELIVERY_NOTE_STOCK_SYNC",
+      reason: "Mise à jour du bon de livraison",
+      sourceId: String(args.id),
+      createdByClerkUserId: identity.subject,
+    })
+    await applyLotDelta(ctx, pharmacy._id, beforeLotQuantities, afterLotQuantities, args.id)
 
     const shouldHandleAlert =
       pharmacy.lowStockAlertOrderId === order._id &&
@@ -1096,11 +1529,18 @@ export const remove = mutation({
       throw new Error("Unauthorized")
     }
 
-    const items = await ctx.db
-      .query("procurementItems")
-      .withIndex("by_orderId", (q) => q.eq("orderId", args.id))
-      .collect()
+    const [items, itemLots] = await Promise.all([
+      ctx.db
+        .query("procurementItems")
+        .withIndex("by_orderId", (q) => q.eq("orderId", args.id))
+        .collect(),
+      ctx.db
+        .query("procurementItemLots")
+        .withIndex("by_orderId", (q) => q.eq("orderId", args.id))
+        .collect(),
+    ])
 
+    await Promise.all(itemLots.map((lot) => ctx.db.delete(lot._id)))
     await Promise.all(items.map((item) => ctx.db.delete(item._id)))
     await ctx.db.delete(args.id)
 

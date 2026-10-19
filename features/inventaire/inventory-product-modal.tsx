@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useAuth } from "@clerk/nextjs"
 
 import {
   Modal,
@@ -28,6 +29,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import type { InventoryFormValues } from "@/features/inventaire/api"
 import type { InventoryItem } from "@/features/inventaire/inventory-table"
+import { useBarcodeScanner } from "@/hooks/use-barcode-scanner"
 import { useRoleAccess } from "@/lib/auth/use-role-access"
 import { toast } from "sonner"
 
@@ -61,6 +63,7 @@ export function InventoryProductModal({
   item,
   onSubmit,
 }: InventoryProductModalProps) {
+  const { orgId } = useAuth()
   const [internalOpen, setInternalOpen] = React.useState(false)
   const isControlled = open !== undefined
   const resolvedOpen = isControlled ? open : internalOpen
@@ -70,14 +73,27 @@ export function InventoryProductModal({
   const id = React.useId()
   const isEdit = mode === "edit"
   const title = isEdit ? "Modifier le produit" : "Ajouter un produit"
-  const description = "Composez chaque ligne produit, quantite et prix."
+  const description = "Renseignez les informations du produit."
   const [categoryValue, setCategoryValue] = React.useState(item?.category ?? "")
   const [vatValue, setVatValue] = React.useState(item?.vatRate ? String(item.vatRate) : "")
+  const [barcodeValue, setBarcodeValue] = React.useState(item?.barcode ?? "")
 
   React.useEffect(() => {
     setCategoryValue(item?.category ?? "")
     setVatValue(item?.vatRate ? String(item.vatRate) : "")
-  }, [item?.id, item?.category, item?.vatRate, mode])
+    setBarcodeValue(item?.barcode ?? "")
+  }, [item?.barcode, item?.category, item?.id, item?.vatRate, mode])
+
+  const handleBarcodeScan = React.useCallback((barcode: string) => {
+    setBarcodeValue(barcode)
+    toast.success("Code barre scanne.")
+  }, [])
+
+  useBarcodeScanner({
+    clerkOrgId: orgId,
+    enabled: canManageInventory && resolvedOpen,
+    onScan: handleBarcodeScan,
+  })
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -89,7 +105,7 @@ export function InventoryProductModal({
     const vatRate = Number.parseFloat(vatValue || "0")
     const payload: InventoryFormValues = {
       name: String(formData.get("name") ?? ""),
-      barcode: String(formData.get("barcode") ?? ""),
+      barcode: barcodeValue.trim(),
       category: categoryValue || "Medicaments",
       dosageForm: String(formData.get("dosageForm") ?? ""),
       purchasePrice: Number.isFinite(purchasePrice) ? purchasePrice : 0,
@@ -151,8 +167,12 @@ export function InventoryProductModal({
                   id={`${id}-product-barcode`}
                   name="barcode"
                   placeholder="EAN / GTIN"
-                  defaultValue={item?.barcode}
+                  value={barcodeValue}
+                  onChange={(event) => setBarcodeValue(event.target.value)}
                 />
+                <p className="text-muted-foreground text-xs">
+                  Scannez un code barre avec le lecteur ou l&apos;ecran scan.
+                </p>
               </div>
             </ModalGrid>
             <ModalGrid>

@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server"
 import type { Doc } from "./_generated/dataModel"
 import { v } from "convex/values"
 import { assertOrgAccess, getAuthOrgId } from "./auth"
+import { recordStockMovement } from "./stockMovements"
 
 type ProductRecord = Doc<"products">
 
@@ -179,7 +180,8 @@ export const create = mutation({
       throw new Error("Pharmacy not found")
     }
 
-    return ctx.db.insert("products", {
+    const createdAt = Date.now()
+    const productId = await ctx.db.insert("products", {
       pharmacyId: pharmacy._id,
       name: args.name,
       barcode: args.barcode ?? "",
@@ -191,8 +193,22 @@ export const create = mutation({
       lowStockThreshold: args.lowStockThreshold,
       dosageForm: args.dosageForm,
       internalNotes: args.internalNotes,
-      createdAt: Date.now(),
+      createdAt,
     })
+
+    await recordStockMovement(ctx, {
+      pharmacyId: pharmacy._id,
+      productId,
+      productNameSnapshot: args.name,
+      delta: args.stockQuantity,
+      movementType: "PRODUCT_INITIAL_STOCK",
+      reason: "Stock initial du produit",
+      sourceId: String(productId),
+      createdByClerkUserId: identity.subject,
+      createdAt,
+    })
+
+    return productId
   },
 })
 
@@ -229,6 +245,8 @@ export const update = mutation({
       throw new Error("Unauthorized")
     }
 
+    const delta = args.stockQuantity - product.stockQuantity
+
     await ctx.db.patch(args.id, {
       name: args.name,
       barcode: args.barcode ?? "",
@@ -241,6 +259,87 @@ export const update = mutation({
       dosageForm: args.dosageForm,
       internalNotes: args.internalNotes,
     })
+
+    await recordStockMovement(ctx, {
+      pharmacyId: pharmacy._id,
+      productId: args.id,
+      productNameSnapshot: args.name,
+      delta,
+      movementType: "PRODUCT_STOCK_EDIT",
+      reason: "Mise à jour manuelle du stock produit",
+      sourceId: String(args.id),
+      createdByClerkUserId: identity.subject,
+    })
+  },
+})
+
+export const adjustStock = mutation({
+  args: {
+    clerkOrgId: v.string(),
+    productId: v.id("products"),
+    direction: v.union(v.literal("IN"), v.literal("OUT")),
+    quantity: v.number(),
+    reason: v.string(),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    assertOrgAccess(identity, args.clerkOrgId)
+
+    if (args.quantity <= 0) {
+      throw new Error("Adjustment quantity must be greater than 0")
+    }
+
+    const reason = args.reason.trim()
+    if (!reason) {
+      throw new Error("Adjustment reason is required")
+    }
+
+    const product = await ctx.db.get(args.productId)
+    if (!product) {
+      throw new Error("Product not found")
+    }
+
+    const pharmacy = await ctx.db
+      .query("pharmacies")
+      .withIndex("by_clerkOrgId", (q) => q.eq("clerkOrgId", args.clerkOrgId))
+      .unique()
+
+    if (!pharmacy || product.pharmacyId !== pharmacy._id) {
+      throw new Error("Unauthorized")
+    }
+
+    const signedDelta = args.direction === "IN" ? args.quantity : -args.quantity
+    const previousStock = product.stockQuantity
+    const nextStock = previousStock + signedDelta
+    if (nextStock < 0) {
+      throw new Error(`Stock insuffisant pour ${product.name}`)
+    }
+
+    await ctx.db.patch(product._id, {
+      stockQuantity: nextStock,
+    })
+
+    const note = args.note?.trim()
+    const movementReason = note ? `${reason} (${note})` : reason
+    await recordStockMovement(ctx, {
+      pharmacyId: pharmacy._id,
+      productId: product._id,
+      productNameSnapshot: product.name,
+      delta: signedDelta,
+      movementType: "MANUAL_STOCK_ADJUSTMENT",
+      reason: movementReason,
+      sourceId: String(product._id),
+      createdByClerkUserId: identity.subject,
+    })
+
+    return {
+      productId: product._id,
+      productName: product.name,
+      previousStock,
+      nextStock,
+      delta: signedDelta,
+    }
   },
 })
 

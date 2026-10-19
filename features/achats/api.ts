@@ -17,6 +17,11 @@ export type ProcurementLineInput = {
   unitPrice: number
   lineDiscountType?: DiscountType
   lineDiscountValue?: number
+  lots?: Array<{
+    lotNumber: string
+    expiryDate: string
+    quantity: number
+  }>
 }
 
 export type ProcurementFormValues = {
@@ -40,6 +45,11 @@ type ProcurementItem = {
   lineDiscountType?: "PERCENT" | "AMOUNT" | null
   lineDiscountValue?: number | null
   lineTotal?: number | null
+  lots?: Array<{
+    lotNumber: string
+    expiryDate: number
+    quantity: number
+  }>
 }
 
 type ProcurementOrder = {
@@ -129,6 +139,11 @@ function parseOptionalDate(value?: string) {
   return Number.isNaN(parsed) ? undefined : parsed
 }
 
+function parseLotExpiryDate(value: string) {
+  const parsed = Date.parse(value)
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
 type ProcurementChannel = "EMAIL" | "PHONE"
 type ProcurementStatus = "DRAFT" | "ORDERED" | "IN_PROGRESS" | "DELIVERED"
 type DiscountTypeApi = "PERCENT" | "AMOUNT"
@@ -191,6 +206,7 @@ function normalizePurchaseOrderValues(values: ProcurementFormValues): Procuremen
       ...item,
       lineDiscountType: undefined,
       lineDiscountValue: 0,
+      lots: undefined,
     })),
   }
 }
@@ -277,6 +293,11 @@ function mapPurchaseOrder(order: ProcurementOrder, fallbackNumber?: string): Pur
       unitPrice: item.unitPrice,
       lineDiscountType: mapDiscountTypeFromApi(item.lineDiscountType),
       lineDiscountValue: item.lineDiscountValue ?? undefined,
+      lots: (item.lots ?? []).map((lot) => ({
+        lotNumber: lot.lotNumber,
+        expiryDate: formatDate(lot.expiryDate),
+        quantity: lot.quantity,
+      })),
     })),
   }
 }
@@ -311,6 +332,11 @@ function mapDeliveryNote(order: ProcurementOrder, fallbackNumber?: string): Deli
       unitPrice: item.unitPrice,
       lineDiscountType: mapDiscountTypeFromApi(item.lineDiscountType),
       lineDiscountValue: item.lineDiscountValue ?? undefined,
+      lots: (item.lots ?? []).map((lot) => ({
+        lotNumber: lot.lotNumber,
+        expiryDate: formatDate(lot.expiryDate),
+        quantity: lot.quantity,
+      })),
     })),
   }
 }
@@ -483,6 +509,7 @@ export function usePurchaseOrders(options?: ProcurementListOptions) {
           unitPrice: item.unitPrice,
           lineDiscountType: undefined,
           lineDiscountValue: 0,
+          lots: undefined,
         })),
       }
       await createOrderMutation(payload)
@@ -507,6 +534,7 @@ export function usePurchaseOrders(options?: ProcurementListOptions) {
           unitPrice: item.unitPrice,
           lineDiscountType: undefined,
           lineDiscountValue: 0,
+          lots: undefined,
         })),
       }
       await updateOrderMutation(payload)
@@ -660,6 +688,11 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
           unitPrice: item.unitPrice,
           lineDiscountType: mapDiscountType(item.lineDiscountType),
           lineDiscountValue: item.lineDiscountValue ?? 0,
+          lots: item.lots?.map((lot) => ({
+            lotNumber: lot.lotNumber,
+            expiryDate: parseLotExpiryDate(lot.expiryDate),
+            quantity: lot.quantity,
+          })),
         })),
       }
       await createOrderMutation(payload)
@@ -684,6 +717,11 @@ export function useDeliveryNotes(options?: ProcurementListOptions) {
           unitPrice: item.unitPrice,
           lineDiscountType: mapDiscountType(item.lineDiscountType),
           lineDiscountValue: item.lineDiscountValue ?? 0,
+          lots: item.lots?.map((lot) => ({
+            lotNumber: lot.lotNumber,
+            expiryDate: parseLotExpiryDate(lot.expiryDate),
+            quantity: lot.quantity,
+          })),
         })),
       }
       await updateOrderMutation(payload)

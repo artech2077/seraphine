@@ -1,9 +1,9 @@
-import { InventoryPage } from "@/features/inventaire/inventory-page"
+import { StockManagementPage } from "@/features/inventaire/stock-management-page"
 
 export const metadata = {
   title: "Seraphine - Inventaire",
 }
 
 export default function Page() {
-  return <InventoryPage />
+  return <StockManagementPage />
 }

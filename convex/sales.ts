@@ -1,12 +1,15 @@
-import { mutation, query } from "./_generated/server"
+import { mutation, query, type MutationCtx } from "./_generated/server"
 import { v } from "convex/values"
 import { assertOrgAccess, getAuthOrgId } from "./auth"
 import type { Doc, Id } from "./_generated/dataModel"
+import { recordStockMovement } from "./stockMovements"
 
 const SALE_NUMBER_PREFIX = "FAC-"
+const SALE_STOCK_MOVEMENT_TYPE = "SALE_STOCK_SYNC"
 
 type SaleRecord = Doc<"sales">
 type SaleItemRecord = Doc<"saleItems">
+type SaleItemLotRecord = Doc<"saleItemLots">
 
 function formatSaleNumber(sequence: number) {
   return `${SALE_NUMBER_PREFIX}${String(sequence).padStart(2, "0")}`
@@ -48,6 +51,311 @@ function buildFallbackNumbers(records: SaleRecord[]) {
   })
 
   return fallbackNumbers
+}
+
+function aggregateSaleQuantitiesByProduct(
+  items: Array<{ productId: Id<"products">; quantity: number }>
+) {
+  const quantities = new Map<string, number>()
+  items.forEach((item) => {
+    const key = String(item.productId)
+    const nextQuantity = (quantities.get(key) ?? 0) + item.quantity
+    quantities.set(key, nextQuantity)
+  })
+  return quantities
+}
+
+function assertPositiveSaleQuantities(items: Array<{ quantity: number }>) {
+  if (items.some((item) => item.quantity <= 0)) {
+    throw new Error("Sale item quantity must be greater than 0")
+  }
+}
+
+type SaleLineInput = {
+  saleItemId: Id<"saleItems">
+  productId: Id<"products">
+  productNameSnapshot: string
+  quantity: number
+}
+
+async function applyFefoDeductions(
+  ctx: MutationCtx,
+  pharmacyId: Id<"pharmacies">,
+  saleId: Id<"sales">,
+  saleItems: SaleLineInput[],
+  movement: {
+    reason: string
+    sourceId: string
+    createdByClerkUserId: string
+  }
+) {
+  const linesByProduct = new Map<string, SaleLineInput[]>()
+  saleItems.forEach((item) => {
+    const key = String(item.productId)
+    const current = linesByProduct.get(key) ?? []
+    current.push(item)
+    linesByProduct.set(key, current)
+  })
+
+  for (const [productKey, lines] of linesByProduct.entries()) {
+    const productId = productKey as Id<"products">
+    const product = await ctx.db.get(productId)
+    if (!product || product.pharmacyId !== pharmacyId) {
+      throw new Error("Unauthorized")
+    }
+
+    const requestedQuantity = lines.reduce((sum, line) => sum + line.quantity, 0)
+    if (requestedQuantity <= 0) {
+      continue
+    }
+
+    const lots = await ctx.db
+      .query("stockLots")
+      .withIndex("by_pharmacyId_productId", (q) =>
+        q.eq("pharmacyId", pharmacyId).eq("productId", product._id)
+      )
+      .collect()
+
+    const availableLots = lots
+      .filter((lot) => lot.quantity > 0)
+      .sort((left, right) =>
+        left.expiryDate === right.expiryDate
+          ? left.lotNumber.localeCompare(right.lotNumber, "fr")
+          : left.expiryDate - right.expiryDate
+      )
+
+    if (availableLots.length === 0) {
+      const nextStockQuantity = product.stockQuantity - requestedQuantity
+      if (nextStockQuantity < 0) {
+        throw new Error(`Stock insuffisant pour ${product.name}`)
+      }
+
+      await ctx.db.patch(product._id, {
+        stockQuantity: nextStockQuantity,
+      })
+
+      await recordStockMovement(ctx, {
+        pharmacyId,
+        productId: product._id,
+        productNameSnapshot: product.name,
+        delta: -requestedQuantity,
+        movementType: SALE_STOCK_MOVEMENT_TYPE,
+        reason: movement.reason,
+        sourceId: movement.sourceId,
+        createdByClerkUserId: movement.createdByClerkUserId,
+      })
+      continue
+    }
+
+    let remaining = requestedQuantity
+    const lotConsumptions: Array<{
+      lotId: Id<"stockLots">
+      lotNumber: string
+      expiryDate: number
+      availableQuantity: number
+      consumedQuantity: number
+    }> = []
+
+    for (const lot of availableLots) {
+      if (remaining <= 0) break
+      const consumedQuantity = Math.min(remaining, lot.quantity)
+      if (consumedQuantity <= 0) continue
+      lotConsumptions.push({
+        lotId: lot._id,
+        lotNumber: lot.lotNumber,
+        expiryDate: lot.expiryDate,
+        availableQuantity: lot.quantity,
+        consumedQuantity,
+      })
+      remaining -= consumedQuantity
+    }
+
+    if (remaining > 0) {
+      throw new Error(`Stock lot insuffisant pour ${product.name}`)
+    }
+
+    const allocations: Array<{
+      saleItemId: Id<"saleItems">
+      lotNumber: string
+      expiryDate: number
+      quantity: number
+    }> = []
+    let lotIndex = 0
+    let lotRemaining = lotConsumptions[0]?.consumedQuantity ?? 0
+
+    for (const line of lines) {
+      let lineRemaining = line.quantity
+      while (lineRemaining > 0) {
+        const currentLot = lotConsumptions[lotIndex]
+        if (!currentLot) {
+          throw new Error(`Stock lot insuffisant pour ${product.name}`)
+        }
+        const allocatedQuantity = Math.min(lineRemaining, lotRemaining)
+        allocations.push({
+          saleItemId: line.saleItemId,
+          lotNumber: currentLot.lotNumber,
+          expiryDate: currentLot.expiryDate,
+          quantity: allocatedQuantity,
+        })
+        lineRemaining -= allocatedQuantity
+        lotRemaining -= allocatedQuantity
+        if (lotRemaining <= 0) {
+          lotIndex += 1
+          lotRemaining = lotConsumptions[lotIndex]?.consumedQuantity ?? 0
+        }
+      }
+    }
+
+    await Promise.all(
+      lotConsumptions.map((consumption) =>
+        ctx.db.patch(consumption.lotId, {
+          quantity: consumption.availableQuantity - consumption.consumedQuantity,
+          updatedAt: Date.now(),
+        })
+      )
+    )
+
+    await ctx.db.patch(product._id, {
+      stockQuantity: product.stockQuantity - requestedQuantity,
+    })
+
+    for (const allocation of allocations) {
+      await ctx.db.insert("saleItemLots", {
+        pharmacyId,
+        saleId,
+        saleItemId: allocation.saleItemId,
+        productId: product._id,
+        lotNumber: allocation.lotNumber,
+        expiryDate: allocation.expiryDate,
+        quantity: allocation.quantity,
+        createdAt: Date.now(),
+      })
+
+      await recordStockMovement(ctx, {
+        pharmacyId,
+        productId: product._id,
+        productNameSnapshot: product.name,
+        delta: -allocation.quantity,
+        movementType: SALE_STOCK_MOVEMENT_TYPE,
+        reason: `${movement.reason} (FEFO)`,
+        sourceId: movement.sourceId,
+        lotNumber: allocation.lotNumber,
+        lotExpiryDate: allocation.expiryDate,
+        createdByClerkUserId: movement.createdByClerkUserId,
+      })
+    }
+  }
+}
+
+async function restoreSaleAllocations(
+  ctx: MutationCtx,
+  pharmacyId: Id<"pharmacies">,
+  saleItems: SaleItemRecord[],
+  saleItemLots: SaleItemLotRecord[],
+  movement: {
+    reason: string
+    sourceId: string
+    createdByClerkUserId: string
+  }
+) {
+  if (saleItems.length === 0) {
+    return
+  }
+
+  const quantitiesByProduct = aggregateSaleQuantitiesByProduct(
+    saleItems.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+    }))
+  )
+
+  for (const [productId, quantity] of quantitiesByProduct.entries()) {
+    const product = await ctx.db.get(productId as Id<"products">)
+    if (!product || product.pharmacyId !== pharmacyId) {
+      throw new Error("Unauthorized")
+    }
+    await ctx.db.patch(product._id, {
+      stockQuantity: product.stockQuantity + quantity,
+    })
+  }
+
+  for (const saleItemLot of saleItemLots) {
+    const product = await ctx.db.get(saleItemLot.productId)
+    if (!product || product.pharmacyId !== pharmacyId) {
+      throw new Error("Unauthorized")
+    }
+
+    const existingLots = await ctx.db
+      .query("stockLots")
+      .withIndex("by_pharmacyId_productId_lotNumber", (q) =>
+        q
+          .eq("pharmacyId", pharmacyId)
+          .eq("productId", saleItemLot.productId)
+          .eq("lotNumber", saleItemLot.lotNumber)
+      )
+      .collect()
+
+    const matchingLot = existingLots.find((lot) => lot.expiryDate === saleItemLot.expiryDate)
+    if (matchingLot) {
+      await ctx.db.patch(matchingLot._id, {
+        quantity: matchingLot.quantity + saleItemLot.quantity,
+        updatedAt: Date.now(),
+      })
+    } else {
+      await ctx.db.insert("stockLots", {
+        pharmacyId,
+        productId: saleItemLot.productId,
+        lotNumber: saleItemLot.lotNumber,
+        expiryDate: saleItemLot.expiryDate,
+        quantity: saleItemLot.quantity,
+        sourceType: "MIGRATION",
+        sourceOrderId: undefined,
+        sourceItemId: undefined,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+    }
+
+    await recordStockMovement(ctx, {
+      pharmacyId,
+      productId: saleItemLot.productId,
+      productNameSnapshot: product.name,
+      delta: saleItemLot.quantity,
+      movementType: SALE_STOCK_MOVEMENT_TYPE,
+      reason: `${movement.reason} (FEFO)`,
+      sourceId: movement.sourceId,
+      lotNumber: saleItemLot.lotNumber,
+      lotExpiryDate: saleItemLot.expiryDate,
+      createdByClerkUserId: movement.createdByClerkUserId,
+    })
+  }
+
+  const allocatedSaleItemIds = new Set(saleItemLots.map((lot) => String(lot.saleItemId)))
+  const unallocatedItems = saleItems.filter((item) => !allocatedSaleItemIds.has(String(item._id)))
+  const unallocatedByProduct = aggregateSaleQuantitiesByProduct(
+    unallocatedItems.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+    }))
+  )
+
+  for (const [productId, quantity] of unallocatedByProduct.entries()) {
+    const product = await ctx.db.get(productId as Id<"products">)
+    if (!product || product.pharmacyId !== pharmacyId) {
+      throw new Error("Unauthorized")
+    }
+
+    await recordStockMovement(ctx, {
+      pharmacyId,
+      productId: product._id,
+      productNameSnapshot: product.name,
+      delta: quantity,
+      movementType: SALE_STOCK_MOVEMENT_TYPE,
+      reason: movement.reason,
+      sourceId: movement.sourceId,
+      createdByClerkUserId: movement.createdByClerkUserId,
+    })
+  }
 }
 
 function getPaymentLabel(paymentMethod: SaleRecord["paymentMethod"]) {
@@ -368,6 +676,7 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     assertOrgAccess(identity, args.clerkOrgId)
+    assertPositiveSaleQuantities(args.items)
 
     const pharmacy = await ctx.db
       .query("pharmacies")
@@ -421,9 +730,9 @@ export const create = mutation({
       createdAt: Date.now(),
     })
 
-    await Promise.all(
-      args.items.map((item) =>
-        ctx.db.insert("saleItems", {
+    const createdItems = await Promise.all(
+      args.items.map(async (item) => {
+        const saleItemId = await ctx.db.insert("saleItems", {
           pharmacyId: pharmacy._id,
           saleId,
           productId: item.productId,
@@ -435,8 +744,21 @@ export const create = mutation({
           lineDiscountValue: item.lineDiscountValue,
           totalLineTtc: item.totalLineTtc,
         })
-      )
+
+        return {
+          saleItemId,
+          productId: item.productId,
+          productNameSnapshot: item.productNameSnapshot,
+          quantity: item.quantity,
+        }
+      })
     )
+
+    await applyFefoDeductions(ctx, pharmacy._id, saleId, createdItems, {
+      reason: "Création de vente",
+      sourceId: String(saleId),
+      createdByClerkUserId: identity.subject,
+    })
 
     return saleId
   },
@@ -473,6 +795,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     assertOrgAccess(identity, args.clerkOrgId)
+    assertPositiveSaleQuantities(args.items)
 
     const sale = await ctx.db.get(args.id)
     if (!sale) {
@@ -488,6 +811,29 @@ export const update = mutation({
       throw new Error("Unauthorized")
     }
 
+    const [existingItems, existingItemLots] = await Promise.all([
+      ctx.db
+        .query("saleItems")
+        .withIndex("by_saleId", (q) => q.eq("saleId", args.id))
+        .collect(),
+      ctx.db
+        .query("saleItemLots")
+        .withIndex("by_saleId", (q) => q.eq("saleId", args.id))
+        .collect(),
+    ])
+
+    await restoreSaleAllocations(
+      ctx,
+      pharmacy._id,
+      existingItems as SaleItemRecord[],
+      existingItemLots as SaleItemLotRecord[],
+      {
+        reason: "Annulation avant mise à jour de vente",
+        sourceId: String(args.id),
+        createdByClerkUserId: identity.subject,
+      }
+    )
+
     await ctx.db.patch(args.id, {
       clientId: args.clientId,
       paymentMethod: args.paymentMethod,
@@ -497,16 +843,12 @@ export const update = mutation({
       totalAmountTtc: args.totalAmountTtc,
     })
 
-    const existingItems = await ctx.db
-      .query("saleItems")
-      .withIndex("by_saleId", (q) => q.eq("saleId", args.id))
-      .collect()
-
+    await Promise.all(existingItemLots.map((itemLot) => ctx.db.delete(itemLot._id)))
     await Promise.all(existingItems.map((item) => ctx.db.delete(item._id)))
 
-    await Promise.all(
-      args.items.map((item) =>
-        ctx.db.insert("saleItems", {
+    const createdItems = await Promise.all(
+      args.items.map(async (item) => {
+        const saleItemId = await ctx.db.insert("saleItems", {
           pharmacyId: pharmacy._id,
           saleId: args.id,
           productId: item.productId,
@@ -518,8 +860,21 @@ export const update = mutation({
           lineDiscountValue: item.lineDiscountValue,
           totalLineTtc: item.totalLineTtc,
         })
-      )
+
+        return {
+          saleItemId,
+          productId: item.productId,
+          productNameSnapshot: item.productNameSnapshot,
+          quantity: item.quantity,
+        }
+      })
     )
+
+    await applyFefoDeductions(ctx, pharmacy._id, args.id, createdItems, {
+      reason: "Mise à jour de vente",
+      sourceId: String(args.id),
+      createdByClerkUserId: identity.subject,
+    })
   },
 })
 
@@ -546,11 +901,30 @@ export const remove = mutation({
       throw new Error("Unauthorized")
     }
 
-    const items = await ctx.db
-      .query("saleItems")
-      .withIndex("by_saleId", (q) => q.eq("saleId", args.id))
-      .collect()
+    const [items, itemLots] = await Promise.all([
+      ctx.db
+        .query("saleItems")
+        .withIndex("by_saleId", (q) => q.eq("saleId", args.id))
+        .collect(),
+      ctx.db
+        .query("saleItemLots")
+        .withIndex("by_saleId", (q) => q.eq("saleId", args.id))
+        .collect(),
+    ])
 
+    await restoreSaleAllocations(
+      ctx,
+      pharmacy._id,
+      items as SaleItemRecord[],
+      itemLots as SaleItemLotRecord[],
+      {
+        reason: "Suppression de vente",
+        sourceId: String(args.id),
+        createdByClerkUserId: identity.subject,
+      }
+    )
+
+    await Promise.all(itemLots.map((itemLot) => ctx.db.delete(itemLot._id)))
     await Promise.all(items.map((item) => ctx.db.delete(item._id)))
     await ctx.db.delete(args.id)
   },

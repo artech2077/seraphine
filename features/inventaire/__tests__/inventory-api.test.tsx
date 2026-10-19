@@ -31,11 +31,13 @@ describe("useInventoryItems", () => {
     const createProduct = createMockMutation()
     const updateProduct = createMockMutation()
     const removeProduct = createMockMutation()
+    const adjustStock = createMockMutation()
 
     vi.mocked(useMutation)
       .mockImplementationOnce(() => createProduct)
       .mockImplementationOnce(() => updateProduct)
       .mockImplementationOnce(() => removeProduct)
+      .mockImplementationOnce(() => adjustStock)
 
     const records = [
       {
@@ -76,11 +78,13 @@ describe("useInventoryItems", () => {
     const createProduct = createMockMutation()
     const updateProduct = createMockMutation()
     const removeProduct = createMockMutation()
+    const adjustStock = createMockMutation()
 
     vi.mocked(useMutation)
       .mockImplementationOnce(() => createProduct)
       .mockImplementationOnce(() => updateProduct)
       .mockImplementationOnce(() => removeProduct)
+      .mockImplementationOnce(() => adjustStock)
 
     vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
 
@@ -114,15 +118,89 @@ describe("useInventoryItems", () => {
     })
   })
 
-  it("returns paginated inventory metadata", async () => {
+  it("creates multiple products in batch", async () => {
     const createProduct = createMockMutation()
     const updateProduct = createMockMutation()
     const removeProduct = createMockMutation()
+    const adjustStock = createMockMutation()
 
     vi.mocked(useMutation)
       .mockImplementationOnce(() => createProduct)
       .mockImplementationOnce(() => updateProduct)
       .mockImplementationOnce(() => removeProduct)
+      .mockImplementationOnce(() => adjustStock)
+
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
+
+    const { result } = renderHook(() => useInventoryItems())
+
+    await result.current.createProductsBatch([
+      {
+        name: "Produit A",
+        barcode: "111",
+        category: "Medicaments",
+        dosageForm: "Comprime",
+        purchasePrice: 1,
+        sellingPrice: 2,
+        vatRate: 7,
+        stock: 3,
+        threshold: 1,
+        notes: "",
+      },
+      {
+        name: "Produit B",
+        barcode: "",
+        category: "Parapharmacie",
+        dosageForm: "Sachet",
+        purchasePrice: 5,
+        sellingPrice: 8,
+        vatRate: 20,
+        stock: 6,
+        threshold: 2,
+        notes: "",
+      },
+    ])
+
+    expect(createProduct).toHaveBeenCalledTimes(2)
+    expect(createProduct).toHaveBeenNthCalledWith(1, {
+      clerkOrgId: "org-1",
+      name: "Produit A",
+      barcode: "111",
+      category: "Medicaments",
+      purchasePrice: 1,
+      sellingPrice: 2,
+      vatRate: 7,
+      stockQuantity: 3,
+      lowStockThreshold: 1,
+      dosageForm: "Comprime",
+      internalNotes: undefined,
+    })
+    expect(createProduct).toHaveBeenNthCalledWith(2, {
+      clerkOrgId: "org-1",
+      name: "Produit B",
+      barcode: undefined,
+      category: "Parapharmacie",
+      purchasePrice: 5,
+      sellingPrice: 8,
+      vatRate: 20,
+      stockQuantity: 6,
+      lowStockThreshold: 2,
+      dosageForm: "Sachet",
+      internalNotes: undefined,
+    })
+  })
+
+  it("returns paginated inventory metadata", async () => {
+    const createProduct = createMockMutation()
+    const updateProduct = createMockMutation()
+    const removeProduct = createMockMutation()
+    const adjustStock = createMockMutation()
+
+    vi.mocked(useMutation)
+      .mockImplementationOnce(() => createProduct)
+      .mockImplementationOnce(() => updateProduct)
+      .mockImplementationOnce(() => removeProduct)
+      .mockImplementationOnce(() => adjustStock)
 
     vi.mocked(useQuery).mockImplementation((_, args) => {
       if (args === "skip") return undefined
@@ -156,5 +234,39 @@ describe("useInventoryItems", () => {
     expect(result.current.totalCount).toBe(9)
     expect(result.current.filterOptions.categories).toEqual(["Dermato"])
     expect(result.current.items[0].name).toBe("Test")
+  })
+
+  it("passes mapped values to stock adjustment mutation", async () => {
+    const createProduct = createMockMutation()
+    const updateProduct = createMockMutation()
+    const removeProduct = createMockMutation()
+    const adjustStock = createMockMutation()
+
+    vi.mocked(useMutation)
+      .mockImplementationOnce(() => createProduct)
+      .mockImplementationOnce(() => updateProduct)
+      .mockImplementationOnce(() => removeProduct)
+      .mockImplementationOnce(() => adjustStock)
+
+    vi.mocked(useQuery).mockImplementation((_, args) => (args === "skip" ? undefined : []))
+
+    const { result } = renderHook(() => useInventoryItems())
+
+    await result.current.adjustStock({
+      productId: "prod-1",
+      direction: "OUT",
+      quantity: 2,
+      reason: "Casse",
+      note: "Boite tombee",
+    })
+
+    expect(adjustStock).toHaveBeenCalledWith({
+      clerkOrgId: "org-1",
+      productId: "prod-1",
+      direction: "OUT",
+      quantity: 2,
+      reason: "Casse",
+      note: "Boite tombee",
+    })
   })
 })

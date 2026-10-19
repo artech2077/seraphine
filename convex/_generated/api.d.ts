@@ -20,6 +20,9 @@ import type * as procurement from "../procurement.js"
 import type * as products from "../products.js"
 import type * as reconciliation from "../reconciliation.js"
 import type * as sales from "../sales.js"
+import type * as stockLots from "../stockLots.js"
+import type * as stockMovements from "../stockMovements.js"
+import type * as stocktakes from "../stocktakes.js"
 import type * as suppliers from "../suppliers.js"
 
 import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server"
@@ -37,6 +40,9 @@ declare const fullApi: ApiFromModules<{
   products: typeof products
   reconciliation: typeof reconciliation
   sales: typeof sales
+  stockLots: typeof stockLots
+  stockMovements: typeof stockMovements
+  stocktakes: typeof stocktakes
   suppliers: typeof suppliers
 }>
 

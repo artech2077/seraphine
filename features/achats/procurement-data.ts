@@ -1,3 +1,9 @@
+export type ProcurementLotItem = {
+  lotNumber: string
+  expiryDate: string
+  quantity: number
+}
+
 export type ProcurementLineItem = {
   id: string
   productId?: string
@@ -6,6 +12,7 @@ export type ProcurementLineItem = {
   unitPrice: number
   lineDiscountType?: "percent" | "amount"
   lineDiscountValue?: number
+  lots?: ProcurementLotItem[]
 }
 
 export type PurchaseOrderStatus = "Brouillon" | "Commandé"
@@ -51,6 +58,9 @@ export type ProductOption = {
   sellingPrice: number
   vatRate: number
   barcode: string
+  category: string
+  stockQuantity: number
+  lowStockThreshold: number
 }
 
 export const SUPPLIER_OPTIONS = [
@@ -83,6 +93,9 @@ export const PRODUCT_OPTIONS: ProductOption[] = [
     sellingPrice: 32.9,
     vatRate: 7,
     barcode: "100001",
+    category: "Médicaments",
+    stockQuantity: 42,
+    lowStockThreshold: 8,
   },
   {
     id: "prod-002",
@@ -91,6 +104,9 @@ export const PRODUCT_OPTIONS: ProductOption[] = [
     sellingPrice: 119,
     vatRate: 20,
     barcode: "100002",
+    category: "Consommables",
+    stockQuantity: 25,
+    lowStockThreshold: 10,
   },
   {
     id: "prod-003",
@@ -99,6 +115,9 @@ export const PRODUCT_OPTIONS: ProductOption[] = [
     sellingPrice: 24.8,
     vatRate: 7,
     barcode: "100003",
+    category: "Médicaments",
+    stockQuantity: 12,
+    lowStockThreshold: 12,
   },
   {
     id: "prod-004",
@@ -107,6 +126,9 @@ export const PRODUCT_OPTIONS: ProductOption[] = [
     sellingPrice: 17.2,
     vatRate: 7,
     barcode: "100004",
+    category: "Parapharmacie",
+    stockQuantity: 0,
+    lowStockThreshold: 6,
   },
   {
     id: "prod-005",
@@ -115,5 +137,8 @@ export const PRODUCT_OPTIONS: ProductOption[] = [
     sellingPrice: 45,
     vatRate: 20,
     barcode: "100005",
+    category: "Parapharmacie",
+    stockQuantity: 6,
+    lowStockThreshold: 8,
   },
 ]

@@ -243,7 +243,24 @@ describe("useDeliveryNotes", () => {
         externalReference: null,
         globalDiscountType: "AMOUNT",
         globalDiscountValue: 12,
-        items: [],
+        items: [
+          {
+            id: "item-1",
+            productId: "prod-3",
+            productName: "Produit C",
+            quantity: 1,
+            unitPrice: 20,
+            lineDiscountType: "PERCENT",
+            lineDiscountValue: 0,
+            lots: [
+              {
+                lotNumber: "LOT-001",
+                expiryDate: Date.parse("2030-12-31"),
+                quantity: 1,
+              },
+            ],
+          },
+        ],
       },
     ]
 
@@ -264,6 +281,13 @@ describe("useDeliveryNotes", () => {
         globalDiscountValue: 12,
       })
     )
+    expect(result.current.notes[0]?.items[0]?.lots).toEqual([
+      {
+        lotNumber: "LOT-001",
+        expiryDate: "2030-12-31",
+        quantity: 1,
+      },
+    ])
   })
 
   it("creates delivery notes with external references", async () => {
@@ -291,7 +315,21 @@ describe("useDeliveryNotes", () => {
       globalDiscountType: "amount",
       globalDiscountValue: 5,
       externalReference: "BL-42",
-      items: [{ productId: "prod-3", quantity: 1, unitPrice: 20, lineDiscountValue: 0 }],
+      items: [
+        {
+          productId: "prod-3",
+          quantity: 1,
+          unitPrice: 20,
+          lineDiscountValue: 0,
+          lots: [
+            {
+              lotNumber: "LOT-001",
+              expiryDate: "2030-12-31",
+              quantity: 1,
+            },
+          ],
+        },
+      ],
     })
 
     expect(createNote).toHaveBeenCalledWith({
@@ -313,6 +351,13 @@ describe("useDeliveryNotes", () => {
           unitPrice: 20,
           lineDiscountType: "PERCENT",
           lineDiscountValue: 0,
+          lots: [
+            {
+              lotNumber: "LOT-001",
+              expiryDate: Date.parse("2030-12-31"),
+              quantity: 1,
+            },
+          ],
         },
       ],
     })

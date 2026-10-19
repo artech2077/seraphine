@@ -131,6 +131,7 @@ describe("convex/procurement", () => {
         unitPrice: number
         lineDiscountType?: string
         lineDiscountValue?: number
+        lots?: Array<{ lotNumber: string; expiryDate: number; quantity: number }>
       }>
     }>
 
@@ -276,6 +277,7 @@ describe("convex/procurement", () => {
         unitPrice: number
         lineDiscountType?: string
         lineDiscountValue?: number
+        lots?: Array<{ lotNumber: string; expiryDate: number; quantity: number }>
       }>
     }>
 
@@ -292,6 +294,13 @@ describe("convex/procurement", () => {
           productId: "product-1",
           quantity: 3,
           unitPrice: 50,
+          lots: [
+            {
+              lotNumber: "LOT-001",
+              expiryDate: Date.parse("2030-12-31"),
+              quantity: 3,
+            },
+          ],
         },
       ],
     })
@@ -302,6 +311,220 @@ describe("convex/procurement", () => {
         stockQuantity: 8,
       })
     )
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "stockMovements",
+      expect.objectContaining({
+        pharmacyId: "pharmacy-1",
+        productId: "product-1",
+        productNameSnapshot: "Produit A",
+        delta: 3,
+        movementType: "DELIVERY_NOTE_STOCK_SYNC",
+      })
+    )
+    expect(ctx.db.insert).toHaveBeenCalledWith(
+      "stockLots",
+      expect.objectContaining({
+        pharmacyId: "pharmacy-1",
+        productId: "product-1",
+        lotNumber: "LOT-001",
+        expiryDate: expect.any(Number),
+        quantity: 3,
+      })
+    )
+  })
+
+  it("blocks duplicate receive attempts for delivered delivery notes", async () => {
+    const ctx = buildDeliveryContext({ orderStatus: "DELIVERED" })
+
+    const handler = getHandler(update) as ConvexHandler<{
+      clerkOrgId: string
+      id: string
+      supplierId: string
+      status: string
+      channel: string
+      orderDate: number
+      totalAmount: number
+      items: Array<{
+        productId: string
+        quantity: number
+        unitPrice: number
+      }>
+    }>
+
+    await expect(
+      handler(ctx, {
+        clerkOrgId: "org-1",
+        id: "order-1",
+        supplierId: "supplier-1",
+        status: "DELIVERED",
+        channel: "PHONE",
+        orderDate: 456,
+        totalAmount: 150,
+        items: [
+          {
+            productId: "product-1",
+            quantity: 3,
+            unitPrice: 50,
+          },
+        ],
+      })
+    ).rejects.toThrow("Delivered delivery notes cannot be edited")
+
+    expect(ctx.db.patch).not.toHaveBeenCalledWith(
+      "product-1",
+      expect.objectContaining({
+        stockQuantity: expect.any(Number),
+      })
+    )
+    expect(ctx.db.insert).not.toHaveBeenCalledWith("stockMovements", expect.anything())
+  })
+
+  it("enforces pharmacy permission checks on receive flow", async () => {
+    const ctx = buildDeliveryContext({ pharmacyId: "pharmacy-2" })
+
+    const handler = getHandler(update) as ConvexHandler<{
+      clerkOrgId: string
+      id: string
+      supplierId: string
+      status: string
+      channel: string
+      orderDate: number
+      totalAmount: number
+      items: Array<{
+        productId: string
+        quantity: number
+        unitPrice: number
+      }>
+    }>
+
+    await expect(
+      handler(ctx, {
+        clerkOrgId: "org-1",
+        id: "order-1",
+        supplierId: "supplier-1",
+        status: "DELIVERED",
+        channel: "PHONE",
+        orderDate: 456,
+        totalAmount: 150,
+        items: [
+          {
+            productId: "product-1",
+            quantity: 3,
+            unitPrice: 50,
+          },
+        ],
+      })
+    ).rejects.toThrow("Unauthorized")
+
+    expect(ctx.db.patch).not.toHaveBeenCalledWith(
+      "product-1",
+      expect.objectContaining({
+        stockQuantity: expect.any(Number),
+      })
+    )
+  })
+
+  it("rejects delivered notes with expired lot dates", async () => {
+    const ctx = buildDeliveryContext()
+
+    const handler = getHandler(update) as ConvexHandler<{
+      clerkOrgId: string
+      id: string
+      supplierId: string
+      status: string
+      channel: string
+      orderDate: number
+      totalAmount: number
+      items: Array<{
+        productId: string
+        quantity: number
+        unitPrice: number
+        lots: Array<{ lotNumber: string; expiryDate: number; quantity: number }>
+      }>
+    }>
+
+    await expect(
+      handler(ctx, {
+        clerkOrgId: "org-1",
+        id: "order-1",
+        supplierId: "supplier-1",
+        status: "DELIVERED",
+        channel: "PHONE",
+        orderDate: 456,
+        totalAmount: 150,
+        items: [
+          {
+            productId: "product-1",
+            quantity: 3,
+            unitPrice: 50,
+            lots: [
+              {
+                lotNumber: "LOT-001",
+                expiryDate: Date.parse("2000-01-01"),
+                quantity: 3,
+              },
+            ],
+          },
+        ],
+      })
+    ).rejects.toThrow("Expiry date must be in the future for lot LOT-001")
+  })
+
+  it("rejects duplicate lot collisions for the same product", async () => {
+    const ctx = buildDeliveryContext({
+      stockLots: [
+        {
+          _id: "stock-lot-1",
+          pharmacyId: "pharmacy-1",
+          productId: "product-1",
+          lotNumber: "LOT-001",
+          expiryDate: Date.parse("2030-01-01"),
+          quantity: 5,
+        },
+      ],
+    })
+
+    const handler = getHandler(update) as ConvexHandler<{
+      clerkOrgId: string
+      id: string
+      supplierId: string
+      status: string
+      channel: string
+      orderDate: number
+      totalAmount: number
+      items: Array<{
+        productId: string
+        quantity: number
+        unitPrice: number
+        lots: Array<{ lotNumber: string; expiryDate: number; quantity: number }>
+      }>
+    }>
+
+    await expect(
+      handler(ctx, {
+        clerkOrgId: "org-1",
+        id: "order-1",
+        supplierId: "supplier-1",
+        status: "DELIVERED",
+        channel: "PHONE",
+        orderDate: 456,
+        totalAmount: 150,
+        items: [
+          {
+            productId: "product-1",
+            quantity: 3,
+            unitPrice: 50,
+            lots: [
+              {
+                lotNumber: "LOT-001",
+                expiryDate: Date.parse("2031-01-01"),
+                quantity: 3,
+              },
+            ],
+          },
+        ],
+      })
+    ).rejects.toThrow("Duplicate lot collision for Produit A: LOT-001 has a different expiry date")
   })
 
   it("clears low stock alert when alert draft is ordered", async () => {
@@ -553,9 +776,22 @@ function buildAlertContext() {
   }
 }
 
-function buildDeliveryContext() {
+type BuildDeliveryContextOptions = {
+  pharmacyId?: string
+  orderStatus?: "DRAFT" | "ORDERED" | "IN_PROGRESS" | "DELIVERED"
+  stockLots?: Array<{
+    _id: string
+    pharmacyId: string
+    productId: string
+    lotNumber: string
+    expiryDate: number
+    quantity: number
+  }>
+}
+
+function buildDeliveryContext(options: BuildDeliveryContextOptions = {}) {
   const pharmacy = {
-    _id: "pharmacy-1",
+    _id: options.pharmacyId ?? "pharmacy-1",
     clerkOrgId: "org-1",
   }
   const supplier = {
@@ -576,7 +812,7 @@ function buildDeliveryContext() {
     orderSequence: 1,
     supplierId: "supplier-1",
     type: "DELIVERY_NOTE",
-    status: "ORDERED",
+    status: options.orderStatus ?? "ORDERED",
     channel: "PHONE",
     createdAt: 100,
     orderDate: 200,
@@ -604,6 +840,13 @@ function buildDeliveryContext() {
         return {
           withIndex: () => ({
             collect: async () => [item],
+          }),
+        }
+      }
+      if (table === "stockLots") {
+        return {
+          withIndex: () => ({
+            collect: async () => options.stockLots ?? [],
           }),
         }
       }

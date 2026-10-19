@@ -43,6 +43,44 @@ export default defineSchema({
     internalNotes: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_pharmacyId", ["pharmacyId"]),
+  stockMovements: defineTable({
+    pharmacyId: v.id("pharmacies"),
+    productId: v.id("products"),
+    productNameSnapshot: v.string(),
+    delta: v.number(),
+    movementType: v.union(
+      v.literal("PRODUCT_INITIAL_STOCK"),
+      v.literal("PRODUCT_STOCK_EDIT"),
+      v.literal("DELIVERY_NOTE_STOCK_SYNC"),
+      v.literal("SALE_STOCK_SYNC"),
+      v.literal("MANUAL_STOCK_ADJUSTMENT"),
+      v.literal("STOCKTAKE_STOCK_SYNC")
+    ),
+    reason: v.optional(v.string()),
+    sourceId: v.optional(v.string()),
+    lotNumber: v.optional(v.string()),
+    lotExpiryDate: v.optional(v.number()),
+    createdByClerkUserId: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_pharmacyId_createdAt", ["pharmacyId", "createdAt"])
+    .index("by_pharmacyId_productId_createdAt", ["pharmacyId", "productId", "createdAt"]),
+  stockLots: defineTable({
+    pharmacyId: v.id("pharmacies"),
+    productId: v.id("products"),
+    lotNumber: v.string(),
+    expiryDate: v.number(),
+    quantity: v.number(),
+    sourceType: v.union(v.literal("DELIVERY_NOTE"), v.literal("MIGRATION")),
+    sourceOrderId: v.optional(v.id("procurementOrders")),
+    sourceItemId: v.optional(v.id("procurementItems")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_pharmacyId", ["pharmacyId"])
+    .index("by_pharmacyId_productId", ["pharmacyId", "productId"])
+    .index("by_pharmacyId_productId_lotNumber", ["pharmacyId", "productId", "lotNumber"])
+    .index("by_pharmacyId_expiryDate", ["pharmacyId", "expiryDate"]),
   sales: defineTable({
     pharmacyId: v.id("pharmacies"),
     clientId: v.optional(v.id("clients")),
@@ -76,6 +114,43 @@ export default defineSchema({
     totalLineTtc: v.number(),
   })
     .index("by_saleId", ["saleId"])
+    .index("by_pharmacyId", ["pharmacyId"]),
+  saleItemLots: defineTable({
+    pharmacyId: v.optional(v.id("pharmacies")),
+    saleId: v.id("sales"),
+    saleItemId: v.id("saleItems"),
+    productId: v.id("products"),
+    lotNumber: v.string(),
+    expiryDate: v.number(),
+    quantity: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_saleId", ["saleId"])
+    .index("by_saleItemId", ["saleItemId"])
+    .index("by_pharmacyId", ["pharmacyId"]),
+  stocktakes: defineTable({
+    pharmacyId: v.id("pharmacies"),
+    name: v.string(),
+    status: v.union(v.literal("DRAFT"), v.literal("COUNTING"), v.literal("FINALIZED")),
+    createdByClerkUserId: v.string(),
+    createdAt: v.number(),
+    startedAt: v.optional(v.number()),
+    finalizedAt: v.optional(v.number()),
+  })
+    .index("by_pharmacyId", ["pharmacyId"])
+    .index("by_pharmacyId_status", ["pharmacyId", "status"]),
+  stocktakeItems: defineTable({
+    pharmacyId: v.optional(v.id("pharmacies")),
+    stocktakeId: v.id("stocktakes"),
+    productId: v.id("products"),
+    productNameSnapshot: v.string(),
+    expectedQuantity: v.number(),
+    countedQuantity: v.optional(v.number()),
+    varianceQuantity: v.optional(v.number()),
+    note: v.optional(v.string()),
+  })
+    .index("by_stocktakeId", ["stocktakeId"])
+    .index("by_stocktakeId_productId", ["stocktakeId", "productId"])
     .index("by_pharmacyId", ["pharmacyId"]),
   suppliers: defineTable({
     pharmacyId: v.id("pharmacies"),
@@ -138,6 +213,19 @@ export default defineSchema({
     lineTotal: v.number(),
   })
     .index("by_orderId", ["orderId"])
+    .index("by_pharmacyId", ["pharmacyId"]),
+  procurementItemLots: defineTable({
+    pharmacyId: v.optional(v.id("pharmacies")),
+    orderId: v.id("procurementOrders"),
+    procurementItemId: v.id("procurementItems"),
+    productId: v.id("products"),
+    lotNumber: v.string(),
+    expiryDate: v.number(),
+    quantity: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_orderId", ["orderId"])
+    .index("by_procurementItemId", ["procurementItemId"])
     .index("by_pharmacyId", ["pharmacyId"]),
   cashReconciliations: defineTable({
     pharmacyId: v.id("pharmacies"),

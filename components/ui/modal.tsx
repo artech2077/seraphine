@@ -320,7 +320,15 @@ function ModalDescription({ ...props }: ModalDescriptionProps) {
 }
 
 function ModalBody({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("flex-1 space-y-4 overflow-y-auto p-4", className)} {...props} />
+  return (
+    <div
+      className={cn(
+        "no-scrollbar flex-1 space-y-4 overflow-y-auto overflow-x-hidden p-4",
+        className
+      )}
+      {...props}
+    />
+  )
 }
 
 function ModalFooter({ className, ...props }: React.ComponentProps<"div">) {
